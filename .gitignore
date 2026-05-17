@@ -1,0 +1,67 @@
+# ── Node.js ──────────────────────────────────────────────────────────────────
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Environment — NEVER commit secrets ───────────────────────────────────────
+.env
+**/.env
+!.env.example
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# ── Java / Maven ─────────────────────────────────────────────────────────────
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# ── React build output ────────────────────────────────────────────────────────
+frontend/build/
+**/build/
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*.iml
+.project
+.classpath
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── ML model files (large binary — regenerate with train_all_models.py) ──────
+ml-service/data/*.pkl
+
+# ── Kaggle datasets (too large for GitHub, download separately) ───────────────
+datasets/placement/*.csv
+datasets/resume/*.csv
+datasets/skills/*.csv
+datasets/aptitude/*.csv
+
+# ── Docker volumes ────────────────────────────────────────────────────────────
+mongo_data/
+datasets/resume/UpdatedResumeDataSet/Resume/Resume.csv

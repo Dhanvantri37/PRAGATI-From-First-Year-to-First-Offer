@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#531697"/>
+  <title>PRAGATI – Offline</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Segoe UI',system-ui,sans-serif;
+      background:linear-gradient(135deg,#531697 0%,#13a1a5 100%);
+      min-height:100vh;display:flex;align-items:center;justify-content:center;
+      padding:20px;color:#fff;text-align:center;
+    }
+    .card{
+      background:rgba(255,255,255,0.12);
+      backdrop-filter:blur(20px);
+      border:1px solid rgba(255,255,255,0.25);
+      border-radius:24px;padding:48px 36px;
+      max-width:400px;width:100%;
+    }
+    .icon{font-size:4rem;margin-bottom:20px;display:block}
+    h1{font-size:1.5rem;font-weight:800;margin-bottom:10px;letter-spacing:-.02em}
+    p{font-size:.9rem;opacity:.85;line-height:1.7;margin-bottom:28px}
+    .btn{
+      display:inline-block;padding:13px 32px;
+      background:rgba(255,255,255,0.2);
+      border:2px solid rgba(255,255,255,0.4);
+      border-radius:12px;color:#fff;font-weight:700;
+      font-size:.9rem;text-decoration:none;cursor:pointer;
+      transition:all .2s;
+    }
+    .btn:hover{background:rgba(255,255,255,0.3)}
+    .cached-notice{
+      margin-top:24px;padding:12px 16px;
+      background:rgba(255,255,255,0.08);border-radius:10px;
+      font-size:.75rem;opacity:.75;line-height:1.6;
+    }
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+    .icon{animation:pulse 2s ease-in-out infinite}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <span class="icon">📡</span>
+    <h1>You're Offline</h1>
+    <p>
+      It looks like your internet connection is unavailable right now.
+      PRAGATI needs a connection to load your latest data.
+    </p>
+    <button class="btn" onclick="window.location.reload()">🔄 Try Again</button>
+    <div class="cached-notice">
+      💡 Some pages may still be available from your last visit.
+      Try going <a href="/dashboard" style="color:#fff;font-weight:700">to the Dashboard</a> — it may be cached.
+    </div>
+  </div>
+  <script>
+    // Auto-retry when connection is restored
+    window.addEventListener('online', () => window.location.reload());
+  </script>
+</body>
+</html>
