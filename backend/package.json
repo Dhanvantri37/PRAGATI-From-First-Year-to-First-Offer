@@ -1,0 +1,38 @@
+{
+  "name": "pragati-backend",
+  "version": "1.0.0",
+  "description": "PRAGATI Campus Placement Intelligence System - Backend API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/utils/seeder.js",
+    "seed:problems": "node src/utils/leetcode-problems-seed.js",
+    "seed:aptitude": "node src/utils/aptitude-seed-full.js",
+    "seed:all": "node src/utils/seeder.js && node src/utils/leetcode-problems-seed.js && node src/utils/demo-seeder.js",
+    "seed:demo": "node src/utils/demo-seeder.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.41.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "form-data": "^4.0.0",
+    "groq-sdk": "^0.7.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
+    "socket.io": "^4.8.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
