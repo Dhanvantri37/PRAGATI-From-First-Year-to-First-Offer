@@ -172,12 +172,27 @@ function speakWebSpeech(text, onDone) {
     window.speechSynthesis.speak(utt);
   }
 
-  // Voices load async on first call — wait if needed
+  // Voices load async on first call — wait if needed.
+  // Chromium bug: onvoiceschanged sometimes never fires, so we add a polling fallback.
   if (window.speechSynthesis.getVoices().length === 0) {
+    let fired = false;
     window.speechSynthesis.onvoiceschanged = () => {
+      if (fired) return;
+      fired = true;
       window.speechSynthesis.onvoiceschanged = null;
       speakChunk();
     };
+    // Poll every 100ms for up to 2s as a safety net
+    let pollCount = 0;
+    const poll = setInterval(() => {
+      if (fired || ++pollCount > 20) { clearInterval(poll); return; }
+      if (window.speechSynthesis.getVoices().length > 0) {
+        fired = true;
+        window.speechSynthesis.onvoiceschanged = null;
+        clearInterval(poll);
+        speakChunk();
+      }
+    }, 100);
   } else {
     speakChunk();
   }

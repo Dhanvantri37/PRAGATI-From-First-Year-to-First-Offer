@@ -238,7 +238,8 @@ export default function GDRoomPage() {
     if (!SR) return;
     try { recognitionRef.current?.abort(); } catch {}
     const rec = new SR();
-    rec.lang = room?.language === 'Hindi' ? 'hi-IN' : 'en-IN';
+    // Guard: room may still be null while fetching — fall back to en-IN
+    rec.lang = (room?.language === 'Hindi') ? 'hi-IN' : 'en-IN';
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
@@ -265,9 +266,22 @@ export default function GDRoomPage() {
     try { rec.start(); } catch {}
   }
 
-  function startSpeaking() {
+  async function startSpeaking() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       alert('Speech recognition not supported. Use Chrome or Edge.'); return;
+    }
+    // Guard: don’t start STT on a muted mic — it will capture nothing
+    if (isMuted) {
+      alert('Your microphone is muted. Please unmute first before speaking.'); return;
+    }
+    // Request mic permission explicitly so the browser shows a clear prompt
+    // (avoids silent SR failures on first use)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // release — SR takes over
+    } catch {
+      alert('Microphone access was denied. Please allow microphone access in your browser and try again.');
+      return;
     }
     shouldSpeakRef.current = true;
     speakStartRef.current = Date.now();

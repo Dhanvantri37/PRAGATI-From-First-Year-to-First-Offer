@@ -16,50 +16,125 @@ const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_toke
 
 // ─── Continuous STT ───────────────────────────────────────────────────────────
 function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, onError }={}) {
-  const [listening, setListening] = useState(false);
-  const [supported] = useState(!!(window.SpeechRecognition||window.webkitSpeechRecognition));
-  const recRef=useRef(null), finalRef=useRef(''), silRef=useRef(null), activeRef=useRef(false);
-  const onFinalRef=useRef(onFinal), onPartialRef=useRef(onPartial);
-  useEffect(()=>{onFinalRef.current=onFinal;},[onFinal]);
-  useEffect(()=>{onPartialRef.current=onPartial;},[onPartial]);
+  const [listening,  setListening]  = useState(false);
+  const [permError,  setPermError]  = useState(false);
+  const [supported]                 = useState(!!(window.SpeechRecognition||window.webkitSpeechRecognition));
 
-  const armSil=useCallback(()=>{
-    clearTimeout(silRef.current);
-    silRef.current=setTimeout(()=>{ const t=finalRef.current.trim(); if(t)onFinalRef.current?.(t); },silenceMs);
-  },[silenceMs]);
+  // Use refs for everything that drives the session loop so there are zero stale closures
+  const recRef      = useRef(null);
+  const finalRef    = useRef('');
+  const silRef      = useRef(null);
+  const activeRef   = useRef(false);
+  const onFinalRef  = useRef(onFinal);
+  const onPartialRef= useRef(onPartial);
+  const onErrorRef  = useRef(onError);
+  const langRef     = useRef(lang);
+  const silMsRef    = useRef(silenceMs);
 
-  const startSess=useCallback(()=>{
-    if(!activeRef.current)return;
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return;
-    try{recRef.current?.abort();}catch{}
-    const r=new SR(); r.continuous=true; r.interimResults=true; r.lang=lang; r.maxAlternatives=1;
-    recRef.current=r;
-    r.onstart=()=>setListening(true);
-    r.onresult=e=>{
-      let nf='',int='';
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        const c=e.results[i][0].transcript;
-        if(e.results[i].isFinal)nf+=c+' '; else int=c;
+  // Keep all callback/config refs fresh every render — no re-creating the session loop
+  useEffect(()=>{ onFinalRef.current  = onFinal;   }, [onFinal]);
+  useEffect(()=>{ onPartialRef.current= onPartial; }, [onPartial]);
+  useEffect(()=>{ onErrorRef.current  = onError;   }, [onError]);
+  useEffect(()=>{ langRef.current     = lang;      }, [lang]);
+  useEffect(()=>{ silMsRef.current    = silenceMs; }, [silenceMs]);
+
+  // startSess stored in a ref — always current, never triggers re-render
+  const startSessRef = useRef(null);
+  startSessRef.current = () => {
+    if (!activeRef.current) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    try { recRef.current?.abort(); } catch {}
+
+    const r = new SR();
+    r.continuous     = true;
+    r.interimResults = true;
+    r.lang           = langRef.current;
+    r.maxAlternatives= 1;
+    recRef.current   = r;
+
+    r.onstart = () => setListening(true);
+
+    r.onresult = e => {
+      let newFinal = '', interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const chunk = e.results[i][0].transcript;
+        if (e.results[i].isFinal) newFinal += chunk + ' ';
+        else interim = chunk;
       }
-      if(nf){finalRef.current+=nf;armSil();}
-      onPartialRef.current?.((finalRef.current+int).trim());
+      if (newFinal) {
+        finalRef.current += newFinal;
+        // Reset silence timer — fire onFinal after silenceMs of quiet
+        clearTimeout(silRef.current);
+        silRef.current = setTimeout(() => {
+          const t = finalRef.current.trim();
+          if (t) onFinalRef.current?.(t);
+        }, silMsRef.current);
+      }
+      onPartialRef.current?.((finalRef.current + interim).trim());
     };
-    r.onerror=e=>{if(e.error==='not-allowed'){activeRef.current=false;setListening(false);onError?.('Microphone permission denied.');}};
-    r.onend=()=>{if(activeRef.current)setTimeout(startSess,200);else setListening(false);};
-    try{r.start();}catch{}
-  },[lang,armSil,onError]);
 
-  const start=useCallback(()=>{
-    if(!supported)return; finalRef.current=''; clearTimeout(silRef.current); activeRef.current=true; startSess();
-  },[supported,startSess]);
+    r.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        // Mic permanently denied for this session — stop trying
+        activeRef.current = false;
+        setListening(false);
+        setPermError(true);
+        onErrorRef.current?.('Microphone permission denied. Please allow microphone access in your browser settings and reload.');
+        return;
+      }
+      // 'no-speech', 'network', 'aborted', etc. — all safe to retry
+      if (activeRef.current) setTimeout(() => startSessRef.current?.(), 400);
+    };
 
-  const stop=useCallback(()=>{
-    activeRef.current=false; clearTimeout(silRef.current); try{recRef.current?.stop();}catch{} setListening(false);
-    const t=finalRef.current.trim(); finalRef.current=''; return t;
-  },[]);
+    r.onend = () => {
+      // Session ended (browser timeout, tab hidden, etc.) — restart if still active
+      if (activeRef.current) setTimeout(() => startSessRef.current?.(), 200);
+      else setListening(false);
+    };
 
-  useEffect(()=>()=>{activeRef.current=false;clearTimeout(silRef.current);try{recRef.current?.abort();}catch{};},[]);
-  return {listening,supported,start,stop};
+    try { r.start(); } catch { if (activeRef.current) setTimeout(() => startSessRef.current?.(), 800); }
+  };
+
+  const start = useCallback(async () => {
+    if (!supported) return;
+
+    // Explicitly request mic permission before starting SR — gives user a clear browser prompt
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // SR will take over
+      setPermError(false);
+    } catch {
+      setPermError(true);
+      onErrorRef.current?.('Microphone permission denied. Please allow microphone access and try again.');
+      return;
+    }
+
+    finalRef.current = '';
+    clearTimeout(silRef.current);
+    activeRef.current = true;
+    startSessRef.current();
+  }, [supported]);
+
+  const stop = useCallback(() => {
+    activeRef.current = false;
+    clearTimeout(silRef.current);
+    try { recRef.current?.stop(); } catch {}
+    setListening(false);
+    const t = finalRef.current.trim();
+    finalRef.current = '';
+    return t;
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => () => {
+    activeRef.current = false;
+    clearTimeout(silRef.current);
+    try { recRef.current?.abort(); } catch {}
+  }, []);
+
+  return { listening, supported, permError, start, stop };
 }
 
 // ─── Answer scoring ───────────────────────────────────────────────────────────
@@ -376,7 +451,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     }else{utt.voice=pick();window.speechSynthesis.speak(utt);}
   },[ttsEnabled]);
 
-  const {listening,supported,start:startMic,stop:stopMic}=useContinuousSTT({
+  const {listening,supported,permError:micPermError,start:startMic,stop:stopMic}=useContinuousSTT({
     lang:'en-IN',silenceMs:2500,
     onPartial:t=>{setLiveText(t);if(!ansStart)setAnsStart(Date.now());},
     onFinal:t=>{if(t.trim())sendRef.current?.(t.trim());},
@@ -569,10 +644,23 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
             rows={2} disabled={loading||!ready||done}
             style={{flex:1,padding:'10px 14px',borderRadius:10,border:`1.5px solid ${listening?'#ef4444':'#d0d7e8'}`,fontFamily:"'Nunito',sans-serif",fontSize:'.88rem',resize:'none',outline:'none',lineHeight:1.55,color:'#0f1a2e',background:done?'#f8f9fc':'#fff',transition:'border-color .2s'}}/>
           {supported&&!done&&(
-            <button onClick={listening?stopMic:startMic} disabled={loading||!ready}
-              style={{width:48,height:48,borderRadius:'50%',border:'none',flexShrink:0,cursor:loading||!ready?'not-allowed':'pointer',background:listening?'linear-gradient(135deg,#ef4444,#b91c1c)':'linear-gradient(135deg,#531697,#13a1a5)',color:'#fff',fontSize:'1.2rem',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:listening?'0 0 0 6px rgba(239,68,68,0.2)':'0 4px 14px rgba(83,22,151,0.3)',animation:listening?'micRing 1.4s ease-in-out infinite':'none',transition:'background .2s'}}>
-              {listening?'⏹':'🎙️'}
+            <button
+              onClick={micPermError ? undefined : (listening?stopMic:startMic)}
+              disabled={loading||!ready||micPermError}
+              title={micPermError ? 'Microphone access denied — click the 🔒 in your browser bar to allow it' : listening ? 'Stop listening' : 'Click to speak your answer'}
+              style={{width:48,height:48,borderRadius:'50%',border:'none',flexShrink:0,
+                cursor:loading||!ready||micPermError?'not-allowed':'pointer',
+                background:micPermError?'linear-gradient(135deg,#94a3b8,#64748b)':listening?'linear-gradient(135deg,#ef4444,#b91c1c)':'linear-gradient(135deg,#531697,#13a1a5)',
+                color:'#fff',fontSize:'1.2rem',display:'flex',alignItems:'center',justifyContent:'center',
+                boxShadow:micPermError?'none':listening?'0 0 0 6px rgba(239,68,68,0.2)':'0 4px 14px rgba(83,22,151,0.3)',
+                animation:listening?'micRing 1.4s ease-in-out infinite':'none',transition:'background .2s'}}>
+              {micPermError ? '🚫' : listening ? '⏹' : '🎙️'}
             </button>
+          )}
+          {micPermError&&!done&&(
+            <div style={{position:'absolute',bottom:'calc(100% + 8px)',right:60,background:'#1e293b',color:'#fca5a5',fontSize:'.72rem',padding:'8px 12px',borderRadius:9,maxWidth:260,lineHeight:1.5,zIndex:10,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
+              🎙️ Mic blocked — click the <strong>🔒</strong> in your browser address bar → <strong>Allow microphone</strong>, then refresh.
+            </div>
           )}
           <button onClick={()=>sendAnswer()} disabled={loading||!input.trim()||!ready||done}
             style={{padding:'0 22px',height:48,borderRadius:10,border:'none',flexShrink:0,fontFamily:"'Nunito',sans-serif",fontWeight:800,fontSize:'.88rem',cursor:loading||!input.trim()||done?'not-allowed':'pointer',background:loading||!input.trim()||done?'#e8edf5':'linear-gradient(135deg,#531697,#13a1a5)',color:loading||!input.trim()||done?'#b0bec9':'#fff',transition:'all .2s'}}>

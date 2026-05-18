@@ -81,9 +81,19 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
     try{r.start();}catch{}
   },[lang,armSil,onError]);
 
-  const start=useCallback(()=>{
-    if(!supported)return; finalRef.current=''; clearTimeout(silRef.current); activeRef.current=true; startSess();
-  },[supported,startSess]);
+  const start=useCallback(async()=>{
+    if(!supported)return;
+    // Request mic permission explicitly before starting SR.
+    // Without this, the browser may silently block recognition on first use.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // release immediately — SR takes over
+    } catch {
+      onError?.('Microphone access was denied. Please allow microphone access in your browser settings and try again.');
+      return;
+    }
+    finalRef.current=''; clearTimeout(silRef.current); activeRef.current=true; startSess();
+  },[supported,startSess,onError]);
 
   const stop=useCallback(()=>{
     activeRef.current=false; clearTimeout(silRef.current);

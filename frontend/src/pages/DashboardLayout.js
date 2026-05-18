@@ -92,6 +92,9 @@ export default function DashboardLayout() {
   const wakeSRRef       = useRef(null);
   const pragatiSRRef    = useRef(null); // in-chat speech recognition
   const pragatiInputRef = useRef(null);
+  const wakeRestartRef  = useRef(null); // callback to restart wake SR after mic releases
+  const wakePausedRef   = useRef(false); // true while in-chat mic is active — stops wake SR from restarting
+  const [micBlocked,   setMicBlocked]   = useState(false); // true if user denied mic permission
 
   // Navigation command map
   const NAV_COMMANDS = [
@@ -140,21 +143,28 @@ export default function DashboardLayout() {
     } else { window.speechSynthesis.speak(utt); }
   }
 
-  // Wake word detection — "Hey PRAGATI" — continuous, restarts immediately
+  // Wake word detection — "Hey PRAGATI" — continuous mode, always listening
   React.useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR || !pragatiVoice) return; // only run when voice is enabled
     let active = true;
     let retryTimer = null;
+    let permissionDenied = false;
+
+    // Request mic permission upfront so the browser doesn't silently block
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); }) // immediately release
+      .catch(() => {}); // permission prompt handled by onerror below
 
     function startWake() {
-      if (!active) return;
+      if (!active || permissionDenied) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;
-        sr.continuous = false;
-        sr.interimResults = true; // use interim so we catch partial "hey pragati" faster
-        sr.lang = 'en-IN';
+        // continuous=true keeps the session alive — no gaps where "Hey PRAGATI" can be missed
+        sr.continuous      = true;
+        sr.interimResults  = true;  // catch partials for faster response
+        sr.lang            = 'en-IN';
         sr.maxAlternatives = 3;
 
         sr.onresult = e => {
@@ -164,14 +174,14 @@ export default function DashboardLayout() {
               if (
                 heard.includes('hey pragati') || heard.includes('hey pragatee') ||
                 heard.includes('hey pragathy') || heard.includes('hey progati') ||
-                heard.includes('hey prakati') || heard.includes('ey pragati') ||
-                heard.includes('pragati open') || heard.includes('pragati wake')
+                heard.includes('hey prakati')  || heard.includes('ey pragati')  ||
+                heard.includes('pragati open') || heard.includes('pragati wake') ||
+                heard.includes('hi pragati')   || heard.includes('pragati help')
               ) {
                 setWakePulse(true);
                 setWakeListening(true);
                 setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
                 setPragatiOpen(true);
-                // Speak acknowledgement
                 setTimeout(() => {
                   pragatiSpeak("Hey! I'm here. What can I help you with?");
                   pragatiInputRef.current?.focus();
@@ -181,22 +191,42 @@ export default function DashboardLayout() {
             }
           }
         };
+
+        // continuous=true sessions end on network error or browser timeout — restart immediately
+        // wakePausedRef.current is set true while in-chat mic is active so we don't race back up
         sr.onend = () => {
-          if (active) retryTimer = setTimeout(startWake, 300);
+          if (active && !permissionDenied && !wakePausedRef.current) {
+            retryTimer = setTimeout(startWake, 200);
+          }
         };
+
         sr.onerror = e => {
-          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { active = false; return; }
-          if (active) retryTimer = setTimeout(startWake, 1500);
+          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+            // Mic permission denied — show a visible warning to the user
+            permissionDenied = true;
+            active = false;
+            setMicBlocked(true);
+            return;
+          }
+          // All other errors (network, aborted, no-speech) — just restart unless paused
+          if (active && !wakePausedRef.current) retryTimer = setTimeout(startWake, 800);
         };
+
         sr.start();
-      } catch { if (active) retryTimer = setTimeout(startWake, 2000); }
+      } catch {
+        if (active) retryTimer = setTimeout(startWake, 2000);
+      }
     }
 
     startWake();
+    // Expose restart function so in-chat mic can re-trigger wake word after it's done
+    wakeRestartRef.current = () => { if (active && !permissionDenied) startWake(); };
     return () => {
       active = false;
       clearTimeout(retryTimer);
+      // Also abort immediately if in-chat mic is about to take over
       try { wakeSRRef.current?.abort(); } catch {}
+      wakeRestartRef.current = null;
     };
   // eslint-disable-next-line
   }, [pragatiVoice]);
@@ -256,31 +286,83 @@ export default function DashboardLayout() {
     setPragatiMicOn(false);
   }
 
-  // In-chat mic toggle
-  function togglePragatiMic() {
+  // In-chat mic toggle — with permission request + interim live preview
+  async function togglePragatiMic() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
+    if (!SR) {
+      setPragatiMsgs(m => [...m, { role: 'ai', text: '⚠️ Voice input is not supported in this browser. Please use Chrome or Edge, or type your question.', ts: Date.now() }]);
+      return;
+    }
     if (pragatiMicOn) {
       setPragatiMicOn(false);
       try { pragatiSRRef.current?.stop(); } catch {}
       return;
     }
+
+    // Request mic permission explicitly so browser shows a clear prompt
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop()); // release immediately, SR takes over
+    } catch {
+      setPragatiMsgs(m => [...m, { role: 'ai', text: '🎙️ Microphone access was denied. Please click the 🔒 icon in your browser address bar and allow microphone access, then try again.', ts: Date.now() }]);
+      return;
+    }
+
+    // ── Pause wake word SR before starting in-chat SR ──────────────────
+    // Set wakePausedRef BEFORE calling abort() so the wake SR's onend handler
+    // sees the flag and does NOT schedule a startWake() restart.
+    wakePausedRef.current = true;
+    try { wakeSRRef.current?.abort(); } catch {}
+
+    // Small delay to let the wake SR fully shut down before we start the new one
+    await new Promise(r => setTimeout(r, 250));
+
     setPragatiMicOn(true);
     try {
       const sr = new SR();
       pragatiSRRef.current = sr;
-      sr.continuous = false; sr.interimResults = false; sr.lang = 'en-IN'; sr.maxAlternatives = 1;
+      sr.continuous     = false;
+      sr.interimResults = true;   // show live preview as user speaks
+      sr.lang           = 'en-IN';
+      sr.maxAlternatives = 1;
+
       sr.onresult = e => {
-        const t = e.results[0][0].transcript;
-        setPragatiInput(t);
-        setPragatiMicOn(false);
-        // Auto-send after brief delay
-        setTimeout(() => sendPragati(t), 300);
+        let interim = '', final = '';
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+          else interim += e.results[i][0].transcript;
+        }
+        if (interim) setPragatiInput(interim);  // live preview
+        if (final) {
+          setPragatiInput(final);
+          setPragatiMicOn(false);
+          setTimeout(() => sendPragati(final), 300);
+        }
       };
-      sr.onerror = () => setPragatiMicOn(false);
-      sr.onend   = () => setPragatiMicOn(false);
+      sr.onerror = e => {
+        setPragatiMicOn(false);
+        wakePausedRef.current = false;
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          setMicBlocked(true);
+          setPragatiMsgs(m => [...m, { role: 'ai', text: '🎙️ Microphone access was denied. Please click the 🔒 icon in your browser address bar → allow Microphone → then reload the page.', ts: Date.now() }]);
+        } else if (e.error === 'network') {
+          setPragatiMsgs(m => [...m, { role: 'ai', text: '🌐 Voice recognition needs an internet connection. Please check your network and try again.', ts: Date.now() }]);
+        }
+        // 'no-speech' is silently ignored — user just didn't speak
+        setTimeout(() => wakeRestartRef.current?.(), 400);
+      };
+      sr.onend = () => {
+        setPragatiMicOn(false);
+        // Clear the pause flag and hand control back to the wake word listener
+        wakePausedRef.current = false;
+        setTimeout(() => wakeRestartRef.current?.(), 400);
+      };
       sr.start();
-    } catch { setPragatiMicOn(false); }
+    } catch {
+      setPragatiMicOn(false);
+      wakePausedRef.current = false;
+      setTimeout(() => wakeRestartRef.current?.(), 400);
+    }
   }
 
   const navItems = user?.role === 'admin' ? NAV_ADMIN : user?.role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
@@ -656,11 +738,13 @@ export default function DashboardLayout() {
         <button
           className="pragati-fab"
           onClick={() => setPragatiOpen(o => !o)}
-          title='Hey PRAGATI — your AI companion (say "Hey PRAGATI" to wake)'
+          title={micBlocked ? 'Mic permission blocked — click to open and see instructions' : 'Hey PRAGATI — your AI companion (say "Hey PRAGATI" to wake)'}
           style={{
             position:'fixed', bottom:28, right:28, width:58, height:58,
             borderRadius:'50%', border:'none', zIndex:9998, cursor:'pointer',
-            background:'linear-gradient(135deg,#042c5d,#531697,#13a1a5)',
+            background: micBlocked
+              ? 'linear-gradient(135deg,#b91c1c,#ef4444)'
+              : 'linear-gradient(135deg,#042c5d,#531697,#13a1a5)',
             boxShadow: pragatiOpen
               ? '0 0 0 4px rgba(83,22,151,0.3), 0 8px 32px rgba(83,22,151,0.5)'
               : '0 4px 20px rgba(83,22,151,0.4)',
@@ -668,7 +752,7 @@ export default function DashboardLayout() {
             fontSize:'1.5rem', transition:'all .25s',
             animation: !pragatiOpen ? 'pragatiFloat 3s ease-in-out infinite' : 'none',
           }}>
-          {pragatiOpen ? '✕' : '✨'}
+          {pragatiOpen ? '✕' : micBlocked ? '🚫' : '✨'}
         </button>
 
         {/* Assistant Panel */}
@@ -686,7 +770,9 @@ export default function DashboardLayout() {
               <div style={{ width:40, height:40, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.3rem', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>✨</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem', color:'#fff' }}>Hey PRAGATI!</div>
-                <div style={{ fontSize:'.68rem', color:'rgba(255,255,255,0.6)', marginTop:1 }}>Your AI companion · Navigation + Career Help</div>
+                <div style={{ fontSize:'.68rem', color:'rgba(255,255,255,0.6)', marginTop:1 }}>
+                  {micBlocked ? '🚫 Mic blocked — see instructions below' : 'Your AI companion · Navigation + Career Help'}
+                </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                 {/* Voice On/Off toggle */}
@@ -703,9 +789,21 @@ export default function DashboardLayout() {
                   style={{ padding:'4px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(255,255,255,0.08)', color:'#fff', cursor:'pointer', fontSize:'.7rem', fontWeight:700, fontFamily:"'Nunito',sans-serif" }}>
                   🔄
                 </button>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:'#47d372', animation:'pragatiPing 1.5s ease-in-out infinite' }} />
+                <div style={{ width:6, height:6, borderRadius:'50%', background: micBlocked ? '#ef4444' : '#47d372', animation:'pragatiPing 1.5s ease-in-out infinite' }} />
               </div>
             </div>
+
+            {/* Mic blocked warning banner */}
+            {micBlocked && (
+              <div style={{ background:'rgba(239,68,68,0.1)', borderBottom:'1px solid rgba(239,68,68,0.2)', padding:'8px 14px', fontSize:'.72rem', color:'#ef4444', fontWeight:700, flexShrink:0, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:'1rem' }}>🚫</span>
+                <span>
+                  Mic blocked by browser.
+                  <strong> Click the 🔒 icon</strong> in the address bar → <strong>Allow Microphone</strong> → reload.
+                </span>
+                <button onClick={() => setMicBlocked(false)} style={{ marginLeft:'auto', background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'.8rem', fontWeight:900 }}>✕</button>
+              </div>
+            )}
 
             {/* Quick suggestions */}
             <div style={{ padding:'8px 12px', borderBottom: dm ? '1px solid #2d3a52' : '1px solid #f0f3fa', background: dm ? '#1a2235' : '#f8f9fc', display:'flex', gap:6, overflowX:'auto', flexShrink:0 }}>
@@ -752,8 +850,8 @@ export default function DashboardLayout() {
                   disabled={pragatiLoading}
                   style={{ flex:1, padding:'9px 13px', borderRadius:10, border: dm ? '1.5px solid #2d3a52' : `1.5px solid ${pragatiMicOn?'#ef4444':'#d0d7e8'}`, fontFamily:"'Nunito',sans-serif", fontSize:'.84rem', outline:'none', background: dm ? '#1a2235' : '#f8f9fc', color: dm ? '#e2e8f0' : '#0f1a2e', transition:'border-color .2s' }}
                 />
-                {/* Mic button */}
-                {(window.SpeechRecognition||window.webkitSpeechRecognition) && (
+                {/* Mic button — only shown when voice is enabled */}
+                {pragatiVoice && (window.SpeechRecognition||window.webkitSpeechRecognition) && (
                   <button
                     onClick={togglePragatiMic}
                     title={pragatiMicOn ? 'Stop listening' : 'Speak to PRAGATI'}
