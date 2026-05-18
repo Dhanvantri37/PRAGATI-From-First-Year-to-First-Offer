@@ -16,7 +16,7 @@ const ROUND_TYPE_MAP = {
   'gaming': 'GAMING', 'game': 'GAMING',
   'puzzle': 'PUZZLE', 'puzzles': 'PUZZLE',
   'debugging': 'DEBUGGING', 'debug': 'DEBUGGING', 'coding': 'TECHNICAL',
-  'aptitude': 'TECHNICAL', 'online test': 'TECHNICAL',
+  'aptitude': 'APTITUDE', 'online test': 'APTITUDE',
 };
 
 function getRoundType(roundText) {
@@ -386,7 +386,7 @@ function CompanyDetail({ company, onClose, onPin }) {
                     <span style={{ flex:1, fontSize:'.82rem', color:'#3d4e6b', lineHeight:1.5 }}>{r}</span>
                     {roundType && (
                       <button
-                        onClick={() => { onClose(); nav(`/dashboard/practice/${roundType}`); }}
+                        onClick={() => { onClose(); nav(roundType === 'APTITUDE' ? '/dashboard/aptitude' : `/dashboard/practice/${roundType}`); }}
                         style={{ padding:'5px 12px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.7rem', flexShrink:0, whiteSpace:'nowrap' }}>
                         🎯 Practice
                       </button>

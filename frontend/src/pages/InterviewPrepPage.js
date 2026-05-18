@@ -1,16 +1,11 @@
 /**
- * InterviewPrepPage v4.0 — Human-Like AI Interviewer + Webcam Feedback
+ * InterviewPrepPage v5.0 — Timed AI Interviewer (Adaptive Questions)
  *
- * Features:
- *  1. Human AI avatar: animated SVG face, blink, lip-sync, gaze, breathing, sound rings
- *  2. Web Speech TTS: interviewer SPEAKS questions aloud with natural pacing
- *  3. Webcam panel: student sees themselves like a real interview (no analysis, just presence)
- *  4. Continuous STT: click once → speak → auto-sends on 2.5s silence
- *  5. Dynamic questions: every Q generated from YOUR previous answer via backend AI
- *  6. Tech-stack detection → targeted drilldowns (React/Java/Python/DB/etc.)
- *  7. Real-time answer scoring: words, WPM, fillers, STAR, examples
- *  8. Per-question bar chart session summary
- *  9. Full Prep + Deep Dive + Questions Bank preserved
+ * Changes from v4:
+ *  - Duration selector (5 / 10 / 15 / 20 / 30 min) replaces fixed 8-question limit
+ *  - Number of questions is fully adaptive — AI keeps asking until time runs out
+ *  - Countdown timer visible during interview; auto-ends when time expires
+ *  - All other features preserved: voice TTS, voice STT, webcam, scoring, etc.
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -114,8 +109,7 @@ const DRILLS={
 const HR_QS=["Tell me about a time you strongly disagreed with your team's decision. How did you handle it?","Describe a situation where you had to deliver bad news to a stakeholder.","Give an example of when you took initiative on something outside your responsibilities.","Tell me about your biggest professional failure. What did you learn and do differently?","Describe a time you had to work under extreme pressure with a tight deadline.","How do you handle critical feedback you disagree with? Give a real example.","Tell me about a time you had to influence someone without having formal authority."];
 const GENERIC_Q=["Walk me through the most challenging technical problem you've solved and how you debugged it.","How do you ensure code quality when working under a tight deadline?","Describe a project where you made a significant architectural decision. What alternatives did you consider?","How do you approach learning a new technology you've never used before?","Tell me about a time a production issue occurred. What was your debugging approach?"];
 
-async function getDynamicNext({msgs,answer,qNum,totalQ,role,type}){
-  const isLast=qNum>=totalQ-1;
+async function getDynamicNext({msgs,answer,qNum,isLast,role,type}){
   const techs=detectTech(msgs);
   const history=msgs.slice(-6).map(m=>`${m.role==='user'?'Candidate':'Interviewer'}: ${m.content}`).join('\n');
   const techCtx=techs.length?`\nDetected technologies: ${techs.join(', ')}`:'';
@@ -139,15 +133,15 @@ Return ONLY valid JSON:
 {"feedback":"...","nextQuestion":${isLast?'null':'"..."'},"confidence":7,"keyMissing":"one missing thing or empty string"}`;
 
   try{
-    const res=await fetch(`${API}/skillpath/dynamic-interview`,{method:'POST',headers:{...tk(),'Content-Type':'application/json'},body:JSON.stringify({prompt,targetRole:role,interviewType:type,lastAnswer:answer,isLast})});
+    const res=await fetch(`${API}/skillpath/dynamic-interview`,{method:'POST',headers:{...tk(),'Content-Type':'application/json'},body:JSON.stringify({prompt,targetRole:role,interviewType:type,lastAnswer:answer,isLast:isLast||false})});
     if(!res.ok)throw new Error();
     const d=await res.json(); if(d?.feedback)return d; throw new Error();
   }catch{return localFallback(answer,techs,qNum,type,isLast);}
 }
 
 function localFallback(answer,techs,qNum,type,isLast){
-  const words=answer.trim().split(/\s+/).length;
   const hasEg=/example|project|built|used|worked/i.test(answer);
+  const words = answer.trim().split(/\s+/).filter(Boolean).length;
   const isWeak=words<30||!hasEg;
   if(isLast)return{feedback:'Good effort overall! Focus on adding concrete project examples and STAR format for stronger answers.',nextQuestion:null,confidence:7,keyMissing:''};
   for(const tech of techs){if(DRILLS[tech])return{feedback:`Good ${tech} mention.${!hasEg?' Tie it to a specific project next time.':''}`,nextQuestion:DRILLS[tech][qNum%DRILLS[tech].length],confidence:7,keyMissing:hasEg?'':'Project reference'};}
@@ -292,9 +286,28 @@ function ScorePanel({m}){
   );
 }
 
+// ─── Duration options ─────────────────────────────────────────────────────────
+const DURATION_OPTIONS=[
+  {label:'5 min',  secs:5*60},
+  {label:'10 min', secs:10*60},
+  {label:'15 min', secs:15*60},
+  {label:'20 min', secs:20*60},
+  {label:'30 min', secs:30*60},
+];
+
+function formatTime(s){
+  const m=Math.floor(s/60), r=s%60;
+  return `${m}:${String(r).padStart(2,'0')}`;
+}
+
 // ─── Mock Interview ───────────────────────────────────────────────────────────
 function MockInterview({targetRole,interviewType,userName,onEnd}){
-  const persona=PERSONAS[interviewType]||PERSONAS.Technical, totalQ=8;
+  const persona=PERSONAS[interviewType]||PERSONAS.Technical;
+  // Duration selection before interview starts
+  const [selectedDuration,setSelectedDuration]=useState(null); // null = not started
+  const [timeLeft,setTimeLeft]=useState(0);
+  const timerRef=useRef(null);
+
   const [msgs,setMsgs]=useState([]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
@@ -310,8 +323,34 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
   const [ttsEnabled,setTtsEnabled]=useState(true);
   const bottomRef=useRef(null);
   const sendRef=useRef(null);
+  const doneRef=useRef(false);
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs,liveText]);
+
+  // ── Countdown timer ──────────────────────────────────────────────────────
+  useEffect(()=>{
+    if(!selectedDuration||done)return;
+    timerRef.current=setInterval(()=>{
+      setTimeLeft(t=>{
+        if(t<=1){
+          clearInterval(timerRef.current);
+          // Trigger end via ref so no stale closure issues
+          if(!doneRef.current){
+            doneRef.current=true;
+            // End interview gracefully
+            setDone(true);
+            window.speechSynthesis?.cancel();
+            setAiSpeaking(false);
+            setMsgs(prev=>[...prev,{role:'ai',content:"⏱️ Time's up! Great effort. Your interview session has ended. Check your results below."}]);
+          }
+          return 0;
+        }
+        return t-1;
+      });
+    },1000);
+    return()=>clearInterval(timerRef.current);
+  // eslint-disable-next-line
+  },[selectedDuration,done]);
 
   // TTS — speaks every interviewer message aloud
   const speak=useCallback((text)=>{
@@ -329,6 +368,9 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     utt.onstart=()=>setAiSpeaking(true);
     utt.onend=()=>setAiSpeaking(false);
     utt.onerror=()=>setAiSpeaking(false);
+    // Chrome fix: resume if paused when tab hidden
+    const keepAlive=setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},5000);
+    utt.onend=()=>{clearInterval(keepAlive);setAiSpeaking(false);};
     if(!window.speechSynthesis.getVoices().length){
       window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;utt.voice=pick();window.speechSynthesis.speak(utt);};
     }else{utt.voice=pick();window.speechSynthesis.speak(utt);}
@@ -340,20 +382,23 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     onFinal:t=>{if(t.trim())sendRef.current?.(t.trim());},
   });
 
-  // Init
+  // Init — fires when student picks a duration
   useEffect(()=>{
+    if(!selectedDuration)return;
+    doneRef.current=false;
+    setTimeLeft(selectedDuration.secs);
     const openQ=interviewType==='HR'
       ?"Tell me about yourself — your background, education, and what motivated you to pursue this career path."
       :"Let's start with a quick introduction. Walk me through your technical background, the projects you've built, and the technologies you're most comfortable with.";
     setTimeout(()=>{
-      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview today for the ${targetRole} role. I'll be speaking my questions aloud — feel free to respond by voice or type.\n\n🎙️ Click the mic button to speak hands-free — auto-sends after 2.5s silence.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1/${totalQ}:\n\n${openQ}`;
+      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview for the ${targetRole} role. You have ${selectedDuration.label} — I'll keep asking questions until time runs out. The better your answers, the deeper we go!\n\n🎙️ Click the mic to speak hands-free — auto-sends after 2.5s silence.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1:\n\n${openQ}`;
       setMsgs([{role:'ai',content:greeting}]);
       setReady(true);
       setAnsStart(Date.now());
       speak(openQ);
     },400);
   // eslint-disable-next-line
-  },[]);
+  },[selectedDuration]);
 
   const sendAnswer=useCallback(async(textOverride)=>{
     const text=(textOverride!==undefined?textOverride:input).trim();
@@ -369,30 +414,66 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     setMsgs(p=>[...p,{role:'ai',content:'',loading:true}]);
     setAnsStart(null);
     const newQNum=qNum+1; setQNum(newQNum);
+    // isLast = timer already ran out while student was answering
+    const isLast=doneRef.current;
     try{
-      const result=await getDynamicNext({msgs:updatedMsgs,answer:text,qNum:newQNum,totalQ,role:targetRole,type:interviewType});
+      const result=await getDynamicNext({msgs:updatedMsgs,answer:text,qNum:newQNum,isLast,role:targetRole,type:interviewType});
       let reply=result.feedback||'Good answer!';
       if(result.keyMissing)reply+=`\n\n💡 Tip: Consider mentioning — ${result.keyMissing}`;
-      if(result.nextQuestion){
-        reply+=`\n\n❓ Question ${newQNum+1}/${totalQ}:\n\n${result.nextQuestion}`;
-        setAnsStart(Date.now());
-        speak(result.nextQuestion);
-      }else{
+      if(isLast||!result.nextQuestion){
         const allScores=[...scores,m.score];
         const avg=Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length);
         reply+=`\n\n🎉 Interview complete! Your average score: ${avg}/100. Well done — keep practicing and you'll ace the real thing!`;
-        setDone(true);
+        doneRef.current=true; setDone(true);
         speak(result.feedback||'Well done on completing the interview!');
+      }else{
+        reply+=`\n\n❓ Question ${newQNum+1}:\n\n${result.nextQuestion}`;
+        setAnsStart(Date.now());
+        speak(result.nextQuestion);
       }
       setMsgs(pp=>pp.map((msg,i)=>i===pp.length-1?{role:'ai',content:reply}:msg));
     }catch{
       setMsgs(pp=>pp.map((msg,i)=>i===pp.length-1?{role:'ai',content:'Good effort! Keep adding concrete project examples.'}:msg));
     }finally{setLoading(false);}
-  },[input,loading,done,msgs,qNum,totalQ,targetRole,interviewType,listening,stopMic,speak,ansStart,scores]);
+  },[input,loading,done,msgs,qNum,targetRole,interviewType,listening,stopMic,speak,ansStart,scores]);
 
   useEffect(()=>{sendRef.current=sendAnswer;},[sendAnswer]);
 
   const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length):null;
+
+  // ── Duration Selection Screen ───────────────────────────────────────────
+  if(!selectedDuration){
+    return(
+      <div style={{fontFamily:"'Nunito',sans-serif",background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #e8edf5',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
+        <div style={{background:'linear-gradient(135deg,#042c5d 0%,#1a0d3e 45%,#0c3240 100%)',padding:'32px 28px',textAlign:'center'}}>
+          <AIAvatar isSpeaking={false} isThinking={false} isListening={false} persona={persona} size={100}/>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.25rem',color:'#fff',marginTop:16}}>{persona.name}</div>
+          <div style={{fontSize:'.8rem',color:'rgba(255,255,255,0.55)',marginTop:4}}>{persona.title} · {persona.company}</div>
+          <div style={{marginTop:12,padding:'6px 16px',borderRadius:999,background:'rgba(83,22,151,0.4)',display:'inline-block',color:'#e0d0ff',fontSize:'.75rem',fontWeight:800}}>{interviewType} Interview · {targetRole}</div>
+        </div>
+        <div style={{padding:'28px 28px 24px'}}>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.05rem',color:'#0f1a2e',marginBottom:6,textAlign:'center'}}>⏱️ How long do you want to practice?</div>
+          <div style={{fontSize:'.82rem',color:'#7a8ba8',textAlign:'center',marginBottom:22}}>The AI will keep asking adaptive questions based on your answers until time runs out. More time = deeper drill-down.</div>
+          <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap',marginBottom:24}}>
+            {DURATION_OPTIONS.map(opt=>(
+              <button key={opt.label} onClick={()=>setSelectedDuration(opt)} style={{padding:'14px 22px',borderRadius:12,border:'2px solid #531697',background:'rgba(83,22,151,0.07)',color:'#531697',fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1rem',cursor:'pointer',transition:'all .15s'}}
+                onMouseOver={e=>{e.currentTarget.style.background='rgba(83,22,151,0.18)';}}
+                onMouseOut={e=>{e.currentTarget.style.background='rgba(83,22,151,0.07)';}}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div style={{background:'rgba(83,22,151,0.04)',borderRadius:12,padding:'12px 16px',fontSize:'.78rem',color:'#531697',lineHeight:1.7,textAlign:'center'}}>
+            💡 <strong>Tip:</strong> Start with 10 min to warm up. Use 20–30 min for deep technical drill-downs or full HR simulations.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Timer color ──────────────────────────────────────────────────────────
+  const timerColor=timeLeft>120?'#47d372':timeLeft>30?'#f59e0b':'#ef4444';
 
   return(
     <div style={{fontFamily:"'Nunito',sans-serif",background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #e8edf5',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
@@ -414,9 +495,9 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
           </div>
           <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
             <div style={{textAlign:'right'}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.5rem',color:avgScore?(avgScore>=70?'#47d372':avgScore>=50?'#f59e0b':'#ef4444'):'rgba(255,255,255,0.2)'}}>{avgScore??'—'}<span style={{fontSize:'.6rem',color:'rgba(255,255,255,0.35)',fontWeight:600}}>/100</span></div>
-              <div style={{fontSize:'.6rem',color:'rgba(255,255,255,0.4)'}}>Avg Score</div>
-              <div style={{marginTop:3,fontSize:'.65rem',color:'rgba(255,255,255,0.4)',fontWeight:700}}>Q{Math.min(qNum+1,totalQ)}/{totalQ}</div>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.5rem',color:done?'rgba(255,255,255,0.4)':timerColor}}>{done?'Done':formatTime(timeLeft)}</div>
+              <div style={{fontSize:'.6rem',color:'rgba(255,255,255,0.4)'}}>Remaining</div>
+              <div style={{marginTop:3,fontSize:'.65rem',color:'rgba(255,255,255,0.4)',fontWeight:700}}>Q{qNum} done · {avgScore??'—'}/100</div>
             </div>
             {/* Controls */}
             <div style={{display:'flex',gap:6}}>
@@ -452,7 +533,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
 
       {/* Progress */}
       <div style={{height:4,background:'rgba(83,22,151,0.1)'}}>
-        <div style={{height:'100%',width:`${(qNum/totalQ)*100}%`,background:'linear-gradient(90deg,#531697,#13a1a5,#47d372)',transition:'width .55s ease'}}/>
+        <div style={{height:'100%',width:`${done?100:Math.max(0,100-Math.round((timeLeft/(selectedDuration?.secs||600))*100))}%`,background:'linear-gradient(90deg,#531697,#13a1a5,#47d372)',transition:'width .55s ease'}}/>
       </div>
 
       {/* Messages */}
@@ -501,7 +582,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
         <div style={{marginTop:8,display:'flex',gap:16,fontSize:'.68rem',color:'#b0bec9',flexWrap:'wrap'}}>
           <span>🎙️ Click mic once → speak → auto-sends after 2.5s silence</span>
           <span>📷 Camera: for real interview practice feel</span>
-          {scores.length>0&&<span style={{color:persona.color,fontWeight:800}}>{scores.length}/{totalQ} answered · Best: {Math.max(...scores)}/100</span>}
+          {scores.length>0&&<span style={{color:persona.color,fontWeight:800}}>{scores.length} answered · Best: {Math.max(...scores)}/100</span>}
         </div>
       </div>
 
@@ -510,7 +591,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
         <div style={{padding:'18px 22px',borderTop:'1px solid #e8edf5',background:'linear-gradient(135deg,rgba(83,22,151,0.04),rgba(19,161,165,0.04))'}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'#0f1a2e',marginBottom:14}}>📊 Interview Complete — Your Results</div>
           <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}}>
-            {[['Overall',`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}/100`,persona.color],['Questions',scores.length,'#13a1a5'],['Best',`${Math.max(...scores)}/100`,'#47d372'],['Weakest',`${Math.min(...scores)}/100`,'#f59e0b']].map(([l,v,c])=>(
+            {[['Overall',`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}/100`,persona.color],['Answered',scores.length,'#13a1a5'],['Duration',selectedDuration?.label||'—','#531697'],['Best',`${Math.max(...scores)}/100`,'#47d372'],['Weakest',`${Math.min(...scores)}/100`,'#f59e0b']].map(([l,v,c])=>(
               <div key={l} style={{padding:'12px 18px',background:'#fff',borderRadius:12,border:'1px solid #e8edf5',textAlign:'center',boxShadow:'0 2px 8px rgba(4,44,93,0.05)'}}>
                 <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.1rem',color:c}}>{v}</div>
                 <div style={{fontSize:'.65rem',color:'#7a8ba8',marginTop:2}}>{l}</div>

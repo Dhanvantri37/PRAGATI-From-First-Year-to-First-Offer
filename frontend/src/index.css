@@ -386,3 +386,255 @@ html {
   font-size: .78rem;
   font-weight: 700;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PRAGATI v5 — Enhanced Mobile Responsiveness
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Safe area variables (iOS notch / Android cutout) ── */
+:root {
+  --safe-top:    env(safe-area-inset-top,    0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left:   env(safe-area-inset-left,   0px);
+  --safe-right:  env(safe-area-inset-right,  0px);
+}
+
+/* ── Base touch improvements ── */
+* { -webkit-tap-highlight-color: transparent; }
+input, textarea, select, button { touch-action: manipulation; }
+body { overscroll-behavior-y: contain; }
+
+/* ══ 768px and below ══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Pragati floating button — lift above mobile bottom nav */
+  .pragati-fab {
+    bottom: calc(76px + var(--safe-bottom)) !important;
+    right: 16px !important;
+    width: 52px !important;
+    height: 52px !important;
+  }
+
+  /* ── Pragati panel — full width on mobile */
+  .pragati-panel {
+    position: fixed !important;
+    bottom: calc(136px + var(--safe-bottom)) !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-height: 70vh !important;
+  }
+
+  /* ── Interview page: stack avatar + webcam vertically */
+  .interview-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .interview-webcam-panel video {
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  /* ── Mock interview messages area */
+  .interview-messages {
+    max-height: 260px !important;
+  }
+
+  /* ── Score panel wraps nicely */
+  .score-pills {
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* ── Company cards stack single column */
+  .companies-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Company modal full-screen */
+  .company-modal-inner {
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 92vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* ── Drives page cards full-width */
+  .drives-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── GD room: video tiles wrap on mobile */
+  .gd-video-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Aptitude — options stack */
+  .aptitude-options {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Duration picker wraps */
+  .duration-picker {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* ── Interview type cards stack */
+  .itype-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Tab bar text hidden, show only icon */
+  .sidebar-nav .nav-label {
+    display: none !important;
+  }
+  .sidebar-nav .nav-item {
+    flex: 1 !important;
+    min-width: 0 !important;
+    flex-direction: column !important;
+    padding: 6px 4px !important;
+    font-size: .62rem !important;
+    gap: 2px !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  .sidebar-nav .nav-icon {
+    font-size: 1.2rem !important;
+  }
+
+  /* ── Skill path upload section */
+  .skillpath-upload {
+    padding: 16px !important;
+  }
+
+  /* ── Discussions / notes cards */
+  .discussion-card,
+  .note-card {
+    padding: 12px !important;
+  }
+
+  /* ── Leaderboard table: hide less-important columns */
+  .leaderboard-table th:nth-child(n+5),
+  .leaderboard-table td:nth-child(n+5) {
+    display: none !important;
+  }
+
+  /* ── Problems page: hide difficulty badge text on small screens */
+  .problems-filters {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* ── Admin charts responsive */
+  .admin-chart-container {
+    overflow-x: auto !important;
+  }
+  .admin-chart-container > * {
+    min-width: 300px !important;
+  }
+}
+
+/* ══ 480px and below ══════════════════════════════════════════ */
+@media (max-width: 480px) {
+
+  /* ── Dashboard home stat cards — 2 per row */
+  .stat-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  /* ── Practice round cards */
+  .practice-round-cards {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Interview hero text */
+  .interview-hero h1 {
+    font-size: 1.25rem !important;
+  }
+
+  /* ── Pragati panel full height on small phones */
+  .pragati-panel {
+    max-height: 80vh !important;
+    bottom: calc(128px + var(--safe-bottom)) !important;
+  }
+
+  /* ── Buttons: minimum 44px tap target */
+  button { min-height: 40px; }
+
+  /* ── Textarea auto-size */
+  textarea { min-height: 64px !important; }
+
+  /* ── Modals full-screen edge to edge */
+  .modal-fullscreen {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 95vh !important;
+  }
+
+  /* ── Chat message bubbles narrower */
+  .chat-bubble { max-width: 90% !important; }
+
+  /* ── Score summary: 2 columns */
+  .score-summary-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* ── Timer display */
+  .interview-timer {
+    font-size: 1.3rem !important;
+  }
+}
+
+/* ══ PWA standalone — full safe-area respect ══════════════════ */
+@media (display-mode: standalone) {
+  .dashboard-header {
+    padding-top: calc(16px + var(--safe-top)) !important;
+  }
+  .sidebar-nav {
+    padding-bottom: calc(10px + var(--safe-bottom)) !important;
+  }
+  /* Pragati FAB lifted higher in standalone to clear home indicator */
+  .pragati-fab {
+    bottom: calc(88px + var(--safe-bottom)) !important;
+  }
+}
+
+/* ══ Smooth scrolling everywhere ══════════════════════════════ */
+html { scroll-behavior: smooth; }
+.overflow-scroll-smooth {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ══ Interview duration selector ══════════════════════════════ */
+.duration-option-btn {
+  transition: transform .12s ease, background .15s ease !important;
+}
+.duration-option-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* ══ Pragati mic pulse animation ══════════════════════════════ */
+@keyframes micListening {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(239,68,68,0.25); }
+  50%       { box-shadow: 0 0 0 10px rgba(239,68,68,0.06); }
+}
+.pragati-mic-active {
+  animation: micListening 1.2s ease-in-out infinite !important;
+}
+
+/* ══ Timer urgency pulse ══════════════════════════════════════ */
+@keyframes timerUrgent {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+.timer-urgent {
+  animation: timerUrgent .7s ease-in-out infinite;
+}

@@ -81,46 +81,125 @@ export default function DashboardLayout() {
 
   // ── Hey Pragati Assistant ────────────────────────────────────────────────
   const [pragatiOpen,    setPragatiOpen]    = useState(false);
-  const [pragatiMsgs,   setPragatiMsgs]    = useState([{ role:'ai', text:"👋 Hey! I'm Pragati, your AI companion. Ask me anything about interviews, DSA, companies, or your career. Say \"*Hey Pragati*\"anytime to summon me!", ts: Date.now() }]);
+  const [pragatiMsgs,   setPragatiMsgs]    = useState([{ role:'ai', text:"👋 Hey! I'm PRAGATI, your AI companion. Ask me anything about interviews, DSA, companies, or your career. Say \"Hey PRAGATI\" anytime to summon me — or try commands like \"Take me to Dashboard\"!", ts: Date.now() }]);
   const [pragatiInput,  setPragatiInput]   = useState('');
   const [pragatiLoading,setPragatiLoading] = useState(false);
   const [wakePulse,     setWakePulse]      = useState(false);
   const [wakeListening, setWakeListening]  = useState(false);
-  const pragatiEndRef = useRef(null);
-  const wakeSRRef     = useRef(null);
+  const [pragatiVoice,  setPragatiVoice]   = useState(true);  // voice on/off toggle
+  const [pragatiMicOn,  setPragatiMicOn]   = useState(false); // in-chat mic
+  const pragatiEndRef   = useRef(null);
+  const wakeSRRef       = useRef(null);
+  const pragatiSRRef    = useRef(null); // in-chat speech recognition
   const pragatiInputRef = useRef(null);
 
-  // Wake word detection — "Hey Pragati"
+  // Navigation command map
+  const NAV_COMMANDS = [
+    { phrases:['dashboard','home','main'],                    path:'/dashboard' },
+    { phrases:['notes'],                                      path:'/dashboard/notes' },
+    { phrases:['problem','daily practice','coding practice'], path:'/dashboard/problems' },
+    { phrases:['aptitude'],                                   path:'/dashboard/aptitude' },
+    { phrases:['interview prep'],                             path:'/dashboard/interview-prep' },
+    { phrases:['ai interview','ai interviewer'],              path:'/dashboard/ai-interview' },
+    { phrases:['compan'],                                     path:'/dashboard/companies' },
+    { phrases:['drive','placement drive'],                    path:'/dashboard/drives' },
+    { phrases:['skill','skillpath'],                          path:'/dashboard/skillpath' },
+    { phrases:['group discussion','gd'],                      path:'/dashboard/gd' },
+    { phrases:['discussion','forum'],                         path:'/dashboard/discussions' },
+  ];
+
+  function checkNavCommand(text) {
+    const lower = text.toLowerCase();
+    // Detect navigation intent
+    if (!/take me|open|go to|navigate|show me/.test(lower)) return null;
+    for (const cmd of NAV_COMMANDS) {
+      if (cmd.phrases.some(p => lower.includes(p))) return cmd.path;
+    }
+    return null;
+  }
+
+  // PRAGATI TTS
+  function pragatiSpeak(text) {
+    if (!pragatiVoice || !text?.trim() || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    // Strip markdown bold/asterisks for cleaner speech
+    const clean = text.replace(/\*\*(.*?)\*\*/g,'$1').replace(/\*(.*?)\*/g,'$1').replace(/#{1,3} /g,'').substring(0,400);
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.rate = 0.93; utt.pitch = 1.08; utt.volume = 1; utt.lang = 'en-IN';
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v=>v.name.includes('Google')&&v.lang==='en-IN')
+                ||voices.find(v=>v.lang.startsWith('en-IN'))
+                ||voices.find(v=>v.lang.startsWith('en')&&!v.localService)
+                ||voices.find(v=>v.lang.startsWith('en'))||voices[0];
+    if (voice) utt.voice = voice;
+    const keepAlive = setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},4000);
+    utt.onend = ()=>clearInterval(keepAlive);
+    utt.onerror = ()=>clearInterval(keepAlive);
+    if (!window.speechSynthesis.getVoices().length) {
+      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged=null; window.speechSynthesis.speak(utt); };
+    } else { window.speechSynthesis.speak(utt); }
+  }
+
+  // Wake word detection — "Hey PRAGATI" — continuous, restarts immediately
   React.useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-    let sr;
     let active = true;
+    let retryTimer = null;
+
     function startWake() {
       if (!active) return;
       try {
-        sr = new SR();
+        const sr = new SR();
+        wakeSRRef.current = sr;
         sr.continuous = false;
-        sr.interimResults = false;
+        sr.interimResults = true; // use interim so we catch partial "hey pragati" faster
         sr.lang = 'en-IN';
+        sr.maxAlternatives = 3;
+
         sr.onresult = e => {
-          const heard = e.results[0][0].transcript.toLowerCase().trim();
-          if (heard.includes('hey pragati') || heard.includes('hey pragathe') || heard.includes('pragatee') || heard.includes('pragati')) {
-            setWakePulse(true);
-            setTimeout(() => setWakePulse(false), 1500);
-            setPragatiOpen(true);
-            setTimeout(() => pragatiInputRef.current?.focus(), 300);
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            for (let j = 0; j < e.results[i].length; j++) {
+              const heard = e.results[i][j].transcript.toLowerCase().trim();
+              if (
+                heard.includes('hey pragati') || heard.includes('hey pragatee') ||
+                heard.includes('hey pragathy') || heard.includes('hey progati') ||
+                heard.includes('hey prakati') || heard.includes('ey pragati') ||
+                heard.includes('pragati open') || heard.includes('pragati wake')
+              ) {
+                setWakePulse(true);
+                setWakeListening(true);
+                setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+                setPragatiOpen(true);
+                // Speak acknowledgement
+                setTimeout(() => {
+                  pragatiSpeak("Hey! I'm here. What can I help you with?");
+                  pragatiInputRef.current?.focus();
+                }, 300);
+                return;
+              }
+            }
           }
         };
-        sr.onend = () => { if (active) setTimeout(startWake, 500); };
-        sr.onerror = () => { if (active) setTimeout(startWake, 2000); };
+        sr.onend = () => {
+          if (active) retryTimer = setTimeout(startWake, 300);
+        };
+        sr.onerror = e => {
+          if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { active = false; return; }
+          if (active) retryTimer = setTimeout(startWake, 1500);
+        };
         sr.start();
-        wakeSRRef.current = sr;
-      } catch {}
+      } catch { if (active) retryTimer = setTimeout(startWake, 2000); }
     }
+
     startWake();
-    return () => { active = false; try { sr?.abort(); } catch {} };
-  }, []);
+    return () => {
+      active = false;
+      clearTimeout(retryTimer);
+      try { wakeSRRef.current?.abort(); } catch {}
+    };
+  // eslint-disable-next-line
+  }, [pragatiVoice]);
 
   React.useEffect(() => {
     if (pragatiOpen) pragatiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -132,6 +211,18 @@ export default function DashboardLayout() {
     setPragatiInput('');
     const userMsg = { role:'user', text, ts: Date.now() };
     setPragatiMsgs(m => [...m, userMsg]);
+
+    // ── Navigation command? ───────────────────────────────────────────────
+    const navPath = checkNavCommand(text);
+    if (navPath) {
+      const label = navPath.split('/').pop() || 'dashboard';
+      const reply = `Sure! Taking you to ${label.charAt(0).toUpperCase()+label.slice(1).replace(/-/g,' ')} now 🚀`;
+      setPragatiMsgs(m => [...m, { role:'ai', text: reply, ts: Date.now() }]);
+      pragatiSpeak(reply);
+      setTimeout(() => { nav(navPath); setPragatiOpen(false); }, 800);
+      return;
+    }
+
     setPragatiLoading(true);
     setPragatiMsgs(m => [...m, { role:'ai', text:'', loading: true, ts: Date.now() }]);
     try {
@@ -148,10 +239,48 @@ export default function DashboardLayout() {
         body: JSON.stringify({ message: text, userData, conversationHistory: history }),
       });
       const d = await res.json();
-      setPragatiMsgs(m => m.map((msg, i) => i === m.length-1 ? { role:'ai', text: d.reply || 'I had a hiccup! Try again.', ts: Date.now() } : msg));
+      const reply = d.reply || 'I had a hiccup! Try again.';
+      setPragatiMsgs(m => m.map((msg, i) => i === m.length-1 ? { role:'ai', text: reply, ts: Date.now() } : msg));
+      pragatiSpeak(reply);
     } catch {
-      setPragatiMsgs(m => m.map((msg,i) => i===m.length-1 ? { role:'ai', text:'Connection error. Check your network and try again.', ts: Date.now() } : msg));
+      const errMsg = 'Connection error. Check your network and try again.';
+      setPragatiMsgs(m => m.map((msg,i) => i===m.length-1 ? { role:'ai', text: errMsg, ts: Date.now() } : msg));
     } finally { setPragatiLoading(false); }
+  }
+
+  function resetPragatiChat() {
+    window.speechSynthesis?.cancel();
+    setPragatiMsgs([{ role:'ai', text:"🔄 Chat reset! Fresh start. Ask me anything about placements, interviews, or DSA!", ts: Date.now() }]);
+    setPragatiInput('');
+    setPragatiLoading(false);
+    setPragatiMicOn(false);
+  }
+
+  // In-chat mic toggle
+  function togglePragatiMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    if (pragatiMicOn) {
+      setPragatiMicOn(false);
+      try { pragatiSRRef.current?.stop(); } catch {}
+      return;
+    }
+    setPragatiMicOn(true);
+    try {
+      const sr = new SR();
+      pragatiSRRef.current = sr;
+      sr.continuous = false; sr.interimResults = false; sr.lang = 'en-IN'; sr.maxAlternatives = 1;
+      sr.onresult = e => {
+        const t = e.results[0][0].transcript;
+        setPragatiInput(t);
+        setPragatiMicOn(false);
+        // Auto-send after brief delay
+        setTimeout(() => sendPragati(t), 300);
+      };
+      sr.onerror = () => setPragatiMicOn(false);
+      sr.onend   = () => setPragatiMicOn(false);
+      sr.start();
+    } catch { setPragatiMicOn(false); }
   }
 
   const navItems = user?.role === 'admin' ? NAV_ADMIN : user?.role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
@@ -525,8 +654,9 @@ export default function DashboardLayout() {
 
         {/* Floating button */}
         <button
+          className="pragati-fab"
           onClick={() => setPragatiOpen(o => !o)}
-          title='Hey Pragati — your AI companion (or say "Hey Pragati")'
+          title='Hey PRAGATI — your AI companion (say "Hey PRAGATI" to wake)'
           style={{
             position:'fixed', bottom:28, right:28, width:58, height:58,
             borderRadius:'50%', border:'none', zIndex:9998, cursor:'pointer',
@@ -543,7 +673,7 @@ export default function DashboardLayout() {
 
         {/* Assistant Panel */}
         {pragatiOpen && (
-          <div style={{
+          <div className="pragati-panel" style={{
             position:'fixed', bottom:96, right:24, width:380, height:520,
             background: dm ? '#161d2e' : '#fff',
             borderRadius:20, zIndex:9997, display:'flex', flexDirection:'column',
@@ -555,18 +685,31 @@ export default function DashboardLayout() {
             <div style={{ background:'linear-gradient(135deg,#042c5d,#531697,#13a1a5)', padding:'14px 18px', display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
               <div style={{ width:40, height:40, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.3rem', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>✨</div>
               <div style={{ flex:1 }}>
-                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem', color:'#fff' }}>Hey Pragati!</div>
-                <div style={{ fontSize:'.68rem', color:'rgba(255,255,255,0.6)', marginTop:1 }}>Your AI companion · Always here for you</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem', color:'#fff' }}>Hey PRAGATI!</div>
+                <div style={{ fontSize:'.68rem', color:'rgba(255,255,255,0.6)', marginTop:1 }}>Your AI companion · Navigation + Career Help</div>
               </div>
-              <div style={{ display:'flex', gap:5 }}>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                {/* Voice On/Off toggle */}
+                <button
+                  onClick={() => { const next=!pragatiVoice; setPragatiVoice(next); if(!next)window.speechSynthesis?.cancel(); }}
+                  title={pragatiVoice?'Voice ON — click to mute':'Voice OFF — click to enable'}
+                  style={{ padding:'4px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.25)', background: pragatiVoice?'rgba(71,211,114,0.25)':'rgba(255,255,255,0.08)', color:'#fff', cursor:'pointer', fontSize:'.7rem', fontWeight:700, fontFamily:"'Nunito',sans-serif" }}>
+                  {pragatiVoice ? '🔊' : '🔇'}
+                </button>
+                {/* Refresh / Restart */}
+                <button
+                  onClick={resetPragatiChat}
+                  title='Restart chat'
+                  style={{ padding:'4px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(255,255,255,0.08)', color:'#fff', cursor:'pointer', fontSize:'.7rem', fontWeight:700, fontFamily:"'Nunito',sans-serif" }}>
+                  🔄
+                </button>
                 <div style={{ width:6, height:6, borderRadius:'50%', background:'#47d372', animation:'pragatiPing 1.5s ease-in-out infinite' }} />
-                <span style={{ fontSize:'.65rem', color:'rgba(255,255,255,0.6)', fontWeight:700 }}>Online</span>
               </div>
             </div>
 
             {/* Quick suggestions */}
             <div style={{ padding:'8px 12px', borderBottom: dm ? '1px solid #2d3a52' : '1px solid #f0f3fa', background: dm ? '#1a2235' : '#f8f9fc', display:'flex', gap:6, overflowX:'auto', flexShrink:0 }}>
-              {['Resume tips', 'Interview prep', 'Explain React hooks', 'TCS placement', 'My weak areas'].map(s => (
+              {['Resume tips', 'Interview prep', 'Open AI Interview', 'Take me to Aptitude', 'TCS placement tips'].map(s => (
                 <button key={s} onClick={() => sendPragati(s)} style={{ padding:'4px 10px', borderRadius:999, border:'1px solid rgba(83,22,151,0.2)', background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.65rem', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', flexShrink:0, fontFamily:"'Nunito',sans-serif" }}>
                   {s}
                 </button>
@@ -605,10 +748,19 @@ export default function DashboardLayout() {
                   value={pragatiInput}
                   onChange={e => setPragatiInput(e.target.value)}
                   onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendPragati(); } }}
-                  placeholder='Ask anything — interviews, DSA, companies…'
+                  placeholder={pragatiMicOn ? '🔴 Listening…' : 'Ask anything or say "Take me to…"'}
                   disabled={pragatiLoading}
-                  style={{ flex:1, padding:'9px 13px', borderRadius:10, border: dm ? '1.5px solid #2d3a52' : '1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.84rem', outline:'none', background: dm ? '#1a2235' : '#f8f9fc', color: dm ? '#e2e8f0' : '#0f1a2e' }}
+                  style={{ flex:1, padding:'9px 13px', borderRadius:10, border: dm ? '1.5px solid #2d3a52' : `1.5px solid ${pragatiMicOn?'#ef4444':'#d0d7e8'}`, fontFamily:"'Nunito',sans-serif", fontSize:'.84rem', outline:'none', background: dm ? '#1a2235' : '#f8f9fc', color: dm ? '#e2e8f0' : '#0f1a2e', transition:'border-color .2s' }}
                 />
+                {/* Mic button */}
+                {(window.SpeechRecognition||window.webkitSpeechRecognition) && (
+                  <button
+                    onClick={togglePragatiMic}
+                    title={pragatiMicOn ? 'Stop listening' : 'Speak to PRAGATI'}
+                    style={{ width:36, height:36, borderRadius:'50%', border:'none', background: pragatiMicOn ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.95rem', flexShrink:0, boxShadow: pragatiMicOn?'0 0 0 5px rgba(239,68,68,0.2)':'none', animation: pragatiMicOn?'blink .7s ease-in-out infinite':'none' }}>
+                    {pragatiMicOn ? '⏹' : '🎙️'}
+                  </button>
+                )}
                 <button
                   onClick={() => sendPragati()}
                   disabled={!pragatiInput.trim() || pragatiLoading}
@@ -617,7 +769,7 @@ export default function DashboardLayout() {
                 </button>
               </div>
               <div style={{ marginTop:5, fontSize:'.6rem', color: dm ? '#475569' : '#b0bec9', textAlign:'center' }}>
-                Say <strong>"Hey Pragati"</strong> anytime to open me · Powered by Groq AI
+                Say <strong>"Hey PRAGATI"</strong> to wake · <strong>"Take me to [page]"</strong> to navigate · Powered by Groq AI
               </div>
             </div>
           </div>
