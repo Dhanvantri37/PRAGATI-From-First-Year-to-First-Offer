@@ -41,6 +41,31 @@ router.post('/', authenticate, authorize('faculty', 'admin'), async (req, res) =
       priority: priority || 'normal',
     });
     const populated = await ann.populate('createdBy', 'name role');
+
+    // Asynchronously send push notifications to target users who have active subscriptions
+    const userQuery = {};
+    if (targetFilter?.role && targetFilter.role !== 'all') {
+      userQuery.role = targetFilter.role;
+    }
+    if (targetFilter?.department) {
+      userQuery.department = targetFilter.department;
+    }
+    User.find({
+      ...userQuery,
+      pushSubscription: { $exists: true, $ne: null }
+    }).select('_id').then(targetUsers => {
+      const { pushToUser } = require('./notifications.routes');
+      targetUsers.forEach(u => {
+        pushToUser(u._id, {
+          title: `📢 Announcement: ${title}`,
+          body: message,
+          url: link || '/dashboard/announcements',
+          id: ann._id.toString(),
+          tag: `ann-${ann._id.toString()}`,
+        }).catch(() => {});
+      });
+    }).catch(err => console.error('[Announcement push error]', err.message));
+
     res.status(201).json({ announcement: populated });
   } catch (err) {
     res.status(400).json({ error: err.message });

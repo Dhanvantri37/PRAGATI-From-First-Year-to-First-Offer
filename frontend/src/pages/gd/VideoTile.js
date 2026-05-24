@@ -40,8 +40,8 @@ export default function VideoTile({ stream, participant, isActiveSpeaker, isLoca
       boxShadow: isActiveSpeaker ? `0 0 16px ${borderColor}55` : '0 2px 8px rgba(0,0,0,0.3)',
       ...style,
     }}>
-      {/* Video */}
-      {showVideo ? (
+      {/* Always render video element if stream exists — keeps audio alive even when camera is off */}
+      {stream && (
         <video
           ref={videoRef}
           autoPlay
@@ -50,10 +50,13 @@ export default function VideoTile({ stream, participant, isActiveSpeaker, isLoca
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
             transform: isLocal ? 'scaleX(-1)' : 'none',
+            display: showVideo ? 'block' : 'none',
           }}
         />
-      ) : (
-        /* Avatar fallback */
+      )}
+
+      {/* Avatar fallback — shown when camera is off or no video */}
+      {!showVideo && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: size === 'large' ? 80 : 52,

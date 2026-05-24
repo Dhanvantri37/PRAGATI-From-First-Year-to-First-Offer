@@ -38,11 +38,15 @@ async function groqChat(systemPrompt, userMessage, maxTokens = 300) {
 }
 
 // ── Groq TTS — returns base64 audio ───────────────────────────────────────
-async function groqTTS(text) {
+// Moderator voice: Celeste (clear, authoritative female — en-IN friendly)
+// Participant voices: pool of 4 distinct voices so each AI sounds different
+const AI_PARTICIPANT_VOICES = ['Fritz-PlayAI','Angelo-PlayAI','Atlas-PlayAI','Briggs-PlayAI'];
+
+async function groqTTS(text, voice = 'Celeste-PlayAI') {
   try {
     const res = await groq.audio.speech.create({
       model: 'playai-tts',
-      voice: 'Celeste-PlayAI',   // clear, professional female voice
+      voice,
       input: text,
       response_format: 'mp3',
     });
@@ -52,6 +56,12 @@ async function groqTTS(text) {
     console.error('[groqTTS]', err.message);
     return null;
   }
+}
+
+// Pick a stable voice for a given AI participant name so voice is consistent per AI
+function voiceForAI(name) {
+  const idx = name.charCodeAt(0) % AI_PARTICIPANT_VOICES.length;
+  return AI_PARTICIPANT_VOICES[idx];
 }
 
 // ── Groq STT — transcribe audio chunk ─────────────────────────────────────
@@ -96,20 +106,24 @@ async function generateTopic(room) {
 }
 
 // ── Broadcast AI voice message ─────────────────────────────────────────────
-async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation') {
+// speaker: { id, name, isAI, isParticipant } — determines voice used
+async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', speaker = null) {
+  const sp = speaker || AI_MODERATOR;
   // Always emit text immediately
   namespace.to(roomCode).emit('ai-message', {
-    userId: AI_MODERATOR.id,
-    userName: AI_MODERATOR.name,
+    userId:   sp.id,
+    userName: sp.name,
     text,
-    type,       // 'opening' | 'moderation' | 'warning' | 'conclusion' | 'guide'
+    type,       // 'opening' | 'moderation' | 'warning' | 'conclusion' | 'guide' | 'participant'
     isAI: true,
+    isParticipant: sp.isParticipant || false,
     ts: Date.now(),
   });
-  // Fire TTS in background — emit audio when ready
-  groqTTS(text).then(audioBase64 => {
+  // Distinct voice: moderator uses Celeste, AI participants use their own voice
+  const ttsVoice = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
+  groqTTS(text, ttsVoice).then(audioBase64 => {
     if (audioBase64) {
-      namespace.to(roomCode).emit('ai-voice', { audioBase64, text, type });
+      namespace.to(roomCode).emit('ai-voice', { audioBase64, text, type, speakerId: sp.id, ttsVoice });
     }
   });
 }
@@ -317,6 +331,7 @@ function registerGDSocket(io, GDRoom) {
         const parts = room.participants.map(p => ({
           userId: p.userId, name: p.name, isAI: p.isAI,
           isMuted: p.isMuted, isCameraOff: p.isCameraOff,
+          socketId: p.socketId || null,
         }));
 
         // Emit joined state — includes current topic/state so rejoin works

@@ -37,6 +37,14 @@ const NAV_ADMIN = [
   { to:'/dashboard/drives',   icon:'🗓️', label:'Placement Drives' },
 ];
 
+// ── VAPID key helper for push subscription ───────────────────────────────────
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = window.atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
 export default function DashboardLayout() {
   const notifRef = useRef(null);
   const { user, setUser, logout } = useAuth();
@@ -52,9 +60,36 @@ export default function DashboardLayout() {
   const [notifCount, setNotifCount] = useState(0);
   const [notifList, setNotifList]   = useState([]);
 
+  // ── Read notification IDs (persisted so bell auto-clears after read) ────
+  const [readIds, setReadIds] = React.useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('pragati_read_ids') || '[]')); }
+    catch { return new Set(); }
+  });
+
+  function markNotifRead(id) {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      next.add(String(id));
+      localStorage.setItem('pragati_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+    setNotifCount(c => Math.max(0, c - 1));
+  }
+
+  function markAllRead() {
+    setReadIds(prev => {
+      const next = new Set(prev);
+      notifList.forEach(n => next.add(String(n._id)));
+      localStorage.setItem('pragati_read_ids', JSON.stringify([...next]));
+      return next;
+    });
+    setNotifCount(0);
+    // Update lastSeen timestamp too
+    localStorage.setItem('pragati_notif_seen', Date.now().toString());
+  }
+
   // Fetch announcements for bell icon
   React.useEffect(() => {
-    const lastSeen = parseInt(localStorage.getItem('pragati_notif_seen') || '0');
     const base  = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
     const token = localStorage.getItem('pragati_token');
     Promise.all([
@@ -69,10 +104,56 @@ export default function DashboardLayout() {
       }));
       const all = [...anns, ...drives].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
       setNotifList(all);
-      const unseen = all.filter(a => new Date(a.createdAt).getTime() > lastSeen);
-      setNotifCount(unseen.length);
+      // Unread = not in our read set
+      const readSet = new Set(JSON.parse(localStorage.getItem('pragati_read_ids') || '[]'));
+      const unread  = all.filter(a => !readSet.has(String(a._id)));
+      setNotifCount(unread.length);
     });
-  }, []);
+
+    // Listen for SW "NOTIF_READ" messages
+    const handler = (e) => {
+      if (e.data?.type === 'NOTIF_READ' && e.data?.id) markNotifRead(e.data.id);
+    };
+    navigator.serviceWorker?.addEventListener('message', handler);
+    return () => navigator.serviceWorker?.removeEventListener('message', handler);
+  }, []); // eslint-disable-line
+
+  // ── Push notification subscription on load ────────────────────────────────
+  React.useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (Notification.permission === 'denied') return;
+    navigator.serviceWorker.ready.then(async reg => {
+      try {
+        const existing = await reg.pushManager.getSubscription();
+        if (existing) return; // already subscribed
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') return;
+        // Use VAPID key from env (add REACT_APP_VAPID_PUBLIC_KEY to .env)
+        const vapidKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+        if (!vapidKey) return; // skip if not configured
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+        const base  = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+        const token = localStorage.getItem('pragati_token');
+        await fetch(`${base}/notifications/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ subscription: sub }),
+        }).catch(() => {});
+      } catch {}
+    });
+  }, []); // eslint-disable-line
+
+  // ── Voice accent preference (indian / foreign / default) ────────────────
+  const [voiceAccent, setVoiceAccent] = React.useState(() =>
+    localStorage.getItem('pragati_accent') || 'indian'
+  );
+  function saveAccent(v) {
+    setVoiceAccent(v);
+    localStorage.setItem('pragati_accent', v);
+  }
 
   const [showEditProfile,   setShowEditProfile]   = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -529,7 +610,7 @@ export default function DashboardLayout() {
       {showDeleteConfirm && <DeleteModal />}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside style={{
+      <aside className="pragati-sidebar" style={{
         width: open ? 256 : 64, transition:'width .22s cubic-bezier(.4,0,.2,1)',
         background:sidebarBg, borderRight:`1px solid ${sidebarBrd}`,
         display:'flex', flexDirection:'column',
@@ -588,7 +669,7 @@ export default function DashboardLayout() {
 
         {/* Header — hidden on GD room so the call gets full screen */}
         {!isGDRoom && (
-          <header style={{ height:58, background:headerBg, borderBottom:`1px solid ${headerBrd}`, display:'flex', alignItems:'center', padding:'0 24px', gap:12, position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(4,44,93,0.05)', flexShrink:0 }}>
+          <header className="pragati-header" style={{ height:58, background:headerBg, borderBottom:`1px solid ${headerBrd}`, display:'flex', alignItems:'center', padding:'0 24px', gap:12, position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(4,44,93,0.05)', flexShrink:0 }}>
             <button onClick={()=>setOpen(o=>!o)} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:dm?'#94a3b8':'#7a8ba8', padding:4, borderRadius:6 }}>☰</button>
             <div style={{ flex:1 }} />
 
@@ -604,18 +685,41 @@ export default function DashboardLayout() {
                 <div style={{ position:'absolute', top:44, right:0, width:320, background:dm?'#1e2a3b':'#fff', border:`1px solid ${headerBrd}`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', zIndex:200, overflow:'hidden' }}>
                   <div style={{ padding:'12px 16px', borderBottom:`1px solid ${headerBrd}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontWeight:800, fontSize:'.88rem', color:dm?'#e2e8f0':'#0f1a2e', fontFamily:"'Syne',sans-serif" }}>🔔 Notifications</span>
-                    <button onClick={()=>{ setNotifCount(0); localStorage.setItem('pragati_notif_seen', Date.now()); setShowNotif(false); }}
-                      style={{ fontSize:'.65rem', color:'#531697', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>Mark all read</button>
+                    <button onClick={()=>{ markAllRead(); setShowNotif(false); }}
+                      style={{ fontSize:'.65rem', color:'#531697', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>✓ Mark all read</button>
                   </div>
                   <div style={{ maxHeight:300, overflowY:'auto' }}>
-                    {notifList.length>0 ? notifList.map((a,i)=>(
-                      <div key={i} style={{ padding:'10px 16px', borderBottom:`1px solid ${headerBrd}`, background:i===0&&notifCount>0?dm?'rgba(83,22,151,0.08)':'rgba(83,22,151,0.04)':'transparent' }}>
-                        <div style={{ fontWeight:700, fontSize:'.8rem', color:dm?'#e2e8f0':'#0f1a2e', marginBottom:2 }}>{a.title}</div>
-                        <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5 }}>{a.message}</div>
-                        <div style={{ fontSize:'.65rem', color:dm?'#64748b':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                    {notifList.filter(a => !readIds.has(String(a._id))).length > 0
+                      ? notifList.filter(a => !readIds.has(String(a._id))).map((a,i)=>(
+                      <div key={i}
+                        onClick={() => {
+                          const url = a.url || (a.title.includes('Drive') ? '/dashboard/drives' : '/dashboard/announcements');
+                          markNotifRead(a._id);
+                          nav(url);
+                          setShowNotif(false);
+                        }}
+                        style={{
+                          padding:'10px 16px', borderBottom:`1px solid ${headerBrd}`,
+                          background: dm?'rgba(83,22,151,0.08)':'rgba(83,22,151,0.04)',
+                          display:'flex', gap:10, alignItems:'flex-start',
+                          cursor: 'pointer', transition: 'background .15s'
+                        }}
+                        onMouseOver={e => e.currentTarget.style.background = dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)'}
+                        onMouseOut={e => e.currentTarget.style.background = dm ? 'rgba(83,22,151,0.08)' : 'rgba(83,22,151,0.04)'}
+                      >
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:'.8rem', color:dm?'#e2e8f0':'#0f1a2e', marginBottom:2 }}>{a.title}</div>
+                          <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5 }}>{a.message}</div>
+                          <div style={{ fontSize:'.65rem', color:dm?'#64748b':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                        </div>
+                        {/* ✕ dismisses single notification */}
+                        <button onClick={(e)=>{ e.stopPropagation(); markNotifRead(a._id); }}
+                          style={{ background:'none', border:'none', color:dm?'#64748b':'#b0bec9', cursor:'pointer', fontSize:'.85rem', flexShrink:0, padding:'2px 4px' }}>✕</button>
                       </div>
                     )) : (
-                      <div style={{ padding:'24px 16px', textAlign:'center', color:dm?'#64748b':'#b0bec9', fontSize:'.82rem' }}>No notifications yet</div>
+                      <div style={{ padding:'24px 16px', textAlign:'center', color:dm?'#64748b':'#b0bec9', fontSize:'.82rem' }}>
+                        ✅ All caught up! No new notifications.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -623,7 +727,7 @@ export default function DashboardLayout() {
             </div>
 
             {/* Dark mode */}
-            <button onClick={toggleDark} title={dm?'Light Mode':'Dark Mode'}
+            <button className="pragati-header-darkmode" onClick={toggleDark} title={dm?'Light Mode':'Dark Mode'}
               style={{ background:dm?'rgba(255,255,255,0.08)':'rgba(4,44,93,0.06)', border:`1px solid ${headerBrd}`, borderRadius:8, padding:'5px 10px', cursor:'pointer', fontSize:'.85rem', display:'flex', alignItems:'center', gap:5 }}>
               <span>{dm?'☀️':'🌙'}</span>
               <span style={{ fontSize:'.72rem', fontWeight:700, color:dm?'#f8d76b':'#531697' }}>{dm?'Light':'Dark'}</span>
@@ -631,7 +735,7 @@ export default function DashboardLayout() {
 
             {/* Streak */}
             {user?.role === 'student' && (
-              <div style={{ display:'flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,rgba(245,158,11,0.1),rgba(71,211,114,0.1))', padding:'5px 14px', borderRadius:999, border:'1px solid rgba(245,158,11,0.2)' }}>
+              <div className="pragati-header-streak" style={{ display:'flex', alignItems:'center', gap:6, background:'linear-gradient(135deg,rgba(245,158,11,0.1),rgba(71,211,114,0.1))', padding:'5px 14px', borderRadius:999, border:'1px solid rgba(245,158,11,0.2)' }}>
                 <span style={{ animation:'pulse 1.5s ease-in-out infinite', display:'inline-block' }}>🔥</span>
                 <span style={{ fontSize:'.82rem', fontWeight:800, color:'#d97706' }}>{user.streak || 0}</span>
                 <span style={{ fontSize:'.72rem', color:'#92400e', fontWeight:600 }}>day streak</span>
@@ -691,6 +795,37 @@ export default function DashboardLayout() {
                     </div>
                   </button>
 
+                  {/* Voice Accent Selector */}
+                  <div style={{ borderTop: `1px solid ${dropBrd}`, padding: '11px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: '1rem', width: 22, textAlign: 'center' }}>🗣️</span>
+                      <span style={{ fontSize: '.83rem', fontWeight: 600, color: txt }}>Voice Accent</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['indian', 'foreign', 'default'].map(acc => (
+                        <button
+                          key={acc}
+                          onClick={() => saveAccent(acc)}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            borderRadius: 6,
+                            border: voiceAccent === acc ? '1.5px solid #531697' : `1.5px solid ${inpBrd}`,
+                            background: voiceAccent === acc ? 'rgba(83,22,151,0.08)' : 'transparent',
+                            color: voiceAccent === acc ? '#531697' : sub,
+                            fontSize: '.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                            fontFamily: "'Nunito',sans-serif",
+                            transition: 'all .12s',
+                          }}>
+                          {acc}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ borderTop:`1px solid ${dropBrd}` }}>
                     <button onClick={()=>{setShowDeleteConfirm(true);setDropOpen(false);}}
                       style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 16px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", transition:'background .12s' }}
@@ -716,7 +851,7 @@ export default function DashboardLayout() {
           GD Room/Report: zero padding, full height, no maxWidth constraint
           Everything else: normal dashboard padding + maxWidth
         */}
-        <main style={{
+        <main className="pragati-main-content" style={{
           flex: 1,
           ...(isGDRoom
             ? { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }
@@ -879,8 +1014,49 @@ export default function DashboardLayout() {
           @keyframes pragatiPing  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
           @keyframes blink        { 0%,100%{opacity:1} 50%{opacity:.2} }
         `}</style>
-      </>
 
+      {/* ── Mobile Bottom Navigation ── */}
+      <MobileBottomNav role={user?.role} dm={dm} />
+
+    </>
     </div>
+  );
+}
+
+// ── Mobile bottom navigation bar ─────────────────────────────────────────────
+function MobileBottomNav({ role, dm }) {
+  const location = useLocation();
+  const studentLinks = [
+    { to:'/dashboard',               icon:'🏠', label:'Home' },
+    { to:'/dashboard/aptitude',      icon:'🎯', label:'Aptitude' },
+    { to:'/dashboard/ai-interview',  icon:'🤖', label:'Interview' },
+    { to:'/dashboard/gd',            icon:'🎤', label:'GD' },
+    { to:'/dashboard/skillpath',     icon:'🧠', label:'Skills' },
+  ];
+  const facultyLinks = [
+    { to:'/dashboard',               icon:'🏠', label:'Home' },
+    { to:'/dashboard/students',      icon:'👥', label:'Students' },
+    { to:'/dashboard/announcements', icon:'📢', label:'Announce' },
+    { to:'/dashboard/drives',        icon:'🗓️', label:'Drives' },
+    { to:'/dashboard/gd',            icon:'🎤', label:'GD' },
+  ];
+  const links = role === 'faculty' ? facultyLinks : studentLinks;
+
+  return (
+    <nav className={`pragati-bottom-nav${dm ? ' dark' : ''}`}>
+      {links.map(l => (
+        <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'} style={({ isActive }) => ({
+          display:'flex', flexDirection:'column', alignItems:'center',
+          gap:2, padding:'6px 0', borderRadius:10, textDecoration:'none',
+          fontSize:'.58rem', fontWeight:700,
+          color: isActive ? '#531697' : dm ? '#7a8ba8' : '#7a8ba8',
+          background: isActive ? (dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)') : 'transparent',
+          flex:1, maxWidth:72,
+        })}>
+          <span style={{ fontSize:'1.25rem', lineHeight:1 }}>{l.icon}</span>
+          {l.label}
+        </NavLink>
+      ))}
+    </nav>
   );
 }

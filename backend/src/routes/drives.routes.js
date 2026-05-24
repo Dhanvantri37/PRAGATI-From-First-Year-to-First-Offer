@@ -31,6 +31,24 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
       targetFilter: { role: 'all' },
       priority: 'high',
     });
+
+    // Asynchronously send push notifications to all subscribed users
+    const User = require('../models/User.model');
+    User.find({
+      pushSubscription: { $exists: true, $ne: null }
+    }).select('_id').then(targetUsers => {
+      const { pushToUser } = require('./notifications.routes');
+      targetUsers.forEach(u => {
+        pushToUser(u._id, {
+          title: `🗓️ New Placement Drive: ${drive.companyName}`,
+          body: `Company is visiting for ${drive.role || 'N/A'}. CTC: ${drive.ctc || 'N/A'}.`,
+          url: `/dashboard/drives`,
+          id: drive._id.toString(),
+          tag: `drive-${drive._id.toString()}`,
+        }).catch(() => {});
+      });
+    }).catch(err => console.error('[Drive push error]', err.message));
+
     res.status(201).json({ drive });
   } catch (err) {
     res.status(400).json({ error: err.message });

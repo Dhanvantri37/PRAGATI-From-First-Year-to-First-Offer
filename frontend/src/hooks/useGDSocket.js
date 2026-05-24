@@ -15,6 +15,11 @@ const ALL_EVENTS = [
 
 export function useGDSocket({ onEvent } = {}) {
   const socketRef = useRef(null);
+  const onEventRef = useRef(onEvent);
+
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     const token = localStorage.getItem('pragati_token');
@@ -27,7 +32,11 @@ export function useGDSocket({ onEvent } = {}) {
     });
     socketRef.current = socket;
 
-    ALL_EVENTS.forEach(ev => socket.on(ev, data => onEvent?.(ev, data)));
+    socket.on('connect', () => console.log('Socket connected', socket.id));
+    socket.on('disconnect', (reason) => console.log('Socket disconnected', reason));
+    socket.on('connect_error', (err) => console.error('Socket connection error', err));
+
+    ALL_EVENTS.forEach(ev => socket.on(ev, data => onEventRef.current?.(ev, data)));
 
     return () => { socket.disconnect(); };
   // eslint-disable-next-line

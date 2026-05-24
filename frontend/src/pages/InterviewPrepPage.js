@@ -84,17 +84,28 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
         onErrorRef.current?.('Microphone permission denied. Please allow microphone access in your browser settings and reload.');
         return;
       }
-      // 'no-speech', 'network', 'aborted', etc. — all safe to retry
-      if (activeRef.current) setTimeout(() => startSessRef.current?.(), 400);
+      console.warn('[STT] recognition error:', e.error);
     };
 
     r.onend = () => {
       // Session ended (browser timeout, tab hidden, etc.) — restart if still active
-      if (activeRef.current) setTimeout(() => startSessRef.current?.(), 200);
-      else setListening(false);
+      if (activeRef.current) {
+        setTimeout(() => {
+          if (activeRef.current) startSessRef.current?.();
+        }, 300);
+      } else {
+        setListening(false);
+      }
     };
 
-    try { r.start(); } catch { if (activeRef.current) setTimeout(() => startSessRef.current?.(), 800); }
+    try { r.start(); } catch (err) {
+      console.error('[STT] start error:', err.message);
+      if (activeRef.current) {
+        setTimeout(() => {
+          if (activeRef.current) startSessRef.current?.();
+        }, 1000);
+      }
+    }
   };
 
   const start = useCallback(async () => {
@@ -184,7 +195,7 @@ const DRILLS={
 const HR_QS=["Tell me about a time you strongly disagreed with your team's decision. How did you handle it?","Describe a situation where you had to deliver bad news to a stakeholder.","Give an example of when you took initiative on something outside your responsibilities.","Tell me about your biggest professional failure. What did you learn and do differently?","Describe a time you had to work under extreme pressure with a tight deadline.","How do you handle critical feedback you disagree with? Give a real example.","Tell me about a time you had to influence someone without having formal authority."];
 const GENERIC_Q=["Walk me through the most challenging technical problem you've solved and how you debugged it.","How do you ensure code quality when working under a tight deadline?","Describe a project where you made a significant architectural decision. What alternatives did you consider?","How do you approach learning a new technology you've never used before?","Tell me about a time a production issue occurred. What was your debugging approach?"];
 
-async function getDynamicNext({msgs,answer,qNum,isLast,role,type}){
+async function getDynamicNext({msgs,answer,qNum,isLast,role,type,resumeText,jdText}){
   const techs=detectTech(msgs);
   const history=msgs.slice(-6).map(m=>`${m.role==='user'?'Candidate':'Interviewer'}: ${m.content}`).join('\n');
   const techCtx=techs.length?`\nDetected technologies: ${techs.join(', ')}`:'';
@@ -205,7 +216,7 @@ Candidate just answered: "${answer}"
    - NEVER repeat a previous question`}
 
 Return ONLY valid JSON:
-{"feedback":"...","nextQuestion":${isLast?'null':'"..."'},"confidence":7,"keyMissing":"one missing thing or empty string"}`;
+{"feedback":"...","nextQuestion":${isLast?'null':'"..."'},"confidence":7,"keyMissing":"one missing thing or empty string"}${resumeText ? `\n\nCandidate's Resume (excerpt):\n${resumeText.slice(0, 1500)}` : ''}${jdText ? `\n\nJob Description:\n${jdText.slice(0, 1500)}` : ''}`;
 
   try{
     const res=await fetch(`${API}/skillpath/dynamic-interview`,{method:'POST',headers:{...tk(),'Content-Type':'application/json'},body:JSON.stringify({prompt,targetRole:role,interviewType:type,lastAnswer:answer,isLast:isLast||false})});
@@ -225,74 +236,350 @@ function localFallback(answer,techs,qNum,type,isLast){
   return{feedback:`${words>=60?'Good depth.':'Try to elaborate more.'} ${hasEg?'':'Mention a real project.'}`,nextQuestion:GENERIC_Q[qNum%GENERIC_Q.length],confidence:6,keyMissing:hasEg?'':'Project example'};
 }
 
-// ─── Personas ─────────────────────────────────────────────────────────────────
+// ─── Personas ──────────────────────────────────────────────────────────────────
 const PERSONAS={
-  Technical: {name:'Arjun Sharma',  title:'Senior Engineer',     company:'TechSphere', color:'#531697'},
-  HR:        {name:'Priya Mehta',   title:'HR Manager',          company:'InnoSoft',   color:'#13a1a5'},
-  Managerial:{name:'Vikram Nair',   title:'Engineering Manager', company:'BuildScale', color:'#47d372'},
+  Technical: {name:'Arjun Sharma',  title:'Senior Engineer',     company:'TechSphere', color:'#531697', photo:'/arjun_sharma.png'},
+  HR:        {name:'Priya Mehta',   title:'HR Manager',          company:'InnoSoft',   color:'#13a1a5', photo:'/priya_mehta.png'},
+  Managerial:{name:'Vikram Nair',   title:'Engineering Manager', company:'BuildScale', color:'#47d372', photo:'/vikram_nair.png'},
 };
 
-// ─── AI Avatar — animated SVG face ───────────────────────────────────────────
+// ─── AI Avatar — professional portrait photo with animated status ring ───────────────
 function AIAvatar({isSpeaking,isThinking,isListening,persona,size=132}){
-  const [blinkOpen,setBlinkOpen]=useState(true);
-  const [mouthOpen,setMouthOpen]=useState(0);
-  const [gaze,setGaze]=useState({x:0,y:0});
-  const [browRaise,setBrowRaise]=useState(0);
+  const col=persona?.color||'#531697';
+  const ringBg=isSpeaking
+    ?`conic-gradient(from 0deg,${col},#13a1a5,#47d372,${col})`
+    :isListening?'conic-gradient(from 0deg,#ef4444,#f97316,#ef4444)'
+    :isThinking?'conic-gradient(from 0deg,#f59e0b,#ef4444,#f59e0b)'
+    :`conic-gradient(from 0deg,${col},rgba(255,255,255,0.12),${col})`;
 
-  useEffect(()=>{
-    let t; const blink=()=>{setBlinkOpen(false);setTimeout(()=>setBlinkOpen(true),130);t=setTimeout(blink,3000+Math.random()*2500);};
-    t=setTimeout(blink,2000); return()=>clearTimeout(t);
-  },[]);
-
-  useEffect(()=>{
-    if(!isSpeaking){setMouthOpen(0);return;}
-    let a; const tick=()=>{setMouthOpen(0.25+Math.random()*0.75);a=setTimeout(tick,65+Math.random()*110);}; tick(); return()=>clearTimeout(a);
-  },[isSpeaking]);
-
-  useEffect(()=>{
-    if(!isThinking){setBrowRaise(0);return;}
-    const t=setInterval(()=>setBrowRaise(v=>v===0?3:0),600); return()=>clearInterval(t);
-  },[isThinking]);
-
-  useEffect(()=>{
-    const t=setInterval(()=>setGaze({x:(Math.random()-.5)*5,y:(Math.random()-.5)*3}),2800+Math.random()*2000);
-    return()=>clearInterval(t);
-  },[]);
-
-  const eyeRY=blinkOpen?8:1, mCY=70+mouthOpen*9, col=persona?.color||'#531697';
+  const [imgErr,setImgErr]=useState(false);
 
   return(
     <div style={{position:'relative',width:size,height:size,flexShrink:0}}>
-      <div style={{position:'absolute',inset:-8,borderRadius:'50%',
-        background:isSpeaking?`conic-gradient(from 0deg,${col},#13a1a5,#47d372,${col})`:isListening?'conic-gradient(from 0deg,#13a1a5,#47d372,#13a1a5)':isThinking?'conic-gradient(from 0deg,#f59e0b,#ef4444,#f59e0b)':`conic-gradient(from 0deg,${col},rgba(255,255,255,0.08),${col})`,
-        animation:isSpeaking||isListening||isThinking?'avSpin 1.8s linear infinite':'avPulse 3.5s ease-in-out infinite',opacity:.9}}/>
-      <div style={{position:'absolute',inset:8,borderRadius:'50%',background:'linear-gradient(145deg,#1c2b42,#0f1a2e)',border:`2px solid ${col}44`,overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <svg width={size-16} height={size-16} viewBox="0 0 110 110" style={{animation:'breathe 3.8s ease-in-out infinite'}}>
-          <ellipse cx="55" cy="60" rx="37" ry="42" fill="url(#sk)"/>
-          <ellipse cx="19" cy="62" rx="6" ry="9" fill="url(#sk)"/>
-          <ellipse cx="91" cy="62" rx="6" ry="9" fill="url(#sk)"/>
-          <ellipse cx="55" cy="24" rx="37" ry="22" fill="url(#hr)"/>
-          <rect x="18" y="18" width="74" height="14" fill="url(#hr)" rx="3"/>
-          <path d={`M${32+gaze.x},${43-browRaise+gaze.y} Q${38+gaze.x},${39-browRaise+gaze.y} ${44+gaze.x},${43-browRaise+gaze.y}`} stroke="url(#br)" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-          <path d={`M${66+gaze.x},${43-browRaise+gaze.y} Q${72+gaze.x},${39-browRaise+gaze.y} ${78+gaze.x},${43-browRaise+gaze.y}`} stroke="url(#br)" strokeWidth="2.8" strokeLinecap="round" fill="none"/>
-          <ellipse cx={38+gaze.x} cy={53+gaze.y} rx="7.5" ry={eyeRY} fill="white"/>
-          <ellipse cx={72+gaze.x} cy={53+gaze.y} rx="7.5" ry={eyeRY} fill="white"/>
-          {blinkOpen&&<><ellipse cx={38+gaze.x} cy={53+gaze.y} rx="4.8" ry="5.5" fill="#16103a"/><ellipse cx={72+gaze.x} cy={53+gaze.y} rx="4.8" ry="5.5" fill="#16103a"/><ellipse cx={39.5+gaze.x} cy={51.2+gaze.y} rx="1.6" ry="1.8" fill="white" opacity=".85"/><ellipse cx={73.5+gaze.x} cy={51.2+gaze.y} rx="1.6" ry="1.8" fill="white" opacity=".85"/></>}
-          <path d="M52,64 Q55,71 58,64" stroke="rgba(0,0,0,0.18)" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
-          <path d={`M43,${69-mouthOpen*2} Q55,${mCY} 67,${69-mouthOpen*2}`} stroke="url(#lp)" strokeWidth="2.4" strokeLinecap="round" fill="none"/>
-          {mouthOpen>0.35&&<ellipse cx="55" cy={70+mouthOpen*4} rx={10*mouthOpen} ry={5.5*mouthOpen} fill="rgba(0,0,0,0.55)"/>}
-          <circle cx="88" cy="24" r="5.5" fill={isSpeaking?'#47d372':isListening?'#13a1a5':isThinking?'#f59e0b':col} style={{filter:'drop-shadow(0 0 4px currentColor)'}}/>
-          <defs>
-            <radialGradient id="sk" cx="38%" cy="32%" r="70%"><stop offset="0%" stopColor="#f8c9a6"/><stop offset="100%" stopColor="#d4976e"/></radialGradient>
-            <linearGradient id="hr" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#2d1b4e"/><stop offset="100%" stopColor="#180f2e"/></linearGradient>
-            <linearGradient id="br" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#5c3a1e"/><stop offset="100%" stopColor="#3b2010"/></linearGradient>
-            <linearGradient id="lp" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#c87870"/><stop offset="100%" stopColor="#a05550"/></linearGradient>
-          </defs>
-        </svg>
-        {isThinking&&<div style={{position:'absolute',bottom:8,display:'flex',gap:5}}>{[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:'#f59e0b',animation:`thinkB 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}</div>}
+      {/* Animated status ring */}
+      <div style={{
+        position:'absolute',inset:-6,borderRadius:'50%',
+        background:ringBg,
+        animation:isSpeaking||isListening||isThinking?'avSpin 1.6s linear infinite':'avPulse 3.5s ease-in-out infinite',
+        opacity:.9
+      }}/>
+      {/* Portrait */}
+      <div style={{
+        position:'absolute',inset:4,borderRadius:'50%',overflow:'hidden',
+        border:`2px solid ${col}44`,
+        background:'linear-gradient(145deg,#1c2b42,#0f1a2e)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+      }}>
+        {persona?.photo&&!imgErr
+          ?<img src={persona.photo} alt={persona.name}
+              style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center'}}
+              onError={()=>setImgErr(true)}
+            />
+          :<span style={{color:'#fff',fontWeight:900,fontSize:Math.round(size*0.35),fontFamily:"'Syne',sans-serif"}}>
+              {persona?.name?.[0]||'?'}
+            </span>
+        }
       </div>
+      {/* Status dot */}
+      <div style={{
+        position:'absolute',bottom:4,right:4,
+        width:12,height:12,borderRadius:'50%',
+        background:isSpeaking?'#47d372':isListening?'#ef4444':isThinking?'#f59e0b':'#64748b',
+        border:'2px solid #0f1a2e',
+        boxShadow:isSpeaking?'0 0 8px #47d372':isListening?'0 0 8px #ef4444':'none',
+      }}/>
+      {/* Sound rings */}
       {isSpeaking&&[1,2,3].map(i=><div key={i} style={{position:'absolute',inset:-(i*13),borderRadius:'50%',border:`1.5px solid ${col}44`,animation:`sndRing 1.6s ease-out ${i*0.32}s infinite`,pointerEvents:'none'}}/>)}
-      {isListening&&[1,2].map(i=><div key={i} style={{position:'absolute',inset:-(i*12),borderRadius:'50%',border:'1.5px solid rgba(19,161,165,0.5)',animation:`sndRing 1.3s ease-out ${i*0.3}s infinite`,pointerEvents:'none'}}/>)}
+      {isListening&&[1,2].map(i=><div key={i} style={{position:'absolute',inset:-(i*12),borderRadius:'50%',border:'1.5px solid rgba(239,68,68,0.5)',animation:`sndRing 1.3s ease-out ${i*0.3}s infinite`,pointerEvents:'none'}}/>)}
+    </div>
+  );
+}
+
+// ─── TalkingHeadInterviewer — Premium 2.5D Animated SVG Face ─────────────────
+function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) {
+  const [mouthY, setMouthY] = useState(0.15);
+  const [mouthX, setMouthX] = useState(1);
+
+  // Lip-sync timer loop when speaking
+  useEffect(() => {
+    if (!isSpeaking) {
+      setMouthY(0.15); // closed neutral lip
+      setMouthX(1);
+      return;
+    }
+    const interval = setInterval(() => {
+      // Simulate natural mouth syllables
+      setMouthY(Math.random() * 0.7 + 0.35); // cycles open/closed heights
+      setMouthX(Math.random() * 0.3 + 0.85); // cycles speech width
+    }, 110);
+    return () => clearInterval(interval);
+  }, [isSpeaking]);
+
+  const pName = persona?.name || 'Arjun Sharma';
+  const themeCol = persona?.color || '#531697';
+
+  // Customize features based on selected interviewer
+  let skinColor = '#d1a17b'; // Arjun (wheat)
+  let hairColor = '#1a1a1a';
+  let irisColor = '#2c3e50';
+  let isFemale = false;
+  let hasGlasses = false;
+  let glassesStyle = 'rect';
+  let hasBeard = false;
+  let bgGradient = 'linear-gradient(135deg, #130a21 0%, #061924 100%)'; // Tech space backdrop
+
+  if (pName.includes('Priya')) {
+    skinColor = '#dfb897'; // Priya (cream beige)
+    hairColor = '#2d1810'; // brown hair
+    irisColor = '#6e5028'; // hazel eyes
+    isFemale = true;
+    bgGradient = 'linear-gradient(135deg, #240a14 0%, #0b1a1f 100%)'; // warm boardroom backdrop
+  } else if (pName.includes('Vikram')) {
+    skinColor = '#c69367'; // Vikram (olive-grey mature)
+    hairColor = '#7f8c8d'; // mature silver hair
+    irisColor = '#57606f'; // grey-blue eyes
+    hasBeard = true;
+    hasGlasses = true;
+    glassesStyle = 'circle';
+    bgGradient = 'linear-gradient(135deg, #0e1620 0%, #1c2630 100%)'; // senior executive background
+  } else {
+    // Arjun Sharma
+    hasBeard = true;
+    hasGlasses = true;
+    glassesStyle = 'rect';
+  }
+
+  // Eyebrows & pupils offsets based on thinking/listening states
+  let eyebrowOffset = 0;
+  let pupilOffsetX = 0;
+  let pupilOffsetY = 0;
+
+  if (isThinking) {
+    eyebrowOffset = 1.5; // furrowed/down
+    pupilOffsetX = -3.5;
+    pupilOffsetY = -3; // looking up-left
+  } else if (isListening) {
+    eyebrowOffset = -1; // raised (interested)
+    pupilOffsetX = 0;
+    pupilOffsetY = 0.5; // focused forward/down slightly
+  }
+
+  // Node movement class
+  const headAnimClass = isSpeaking
+    ? 'headTalk'
+    : isThinking
+    ? 'headThink'
+    : isListening
+    ? 'headListen'
+    : 'headIdle';
+
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: bgGradient,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    }}>
+      {/* Scanline CRT overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%)',
+        backgroundSize: '100% 4px', zIndex: 5, opacity: 0.8
+      }} />
+
+      {/* Corporate Visualizer Grid */}
+      <div style={{
+        position: 'absolute', inset: 0, opacity: 0.1, pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+        backgroundSize: '24px 24px', zIndex: 1
+      }} />
+
+      <svg viewBox="0 0 100 120" style={{ width: '100%', height: '100%', maxWidth: '380px', maxHeight: '420px', zIndex: 2 }}>
+        <defs>
+          {/* Subtle drop shadows for head and hair depth */}
+          <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="2.5" stdDeviation="1.5" floodColor="#000" floodOpacity="0.3" />
+          </filter>
+        </defs>
+
+        <style>{`
+          .headTalk { animation: headTalkAnim 1.6s ease-in-out infinite; }
+          .headThink { animation: headThinkAnim 3s ease-in-out infinite; }
+          .headListen { animation: headListenAnim 4s ease-in-out infinite; }
+          .headIdle { animation: headIdleAnim 4s ease-in-out infinite; }
+          .blinkClass { animation: eyeBlinkAnim 4.2s ease-in-out infinite; }
+
+          @keyframes headTalkAnim {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-1.5px) rotate(0.8deg); }
+            50% { transform: translateY(1px) rotate(-0.5deg); }
+            75% { transform: translateY(-0.5px) rotate(0.4deg); }
+          }
+          @keyframes headThinkAnim {
+            0%, 100% { transform: translate(0px, 0px) rotate(1deg); }
+            50% { transform: translate(-1px, 1.2px) rotate(2deg); }
+          }
+          @keyframes headListenAnim {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(1.5px) rotate(0.5deg); }
+            66% { transform: translateY(-0.5px) rotate(-0.2deg); }
+          }
+          @keyframes headIdleAnim {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-1px) rotate(0.2deg); }
+          }
+          @keyframes eyeBlinkAnim {
+            0%, 95%, 100% { transform: scaleY(1); }
+            97.5% { transform: scaleY(0.05); }
+          }
+        `}</style>
+
+        {/* ─── Blazer & Clothes (Torso) ─── */}
+        {isFemale ? (
+          // Priya (wine/burgundy jacket + cream inner shirt)
+          <g>
+            <path d="M 22 120 L 78 120 L 72 84 L 28 84 Z" fill="#701a27" filter="url(#shadow)" />
+            <path d="M 44 84 L 56 84 L 50 102 Z" fill="#f5f2eb" />
+            <path d="M 40 84 L 46 84 L 42 98 Z" fill="#58141f" />
+            <path d="M 60 84 L 54 84 L 58 98 Z" fill="#58141f" />
+          </g>
+        ) : pName.includes('Vikram') ? (
+          // Vikram (charcoal blazer + light blue shirt)
+          <g>
+            <path d="M 21 120 L 79 120 L 74 81 L 26 81 Z" fill="#2c3e50" filter="url(#shadow)" />
+            <path d="M 43 81 L 57 81 L 50 96 Z" fill="#dff9fb" />
+            <path d="M 38 81 L 45 81 L 40 93 Z" fill="#1e272e" />
+            <path d="M 62 81 L 55 81 L 60 93 Z" fill="#1e272e" />
+          </g>
+        ) : (
+          // Arjun (navy blazer + white collar shirt)
+          <g>
+            <path d="M 20 120 L 80 120 L 75 80 L 25 80 Z" fill="#1b3a4b" filter="url(#shadow)" />
+            <path d="M 43 80 L 57 80 L 50 96 Z" fill="#ffffff" />
+            <path d="M 38 80 L 45 80 L 41 94 Z" fill="#132733" />
+            <path d="M 62 80 L 55 80 L 59 94 Z" fill="#132733" />
+          </g>
+        )}
+
+        {/* Neck */}
+        <path d="M 44 68 L 56 68 L 55 84 L 45 84 Z" fill={skinColor} />
+        {/* Collar shadowing */}
+        <path d="M 44 78 Q 50 82 56 78 L 56 83 Q 50 86 44 83 Z" fill="#000" opacity="0.12" />
+
+        {/* ─── Head Group (Rotated / Noded) ─── */}
+        <g className={headAnimClass} style={{ transformOrigin: '50px 75px', transition: 'transform 0.4s ease-out' }}>
+          
+          {/* Back Hair (For long hair personas like Priya) */}
+          {isFemale && (
+            <ellipse cx="50" cy="55" rx="22" ry="26" fill={hairColor} />
+          )}
+
+          {/* Ears */}
+          <circle cx="32" cy="50" r="4.5" fill={skinColor} />
+          <circle cx="68" cy="50" r="4.5" fill={skinColor} />
+
+          {/* Head Base */}
+          <ellipse cx="50" cy="50" rx="17" ry="21" fill={skinColor} filter="url(#shadow)" />
+
+          {/* Beard / Stubble (Arjun / Vikram) */}
+          {hasBeard && (
+            pName.includes('Vikram') ? (
+              // Mature silver beard
+              <path d="M 33 48 C 33 71, 67 71, 67 48 L 64 54 C 64 68, 36 68, 36 54 Z" fill="#95a5a6" opacity="0.9" />
+            ) : (
+              // Short black stubble/beard outline for Arjun
+              <path d="M 33 48 C 33 71, 67 71, 67 48 L 64 54 C 64 67, 36 67, 36 54 Z" fill="#2c3e50" opacity="0.75" />
+            )
+          )}
+
+          {/* Front Hair Overlay */}
+          {isFemale ? (
+            // Priya front styled hair falling down
+            <g fill={hairColor}>
+              <path d="M 30 42 C 30 20, 70 20, 70 42 C 70 30, 62 26, 50 28 C 38 26, 30 30, 30 42 Z" />
+              <path d="M 30 40 Q 23 55 24 75 Q 26 75 32 45 Z" />
+              <path d="M 70 40 Q 77 55 76 75 Q 74 75 68 45 Z" />
+            </g>
+          ) : pName.includes('Vikram') ? (
+            // Vikram silver hair
+            <path d="M 31 38 C 31 20, 69 20, 69 38 C 69 28, 62 25, 50 26 C 38 25, 31 28, 31 38 Z" fill={hairColor} />
+          ) : (
+            // Arjun styled modern black hair spikes
+            <g fill={hairColor}>
+              <path d="M 31 38 C 31 18, 69 18, 69 38 C 69 28, 62 26, 50 27 C 38 26, 31 28, 31 38 Z" />
+              <path d="M 40 23 L 45 18 L 47 21 L 52 17 L 55 20 L 59 18 L 62 24 Z" />
+            </g>
+          )}
+
+          {/* Nose */}
+          <path d="M 49.5 50 Q 50 56 52 56" fill="none" stroke="#b08462" strokeWidth="1.5" strokeLinecap="round" />
+
+          {/* ── Eyebrows ── */}
+          <path d="M 35 41 Q 40 38 45 42" fill="none" stroke={hairColor} strokeWidth="1.8" strokeLinecap="round" style={{ transform: `translateY(${eyebrowOffset}px)`, transition: 'transform 0.3s' }} />
+          <path d="M 55 42 Q 60 38 65 41" fill="none" stroke={hairColor} strokeWidth="1.8" strokeLinecap="round" style={{ transform: `translateY(${eyebrowOffset}px)`, transition: 'transform 0.3s' }} />
+
+          {/* ── Eyes (Blinking Group) ── */}
+          <g className="blinkClass" style={{ transformOrigin: '50px 47px' }}>
+            {/* Eye whites */}
+            <ellipse cx="40" cy="47" rx="4.8" ry="3" fill="#ffffff" />
+            <ellipse cx="60" cy="47" rx="4.8" ry="3" fill="#ffffff" />
+
+            {/* Pupils with Gaze shifting */}
+            <circle cx={40 + pupilOffsetX} cy={47 + pupilOffsetY} r="2.2" fill={irisColor} style={{ transition: 'cx 0.3s, cy 0.3s' }} />
+            <circle cx={60 + pupilOffsetX} cy={47 + pupilOffsetY} r="2.2" fill={irisColor} style={{ transition: 'cx 0.3s, cy 0.3s' }} />
+
+            {/* Eye reflections */}
+            <circle cx={40 + pupilOffsetX + 0.8} cy={47 + pupilOffsetY - 0.7} r="0.7" fill="#ffffff" />
+            <circle cx={60 + pupilOffsetX + 0.8} cy={47 + pupilOffsetY - 0.7} r="0.7" fill="#ffffff" />
+          </g>
+
+          {/* Eye rims / outlines */}
+          <ellipse cx="40" cy="47" rx="4.8" ry="3" fill="none" stroke="#7f8c8d" strokeWidth="0.5" />
+          <ellipse cx="60" cy="47" rx="4.8" ry="3" fill="none" stroke="#7f8c8d" strokeWidth="0.5" />
+
+          {/* ── Glasses (Arjun & Vikram) ── */}
+          {hasGlasses && (
+            glassesStyle === 'rect' ? (
+              // Arjun: rectangular frames
+              <g stroke="#1a1a1a" strokeWidth="1.8" fill="none">
+                <rect x="33" y="41" width="14" height="11" rx="1.5" />
+                <rect x="53" y="41" width="14" height="11" rx="1.5" />
+                <line x1="47" y1="46" x2="53" y2="46" />
+                <line x1="33" y1="46" x2="31" y2="46" />
+                <line x1="67" y1="46" x2="69" y2="46" />
+              </g>
+            ) : (
+              // Vikram: silver round frames
+              <g stroke="#bdc3c7" strokeWidth="1.2" fill="none">
+                <circle cx="40" cy="47" r="7.2" />
+                <circle cx="60" cy="47" r="7.2" />
+                <line x1="47.2" y1="47" x2="52.8" y2="47" />
+                <line x1="32.8" y1="47" x2="31" y2="47" />
+                <line x1="67.2" y1="47" x2="69" y2="47" />
+              </g>
+            )
+          )}
+
+          {/* ── Mouth (Dynamic Morphing Lips) ── */}
+          <g style={{
+            transform: `translate(50px, 63px) scale(${mouthX}, ${mouthY})`,
+            transformOrigin: 'center',
+            transition: 'transform 0.08s ease-in-out',
+          }}>
+            {/* Inner mouth */}
+            <ellipse cx="0" cy="8.5" rx="5" ry="5.5" fill="#7d2828" />
+            {/* Teeth */}
+            <path d="M -4 5 Q 0 2 4 5 L 4 7 Q 0 5 -4 7 Z" fill="#ffffff" />
+            {/* Tongue */}
+            <path d="M -2.8 11.5 Q 0 9 2.8 11.5 Z" fill="#ff7675" />
+            {/* Outer Lips outline */}
+            <ellipse cx="0" cy="8.5" rx="5" ry="5.5" fill="none" stroke={themeCol} strokeWidth="1.6" />
+          </g>
+        </g>
+      </svg>
     </div>
   );
 }
@@ -376,7 +663,7 @@ function formatTime(s){
 }
 
 // ─── Mock Interview ───────────────────────────────────────────────────────────
-function MockInterview({targetRole,interviewType,userName,onEnd}){
+function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='',onEnd}){
   const persona=PERSONAS[interviewType]||PERSONAS.Technical;
   // Duration selection before interview starts
   const [selectedDuration,setSelectedDuration]=useState(null); // null = not started
@@ -427,18 +714,75 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
   // eslint-disable-next-line
   },[selectedDuration,done]);
 
-  // TTS — speaks every interviewer message aloud
+  // TTS — speaks every interviewer message aloud (respects saved accent preference and gender)
   const speak=useCallback((text)=>{
     if(!ttsEnabled||!text?.trim()||!window.speechSynthesis)return;
     window.speechSynthesis.cancel();
+    const accent=localStorage.getItem('pragati_accent')||'indian';
     const utt=new SpeechSynthesisUtterance(text);
-    utt.rate=0.91; utt.pitch=1.05; utt.volume=1; utt.lang='en-IN';
+    utt.volume=1;
+
+    const gender = interviewType === 'HR' ? 'female' : 'male';
+
+    // Configure rate and pitch based on gender to sound natural
+    if (gender === 'male') {
+      utt.pitch = 0.85; // lower pitch for male
+      utt.rate = 0.90;
+    } else {
+      utt.pitch = 1.15; // higher pitch for female
+      utt.rate = 0.92;
+    }
+
+    if(accent==='foreign'){
+      utt.lang='en-US';
+    }else if(accent==='default'){
+      utt.lang='en-US';
+    }else{
+      utt.lang='en-IN';
+    }
+
     const pick=()=>{
       const vv=window.speechSynthesis.getVoices();
-      return vv.find(v=>v.name.includes('Google')&&v.lang==='en-IN')
-          ||vv.find(v=>v.lang.startsWith('en-IN'))
-          ||vv.find(v=>v.lang.startsWith('en')&&!v.localService)
-          ||vv.find(v=>v.lang.startsWith('en'))||vv[0];
+
+      const isMaleVoice = (v) => {
+        const name = v.name.toLowerCase();
+        return name.includes('male') || name.includes('david') || name.includes('ravi') || name.includes('george') || name.includes('mark') || name.includes('google in 2') || name.includes('google india english 2') || name.includes('james') || name.includes('daniel') || name.includes('microsoft ravi');
+      };
+
+      const isFemaleVoice = (v) => {
+        const name = v.name.toLowerCase();
+        return name.includes('female') || name.includes('heera') || name.includes('raveena') || name.includes('zira') || name.includes('susan') || name.includes('hazel') || name.includes('google in') || name.includes('google india english') || name.includes('samantha') || name.includes('linda') || name.includes('mary') || name.includes('microsoft heera') || name.includes('priya');
+      };
+
+      let targetLang = 'en-IN';
+      if (accent === 'foreign') targetLang = 'en-US';
+      else if (accent === 'default') targetLang = 'en';
+
+      // 1. Preferred: target language + target gender
+      let matched = vv.filter(v =>
+        v.lang.toLowerCase().startsWith(targetLang.toLowerCase()) &&
+        (gender === 'male' ? isMaleVoice(v) : isFemaleVoice(v))
+      );
+
+      // 2. Fallback to target language with any voice
+      if (matched.length === 0) {
+        matched = vv.filter(v => v.lang.toLowerCase().startsWith(targetLang.toLowerCase()));
+      }
+
+      // 3. Fallback to English language with target gender
+      if (matched.length === 0) {
+        matched = vv.filter(v =>
+          v.lang.toLowerCase().startsWith('en') &&
+          (gender === 'male' ? isMaleVoice(v) : isFemaleVoice(v))
+        );
+      }
+
+      // 4. Fallback to any English voice
+      if (matched.length === 0) {
+        matched = vv.filter(v => v.lang.toLowerCase().startsWith('en'));
+      }
+
+      return matched[0] || vv[0] || null;
     };
     utt.onstart=()=>setAiSpeaking(true);
     utt.onend=()=>setAiSpeaking(false);
@@ -449,13 +793,22 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     if(!window.speechSynthesis.getVoices().length){
       window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;utt.voice=pick();window.speechSynthesis.speak(utt);};
     }else{utt.voice=pick();window.speechSynthesis.speak(utt);}
-  },[ttsEnabled]);
+  },[ttsEnabled, interviewType]);
 
   const {listening,supported,permError:micPermError,start:startMic,stop:stopMic}=useContinuousSTT({
     lang:'en-IN',silenceMs:2500,
     onPartial:t=>{setLiveText(t);if(!ansStart)setAnsStart(Date.now());},
     onFinal:t=>{if(t.trim())sendRef.current?.(t.trim());},
   });
+
+  // Auto-start microphone when interviewer is silent and not thinking
+  useEffect(() => {
+    if (ready && !done && !aiSpeaking && !loading && !micPermError) {
+      startMic().catch(e => console.warn('[STT] Auto-start mic failed:', e.message));
+    } else {
+      stopMic();
+    }
+  }, [ready, done, aiSpeaking, loading, micPermError, startMic, stopMic]);
 
   // Init — fires when student picks a duration
   useEffect(()=>{
@@ -466,7 +819,16 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
       ?"Tell me about yourself — your background, education, and what motivated you to pursue this career path."
       :"Let's start with a quick introduction. Walk me through your technical background, the projects you've built, and the technologies you're most comfortable with.";
     setTimeout(()=>{
-      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview for the ${targetRole} role. You have ${selectedDuration.label} — I'll keep asking questions until time runs out. The better your answers, the deeper we go!\n\n🎙️ Click the mic to speak hands-free — auto-sends after 2.5s silence.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1:\n\n${openQ}`;
+      const hasResume=resumeText&&resumeText.length>20;
+      const hasJD=jdText&&jdText.length>10;
+      const personalisedNote=hasResume&&hasJD
+        ? `I've reviewed your resume and the job description — my questions will be tailored specifically to your background and what ${targetRole} at this company requires.`
+        : hasJD
+        ? `I have the job description — questions will be aligned to what this role requires.`
+        : hasResume
+        ? `I've looked at your resume — questions will reflect your actual background and experience.`
+        : `I'll conduct a standard ${interviewType} interview for the ${targetRole} role.`;
+      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview for the ${targetRole} role. ${personalisedNote}\n\nYou have ${selectedDuration.label} — I'll keep asking questions until time runs out. The better your answers, the deeper we go!\n\n🎙️ Click the mic to speak hands-free — auto-sends after 2.5s silence.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1:\n\n${openQ}`;
       setMsgs([{role:'ai',content:greeting}]);
       setReady(true);
       setAnsStart(Date.now());
@@ -492,7 +854,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
     // isLast = timer already ran out while student was answering
     const isLast=doneRef.current;
     try{
-      const result=await getDynamicNext({msgs:updatedMsgs,answer:text,qNum:newQNum,isLast,role:targetRole,type:interviewType});
+      const result=await getDynamicNext({msgs:updatedMsgs,answer:text,qNum:newQNum,isLast,role:targetRole,type:interviewType,resumeText,jdText});
       let reply=result.feedback||'Good answer!';
       if(result.keyMissing)reply+=`\n\n💡 Tip: Consider mentioning — ${result.keyMissing}`;
       if(isLast||!result.nextQuestion){
@@ -518,6 +880,17 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
 
   // ── Duration Selection Screen ───────────────────────────────────────────
   if(!selectedDuration){
+    // Pre-request mic so the browser prompt fires here, not inside the interview
+    async function pickDuration(opt){
+      try{
+        const s=await navigator.mediaDevices.getUserMedia({audio:true});
+        s.getTracks().forEach(t=>t.stop()); // release immediately — STT will re-acquire
+      }catch(e){
+        // User denied — still proceed; mic button inside will show 🚫 with instructions
+        console.warn('[interview] mic pre-request denied',e.message);
+      }
+      setSelectedDuration(opt);
+    }
     return(
       <div style={{fontFamily:"'Nunito',sans-serif",background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #e8edf5',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
         <div style={{background:'linear-gradient(135deg,#042c5d 0%,#1a0d3e 45%,#0c3240 100%)',padding:'32px 28px',textAlign:'center'}}>
@@ -528,10 +901,12 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
         </div>
         <div style={{padding:'28px 28px 24px'}}>
           <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.05rem',color:'#0f1a2e',marginBottom:6,textAlign:'center'}}>⏱️ How long do you want to practice?</div>
-          <div style={{fontSize:'.82rem',color:'#7a8ba8',textAlign:'center',marginBottom:22}}>The AI will keep asking adaptive questions based on your answers until time runs out. More time = deeper drill-down.</div>
+          <div style={{fontSize:'.82rem',color:'#7a8ba8',textAlign:'center',marginBottom:6}}>The AI will keep asking adaptive questions based on your answers until time runs out.</div>
+          <div style={{fontSize:'.75rem',color:'#13a1a5',textAlign:'center',marginBottom:20,fontWeight:700}}>🎙️ Clicking a duration will request microphone access — please allow it.</div>
           <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap',marginBottom:24}}>
             {DURATION_OPTIONS.map(opt=>(
-              <button key={opt.label} onClick={()=>setSelectedDuration(opt)} style={{padding:'14px 22px',borderRadius:12,border:'2px solid #531697',background:'rgba(83,22,151,0.07)',color:'#531697',fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1rem',cursor:'pointer',transition:'all .15s'}}
+              <button key={opt.label} onClick={()=>pickDuration(opt)}
+                style={{padding:'14px 22px',borderRadius:12,border:'2px solid #531697',background:'rgba(83,22,151,0.07)',color:'#531697',fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1rem',cursor:'pointer',transition:'all .15s'}}
                 onMouseOver={e=>{e.currentTarget.style.background='rgba(83,22,151,0.18)';}}
                 onMouseOut={e=>{e.currentTarget.style.background='rgba(83,22,151,0.07)';}}
               >
@@ -551,155 +926,312 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
   const timerColor=timeLeft>120?'#47d372':timeLeft>30?'#f59e0b':'#ef4444';
 
   return(
-    <div style={{fontFamily:"'Nunito',sans-serif",background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #e8edf5',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
+    <div style={{
+      fontFamily: "'Nunito',sans-serif",
+      background: '#0a0f1d',
+      borderRadius: 18,
+      overflow: 'hidden',
+      border: '1.5px solid #1e293b',
+      boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
+      display: 'flex',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      minHeight: '620px',
+    }}>
 
-      {/* Header */}
-      <div style={{background:'linear-gradient(135deg,#042c5d 0%,#1a0d3e 45%,#0c3240 100%)',padding:'20px 24px'}}>
-        <div style={{display:'flex',alignItems:'center',gap:20,marginBottom:14}}>
-          <AIAvatar isSpeaking={aiSpeaking} isThinking={loading} isListening={listening} persona={persona} size={132}/>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.15rem',color:'#fff'}}>{persona.name}</div>
-            <div style={{fontSize:'.78rem',color:'rgba(255,255,255,0.55)',marginTop:2}}>{persona.title} · {persona.company}</div>
-            <div style={{display:'flex',gap:7,flexWrap:'wrap',marginTop:10,alignItems:'center'}}>
-              <span style={{padding:'3px 10px',borderRadius:999,background:'rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.85)',fontSize:'.68rem',fontWeight:700}}>{targetRole}</span>
-              <span style={{padding:'3px 10px',borderRadius:999,background:`${persona.color}55`,color:'#fff',fontSize:'.68rem',fontWeight:800}}>{interviewType} Interview</span>
-              {aiSpeaking&&<span style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:999,background:'rgba(71,211,114,0.25)',color:'#86efac',fontSize:'.68rem',fontWeight:800}}><span style={{width:6,height:6,borderRadius:'50%',background:'#47d372',animation:'blink .8s infinite'}}/> Speaking…</span>}
-              {listening&&<span style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:999,background:'rgba(239,68,68,0.25)',color:'#fca5a5',fontSize:'.68rem',fontWeight:800}}><span style={{width:6,height:6,borderRadius:'50%',background:'#ef4444',animation:'blink .8s infinite'}}/> Listening…</span>}
-              {loading&&!aiSpeaking&&<span style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',borderRadius:999,background:'rgba(245,158,11,0.2)',color:'#fcd34d',fontSize:'.68rem',fontWeight:800}}><span style={{width:6,height:6,borderRadius:'50%',background:'#f59e0b',animation:'blink .5s infinite'}}/> Thinking…</span>}
+      {/* ── LEFT PANE: AI INTERVIEWER VIDEO FEED (60% width) ────────────────── */}
+      <div style={{
+        flex: '3 3 500px',
+        background: '#0c101b',
+        borderRight: '1px solid #1e293b',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'hidden',
+        minHeight: '440px',
+      }}>
+        {/* Call metadata overlays */}
+        <div style={{
+          position: 'absolute', top: 12, left: 16, right: 16,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          zIndex: 10, pointerEvents: 'none'
+        }}>
+          {/* Recording & Quality Indicators */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{
+              background: 'rgba(239, 68, 68, 0.2)', color: '#f87171',
+              padding: '3px 8px', borderRadius: 4, fontSize: '.65rem', fontWeight: 800,
+              display: 'flex', alignItems: 'center', gap: 4,
+              animation: 'avPulse 1.5s ease-in-out infinite'
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
+              REC
+            </span>
+            <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8', padding: '3px 8px', borderRadius: 4, fontSize: '.65rem', fontWeight: 700 }}>
+              1080p HD
+            </span>
+            <span style={{ color: '#47d372', fontSize: '.75rem' }} title="Connection secure">
+              🛡️ Secure
+            </span>
+          </div>
+
+          {/* Time and Question Counter */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+              color: timerColor, fontFamily: 'monospace', fontWeight: 700,
+              padding: '4px 10px', borderRadius: 6, fontSize: '.9rem', border: `1px solid ${timerColor}33`
+            }}>
+              {done ? 'DONE' : formatTime(timeLeft)}
+            </div>
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+              color: '#fff', fontWeight: 700, padding: '4px 10px', borderRadius: 6, fontSize: '.75rem'
+            }}>
+              Q{qNum}
             </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-            <div style={{textAlign:'right'}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.5rem',color:done?'rgba(255,255,255,0.4)':timerColor}}>{done?'Done':formatTime(timeLeft)}</div>
-              <div style={{fontSize:'.6rem',color:'rgba(255,255,255,0.4)'}}>Remaining</div>
-              <div style={{marginTop:3,fontSize:'.65rem',color:'rgba(255,255,255,0.4)',fontWeight:700}}>Q{qNum} done · {avgScore??'—'}/100</div>
+        </div>
+
+        {/* Dynamic Vector AI Interviewer Avatar */}
+        <TalkingHeadInterviewer
+          isSpeaking={aiSpeaking}
+          isThinking={loading}
+          isListening={listening}
+          persona={persona}
+        />
+
+        {/* Corporate bottom visualizer bar */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+          padding: '16px 20px', display: 'flex', justifyContent: 'space-between',
+          alignItems: 'center', zIndex: 10, pointerEvents: 'none'
+        }}>
+          <div>
+            <div style={{ color: '#fff', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem' }}>
+              {persona.name}
             </div>
-            {/* Controls */}
-            <div style={{display:'flex',gap:6}}>
-              <button onClick={()=>setTtsEnabled(t=>!t)} title={ttsEnabled?'Mute interviewer voice':'Enable voice'} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,0.2)',background:ttsEnabled?'rgba(71,211,114,0.2)':'rgba(255,255,255,0.08)',color:'#fff',cursor:'pointer',fontSize:'.7rem',fontWeight:700}}>
-                {ttsEnabled?'🔊':'🔇'}
+            <div style={{ color: '#94a3b8', fontSize: '.72rem', marginTop: 2 }}>
+              {persona.title} · {persona.company}
+            </div>
+          </div>
+
+          {/* Speaking volume bars visualizer */}
+          {aiSpeaking && (
+            <div style={{ display: 'flex', gap: 3.5, alignItems: 'flex-end', height: 18 }}>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} style={{
+                  width: 3,
+                  background: '#13a1a5',
+                  borderRadius: 1.5,
+                  animation: `audioBar 0.7s ease-in-out infinite alternate ${i * 0.12}s`,
+                }} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── RIGHT PANE: CANDIDATE PANEL & TRANSCRIPTS (40% width) ───────────── */}
+      <div style={{
+        flex: '2 2 340px',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#0f172a',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}>
+        {/* Top: Webcam Frame and Live Status */}
+        <div style={{
+          padding: '16px 18px', borderBottom: '1px solid #1e293b',
+          display: 'flex', gap: 12, alignItems: 'center', background: '#0a0f1d'
+        }}>
+          <WebcamPanel enabled={camEnabled} onToggle={setCamEnabled} />
+          
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Candidate Feed
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '.88rem', color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {userName}
+            </div>
+            
+            {/* Action buttons (Mute TTS, Skip Q, etc) */}
+            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+              <button onClick={() => setTtsEnabled(t => !t)}
+                title={ttsEnabled ? 'Mute AI voice' : 'Unmute AI voice'}
+                style={{
+                  padding: '4px 8px', borderRadius: 6, border: '1px solid #1e293b',
+                  background: ttsEnabled ? 'rgba(19, 161, 165, 0.15)' : 'rgba(255,255,255,0.05)',
+                  color: ttsEnabled ? '#13a1a5' : '#64748b', cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
+                }}>
+                {ttsEnabled ? '🔊 Voice ON' : '🔇 Voice OFF'}
               </button>
+              
+              {!done && (
+                <button onClick={() => {
+                  window.speechSynthesis?.cancel();
+                  setAiSpeaking(false);
+                  sendAnswer('I would like to skip this question.');
+                }}
+                  style={{
+                    padding: '4px 8px', borderRadius: 6, border: '1px solid #1e293b',
+                    background: 'rgba(255,255,255,0.05)', color: '#94a3b8',
+                    cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
+                  }}>
+                  ⏭️ Skip Q
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Webcam row */}
-        <div style={{display:'flex',alignItems:'center',gap:14}}>
-          <WebcamPanel enabled={camEnabled} onToggle={setCamEnabled}/>
-          {!camEnabled&&(
-            <div style={{flex:1}}>
-              <div style={{fontSize:'.75rem',color:'rgba(255,255,255,0.55)',lineHeight:1.6}}>
-                📷 <strong style={{color:'rgba(255,255,255,0.85)'}}>Enable your camera</strong> to feel like a real interview. Your video stays on your device — nothing is recorded or uploaded.
+        {/* Scrollable Conversation Bubbles */}
+        <div style={{
+          flex: 1, overflowY: 'auto', padding: '16px 18px',
+          background: '#090d16', display: 'flex', flexDirection: 'column'
+        }}>
+          {msgs.map((m, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+              {m.role === 'ai' && (
+                <div style={{
+                  width: 26, height: 26, borderRadius: '50%',
+                  background: `linear-gradient(135deg, #042c5d, ${persona.color})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.7rem', color: '#fff',
+                  flexShrink: 0, marginRight: 8, alignSelf: 'flex-end'
+                }}>
+                  {persona.name[0]}
+                </div>
+              )}
+              <div style={{
+                maxWidth: '82%', padding: '10px 14px',
+                borderRadius: m.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                background: m.role === 'user' ? 'linear-gradient(135deg, #531697, #13a1a5)' : '#1e293b',
+                color: '#fff',
+                border: m.role === 'user' ? 'none' : '1px solid #2d3748',
+                fontSize: '.82rem', lineHeight: 1.6, whiteSpace: 'pre-wrap',
+                fontFamily: "'Nunito',sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}>
+                {m.loading ? (
+                  <span style={{ opacity: .4, animation: 'blink 0.8s ease-in-out infinite' }}>▋ Thinking…</span>
+                ) : m.content}
+              </div>
+            </div>
+          ))}
+          
+          {/* Live speech recognition caption overlay */}
+          {listening && liveText && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <div style={{
+                maxWidth: '82%', padding: '8px 12px', borderRadius: '14px 14px 2px 14px',
+                background: 'rgba(83,22,151,0.2)', border: '1px dashed rgba(83,22,151,0.4)',
+                fontSize: '.8rem', color: '#c4a0f5', fontStyle: 'italic', fontFamily: "'Nunito',sans-serif"
+              }}>
+                <span style={{
+                  display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                  background: '#ef4444', marginRight: 6, verticalAlign: 'middle',
+                  animation: 'blink 0.7s infinite'
+                }} />
+                {liveText}
               </div>
             </div>
           )}
-          {camEnabled&&(
-            <div style={{flex:1}}>
-              <div style={{fontSize:'.73rem',color:'rgba(255,255,255,0.55)',lineHeight:1.7}}>
-                👁️ <strong style={{color:'rgba(255,255,255,0.85)'}}>Interview feel:</strong><br/>
-                • Maintain eye contact with the screen<br/>
-                • Sit straight, speak clearly<br/>
-                • Take a breath before answering
-              </div>
-            </div>
-          )}
+          <div ref={bottomRef} />
         </div>
-      </div>
 
-      {/* Progress */}
-      <div style={{height:4,background:'rgba(83,22,151,0.1)'}}>
-        <div style={{height:'100%',width:`${done?100:Math.max(0,100-Math.round((timeLeft/(selectedDuration?.secs||600))*100))}%`,background:'linear-gradient(90deg,#531697,#13a1a5,#47d372)',transition:'width .55s ease'}}/>
-      </div>
-
-      {/* Messages */}
-      <div style={{minHeight:300,maxHeight:400,overflowY:'auto',padding:'16px 20px 8px',background:'#f8f9fc',display:'flex',flexDirection:'column'}}>
-        {msgs.map((m,i)=>(
-          <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start',marginBottom:12}}>
-            {m.role==='ai'&&<div style={{width:30,height:30,borderRadius:'50%',background:`linear-gradient(135deg,#042c5d,${persona.color})`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.75rem',color:'#fff',flexShrink:0,marginRight:9,alignSelf:'flex-end'}}>{persona.name[0]}</div>}
-            <div style={{maxWidth:'78%',padding:'12px 16px',borderRadius:m.role==='user'?'18px 18px 4px 18px':'18px 18px 18px 4px',background:m.role==='user'?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:m.role==='user'?'#fff':'#0f1a2e',border:m.role==='user'?'none':'1px solid #e8edf5',boxShadow:m.role==='user'?'0 4px 14px rgba(83,22,151,0.22)':'0 2px 10px rgba(4,44,93,0.05)',fontSize:'.875rem',lineHeight:1.7,whiteSpace:'pre-wrap',fontFamily:"'Nunito',sans-serif"}}>
-              {m.loading?<span style={{opacity:.4,animation:'blink .8s ease-in-out infinite'}}>▋</span>:m.content}
-            </div>
-            {m.role==='user'&&<div style={{width:30,height:30,borderRadius:'50%',background:'#e8edf5',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem',flexShrink:0,marginLeft:9,alignSelf:'flex-end'}}>👤</div>}
-          </div>
-        ))}
-        {listening&&liveText&&(
-          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:8}}>
-            <div style={{maxWidth:'78%',padding:'10px 14px',borderRadius:'18px 18px 4px 18px',background:'rgba(83,22,151,0.08)',border:'1px dashed rgba(83,22,151,0.3)',fontSize:'.84rem',color:'#531697',fontStyle:'italic',fontFamily:"'Nunito',sans-serif"}}>
-              <span style={{display:'inline-block',width:7,height:7,borderRadius:'50%',background:'#ef4444',marginRight:7,verticalAlign:'middle',animation:'blink .7s infinite'}}/>{liveText}
-            </div>
+        {/* Middle/Bottom: Real-time Performance Metrics */}
+        {metrics && (
+          <div style={{ padding: '0 16px', background: '#0a0f1d' }}>
+            <ScorePanel m={metrics} />
           </div>
         )}
-        <div ref={bottomRef}/>
-      </div>
 
-      {/* Score */}
-      {metrics&&<div style={{padding:'0 20px'}}><ScorePanel m={metrics}/></div>}
-
-      {/* Input */}
-      <div style={{padding:'14px 20px',borderTop:'1px solid #e8edf5',background:'#fff'}}>
-        <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
-          <textarea value={input} onChange={e=>{setInput(e.target.value);if(!ansStart)setAnsStart(Date.now());}}
-            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAnswer();}}}
-            placeholder={listening?'🔴 Listening — speak naturally, auto-sends after 2.5s pause…':done?'Interview complete!':'Type your answer or click 🎙️ to speak…'}
-            rows={2} disabled={loading||!ready||done}
-            style={{flex:1,padding:'10px 14px',borderRadius:10,border:`1.5px solid ${listening?'#ef4444':'#d0d7e8'}`,fontFamily:"'Nunito',sans-serif",fontSize:'.88rem',resize:'none',outline:'none',lineHeight:1.55,color:'#0f1a2e',background:done?'#f8f9fc':'#fff',transition:'border-color .2s'}}/>
-          {supported&&!done&&(
-            <button
-              onClick={micPermError ? undefined : (listening?stopMic:startMic)}
-              disabled={loading||!ready||micPermError}
-              title={micPermError ? 'Microphone access denied — click the 🔒 in your browser bar to allow it' : listening ? 'Stop listening' : 'Click to speak your answer'}
-              style={{width:48,height:48,borderRadius:'50%',border:'none',flexShrink:0,
-                cursor:loading||!ready||micPermError?'not-allowed':'pointer',
-                background:micPermError?'linear-gradient(135deg,#94a3b8,#64748b)':listening?'linear-gradient(135deg,#ef4444,#b91c1c)':'linear-gradient(135deg,#531697,#13a1a5)',
-                color:'#fff',fontSize:'1.2rem',display:'flex',alignItems:'center',justifyContent:'center',
-                boxShadow:micPermError?'none':listening?'0 0 0 6px rgba(239,68,68,0.2)':'0 4px 14px rgba(83,22,151,0.3)',
-                animation:listening?'micRing 1.4s ease-in-out infinite':'none',transition:'background .2s'}}>
-              {micPermError ? '🚫' : listening ? '⏹' : '🎙️'}
+        {/* Bottom: Answer Submission Control Box */}
+        <div style={{ padding: '14px 18px', background: '#0f172a', borderTop: '1px solid #1e293b' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', position: 'relative' }}>
+            <textarea
+              value={input}
+              onChange={e => { setInput(e.target.value); if (!ansStart) setAnsStart(Date.now()); }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); } }}
+              placeholder={listening ? '🎙️ Listening... speak naturally (auto-sends after 2.5s pause)' : done ? 'Interview complete' : 'Type your answer or use microphone...'}
+              rows={2}
+              disabled={loading || !ready || done}
+              style={{
+                flex: 1, padding: '10px 12px', borderRadius: 10,
+                border: `1.5px solid ${listening ? '#ef4444' : '#1e293b'}`,
+                fontFamily: "'Nunito',sans-serif", fontSize: '.84rem', resize: 'none', outline: 'none',
+                lineHeight: 1.5, color: '#fff', background: done ? '#1e293b' : '#090d16',
+                transition: 'border-color 0.2s', boxSizing: 'border-box'
+              }}
+            />
+            
+            {/* Microphone Toggle (Auto-managed, but shows status) */}
+            {supported && !done && (
+              <button
+                onClick={micPermError ? undefined : (listening ? stopMic : startMic)}
+                disabled={loading || !ready || micPermError}
+                title={micPermError ? 'Microphone blocked' : listening ? 'Mute Mic' : 'Start Speaking'}
+                style={{
+                  width: 42, height: 42, borderRadius: '50%', border: 'none', flexShrink: 0,
+                  cursor: loading || !ready || micPermError ? 'not-allowed' : 'pointer',
+                  background: micPermError ? '#475569' : listening ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#531697,#13a1a5)',
+                  color: '#fff', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: micPermError ? 'none' : listening ? '0 0 12px rgba(239,68,68,0.4)' : '0 4px 10px rgba(83,22,151,0.2)',
+                  animation: listening ? 'micRing 1.4s ease-in-out infinite' : 'none', transition: 'background 0.2s'
+                }}>
+                {micPermError ? '🚫' : listening ? '⏹' : '🎙️'}
+              </button>
+            )}
+            
+            <button onClick={() => sendAnswer()} disabled={loading || !input.trim() || !ready || done}
+              style={{
+                padding: '0 16px', height: 42, borderRadius: 10, border: 'none', flexShrink: 0,
+                fontFamily: "'Nunito',sans-serif", fontWeight: 800, fontSize: '.84rem',
+                cursor: loading || !input.trim() || done ? 'not-allowed' : 'pointer',
+                background: loading || !input.trim() || done ? '#1e293b' : 'linear-gradient(135deg,#531697,#13a1a5)',
+                color: loading || !input.trim() || done ? '#64748b' : '#fff', transition: 'all 0.2s'
+              }}>
+              {loading ? '…' : 'Send ↑'}
             </button>
-          )}
-          {micPermError&&!done&&(
-            <div style={{position:'absolute',bottom:'calc(100% + 8px)',right:60,background:'#1e293b',color:'#fca5a5',fontSize:'.72rem',padding:'8px 12px',borderRadius:9,maxWidth:260,lineHeight:1.5,zIndex:10,boxShadow:'0 4px 16px rgba(0,0,0,0.3)'}}>
-              🎙️ Mic blocked — click the <strong>🔒</strong> in your browser address bar → <strong>Allow microphone</strong>, then refresh.
-            </div>
-          )}
-          <button onClick={()=>sendAnswer()} disabled={loading||!input.trim()||!ready||done}
-            style={{padding:'0 22px',height:48,borderRadius:10,border:'none',flexShrink:0,fontFamily:"'Nunito',sans-serif",fontWeight:800,fontSize:'.88rem',cursor:loading||!input.trim()||done?'not-allowed':'pointer',background:loading||!input.trim()||done?'#e8edf5':'linear-gradient(135deg,#531697,#13a1a5)',color:loading||!input.trim()||done?'#b0bec9':'#fff',transition:'all .2s'}}>
-            {loading?'…':'Send ↑'}
-          </button>
-        </div>
-        <div style={{marginTop:8,display:'flex',gap:16,fontSize:'.68rem',color:'#b0bec9',flexWrap:'wrap'}}>
-          <span>🎙️ Click mic once → speak → auto-sends after 2.5s silence</span>
-          <span>📷 Camera: for real interview practice feel</span>
-          {scores.length>0&&<span style={{color:persona.color,fontWeight:800}}>{scores.length} answered · Best: {Math.max(...scores)}/100</span>}
+          </div>
+          
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: '.65rem', color: '#64748b' }}>
+            <span>🎤 Continuous capturing: automatic based on speaker turn</span>
+            {scores.length > 0 && <span style={{ color: '#13a1a5', fontWeight: 800 }}>Score: {avgScore}/100</span>}
+          </div>
         </div>
       </div>
 
-      {/* Summary */}
-      {done&&scores.length>0&&(
-        <div style={{padding:'18px 22px',borderTop:'1px solid #e8edf5',background:'linear-gradient(135deg,rgba(83,22,151,0.04),rgba(19,161,165,0.04))'}}>
-          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'#0f1a2e',marginBottom:14}}>📊 Interview Complete — Your Results</div>
-          <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:14}}>
-            {[['Overall',`${Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)}/100`,persona.color],['Answered',scores.length,'#13a1a5'],['Duration',selectedDuration?.label||'—','#531697'],['Best',`${Math.max(...scores)}/100`,'#47d372'],['Weakest',`${Math.min(...scores)}/100`,'#f59e0b']].map(([l,v,c])=>(
-              <div key={l} style={{padding:'12px 18px',background:'#fff',borderRadius:12,border:'1px solid #e8edf5',textAlign:'center',boxShadow:'0 2px 8px rgba(4,44,93,0.05)'}}>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.1rem',color:c}}>{v}</div>
-                <div style={{fontSize:'.65rem',color:'#7a8ba8',marginTop:2}}>{l}</div>
+      {/* Summary report overlay */}
+      {done && scores.length > 0 && (
+        <div style={{ padding: '18px 22px', borderTop: '1px solid #1e293b', background: '#0a0f1d', width: '100%' }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.95rem', color: '#fff', marginBottom: 14 }}>
+            📊 Interview Complete — Your Results
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+            {[['Overall', `${Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)}/100`, '#13a1a5'], ['Answered', scores.length, '#531697'], ['Duration', selectedDuration?.label || '—', '#47d372'], ['Best', `${Math.max(...scores)}/100`, '#47d372'], ['Weakest', `${Math.min(...scores)}/100`, '#ef4444']].map(([l, v, c]) => (
+              <div key={l} style={{ padding: '12px 18px', background: '#0f172a', borderRadius: 12, border: '1px solid #1e293b', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1.1rem', color: c }}>{v}</div>
+                <div style={{ fontSize: '.65rem', color: '#64748b', marginTop: 2 }}>{l}</div>
               </div>
             ))}
           </div>
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:'.68rem',fontWeight:800,color:'#7a8ba8',marginBottom:6}}>PER-QUESTION SCORES</div>
-            <div style={{display:'flex',gap:4,alignItems:'flex-end'}}>
-              {scores.map((s,i)=>(
-                <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                  <div style={{width:28,borderRadius:'3px 3px 0 0',height:`${Math.max(4,s*0.4)}px`,background:s>=75?'#47d372':s>=50?'#f59e0b':'#ef4444',transition:'height .5s ease'}}/>
-                  <div style={{fontSize:'.58rem',color:'#b0bec9'}}>Q{i+1}</div>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: '.68rem', fontWeight: 800, color: '#64748b', marginBottom: 6 }}>PER-QUESTION SCORES</div>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end' }}>
+              {scores.map((s, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <div style={{ width: 28, borderRadius: '3px 3px 0 0', height: `${Math.max(4, s * 0.4)}px`, background: s >= 75 ? '#47d372' : s >= 50 ? '#f59e0b' : '#ef4444', transition: 'height .5s ease' }} />
+                  <div style={{ fontSize: '.58rem', color: '#64748b' }}>Q{i + 1}</div>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            <button onClick={onEnd} style={{padding:'10px 24px',borderRadius:10,border:'none',background:'linear-gradient(135deg,#531697,#13a1a5)',color:'#fff',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.86rem'}}>🔄 New Interview</button>
-            <button onClick={()=>window.speechSynthesis?.cancel()} style={{padding:'10px 18px',borderRadius:10,border:'1px solid #d0d7e8',background:'transparent',color:'#7a8ba8',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem'}}>🔇 Stop Voice</button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={onEnd} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.86rem' }}>🔄 New Interview</button>
+            <button onClick={() => window.speechSynthesis?.cancel()} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid #1e293b', background: 'transparent', color: '#64748b', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.82rem' }}>🔇 Stop Voice</button>
           </div>
         </div>
       )}
@@ -712,6 +1244,7 @@ function MockInterview({targetRole,interviewType,userName,onEnd}){
         @keyframes thinkB   { 0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-6px)} }
         @keyframes blink    { 0%,100%{opacity:1}50%{opacity:.2} }
         @keyframes micRing  { 0%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0.2)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0.04)} }
+        @keyframes audioBar { 0% { height: 15%; } 100% { height: 100%; } }
       `}</style>
     </div>
   );
@@ -758,6 +1291,10 @@ export default function InterviewPrepPage(){
   const [deepResult,setDeepResult]=useState(null);
   const [deepLoading,setDeepLoading]=useState(false);
   const [mockKey,setMockKey]=useState(0);
+  // ── Resume + JD upload for personalised interview ──────────────────────
+  const [resumeText,setResumeText]=useState('');
+  const [jdText,setJdText]=useState('');
+  const [uploadingResume,setUploadingResume]=useState(false);
   const [bankQs,setBankQs]=useState([]);
   const [bankLoad,setBankLoad]=useState(false);
   const [bankRole,setBankRole]=useState('All');
@@ -789,6 +1326,38 @@ export default function InterviewPrepPage(){
     try{const d=await fetch(`${API}/interview/ai-answer`,{method:'POST',headers:{...tk(),'Content-Type':'application/json'},body:JSON.stringify({question:q,role:bankRole!=='All'?bankRole:'',subject:bankSub!=='All'?bankSub:''})}).then(r=>r.json());setAiAns(a=>({...a,[qId]:d.answer||'No answer.'}));}
     catch{setAiAns(a=>({...a,[qId]:'Could not fetch.'}));}
     finally{setAiAnsLoad(l=>({...l,[qId]:false}));}
+  }
+
+  // Parse uploaded resume PDF/docx to text (client-side via FileReader)
+  async function handleResumeUpload(file){
+    if(!file)return;
+    setUploadingResume(true);
+    try{
+      // Try to extract text from file (txt fallback — PDF parsing needs backend)
+      if(file.type==='text/plain'){
+        const text=await file.text();
+        setResumeText(text);
+      } else {
+        // For PDF/DOCX: send to backend /skillpath/extract-text (if available)
+        // or send base64 and let the AI analyse from filename + JD context
+        const reader=new FileReader();
+        reader.onload=async(e)=>{
+          const b64=e.target.result.split(',')[1]||'';
+          try{
+            const res=await fetch(`${API}/skillpath/extract-text`,{
+              method:'POST',
+              headers:{...tk(),'Content-Type':'application/json'},
+              body:JSON.stringify({fileBase64:b64,fileName:file.name}),
+            });
+            const d=await res.json();
+            setResumeText(d.text||'[Resume uploaded — AI will analyse by filename context]');
+          }catch{
+            setResumeText(`[Resume: ${file.name} — AI will ask generic role questions if text extraction fails]`);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    }finally{setUploadingResume(false);}
   }
 
   async function runPrep(){
@@ -876,6 +1445,21 @@ export default function InterviewPrepPage(){
               <input value={targetRole} onChange={e=>setRole(e.target.value)} placeholder="e.g. Software Engineer, Data Scientist" style={{flex:1,minWidth:200,padding:'9px 14px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.9rem',outline:'none',color:'#0f1a2e'}}/>
               {latest&&<div style={{fontSize:'.72rem',color:'#7a8ba8'}}>ATS: <strong style={{color:'#531697'}}>{latest.atsScore}/100</strong> · Gaps: <strong style={{color:'#991b1b'}}>{gaps.length}</strong></div>}
             </div>
+            {/* ── Resume + JD Upload ── */}
+            <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-start',marginBottom:14,padding:'12px 14px',borderRadius:11,border:'1.5px solid #e8edf5',background:'#fafbff'}}>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:'.72rem',fontWeight:800,color:'#3d4e6b',marginBottom:5}}>📄 Upload Resume (optional):</div>
+                <input type="file" accept=".pdf,.docx,.txt" onChange={e=>handleResumeUpload(e.target.files?.[0])} style={{fontSize:'.78rem',color:'#531697',cursor:'pointer'}}/>
+                {uploadingResume&&<div style={{fontSize:'.68rem',color:'#7a8ba8',marginTop:4}}>⏳ Extracting text…</div>}
+                {resumeText&&!uploadingResume&&<div style={{fontSize:'.68rem',color:'#166534',marginTop:4}}>✅ Resume loaded — AI will personalise questions</div>}
+              </div>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:'.72rem',fontWeight:800,color:'#3d4e6b',marginBottom:5}}>📋 Job Description (optional):</div>
+                <textarea value={jdText} onChange={e=>setJdText(e.target.value)} placeholder="Paste the JD here — e.g. Amazon SDE-2 requirements…" rows={3}
+                  style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem',outline:'none',resize:'vertical',color:'#0f1a2e',boxSizing:'border-box'}}/>
+                {jdText&&<div style={{fontSize:'.68rem',color:'#166534',marginTop:2}}>✅ JD loaded — questions tailored to this role</div>}
+              </div>
+            </div>
             <div style={{fontSize:'.72rem',fontWeight:800,color:'#7a8ba8',marginBottom:10}}>Interview Type:</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
               {ITYPES.map(t=>(
@@ -928,7 +1512,7 @@ export default function InterviewPrepPage(){
             </div>
           )}
 
-          {mode==='mock'&&<MockInterview key={mockKey} targetRole={targetRole} interviewType={iType} userName={user?.name} onEnd={()=>{setMockKey(k=>k+1);setMode(null);}}/>}
+          {mode==='mock'&&<MockInterview key={mockKey} targetRole={targetRole} interviewType={iType} userName={user?.name} resumeText={resumeText} jdText={jdText} onEnd={()=>{setMockKey(k=>k+1);setMode(null);}}/>}
 
           {mode==='prep'&&(
             <div>

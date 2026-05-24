@@ -78,6 +78,7 @@ app.use('/api/direct-messages',directMsgRoutes);
 app.use('/api/practice',       practiceRoutes);
 app.use('/api/drives',         drivesRoutes);
 app.use('/api/gd',             gdRoutes);
+app.use('/api/notifications', require('./routes/notifications.routes'));
 
 // Error handler
 app.use((err, req, res, next) => {
