@@ -217,14 +217,17 @@ export default function GDRoomPage() {
         }
 
         case 'ai-voice': {
-          // Groq TTS audio arrived — use it if AudioContext is available
-          if (data.audioBase64 && data.text) {
-            if (data.isParticipant || (data.ttsVoice && data.ttsVoice !== 'Celeste-PlayAI')) {
-              participantVoiceRef.current?.playAudio(data.audioBase64, data.text);
-            } else {
-              moderatorVoiceRef.current?.playAudio(data.audioBase64, data.text);
-            }
+          if (data.text) {
+            const isPart = data.isParticipant || (data.ttsVoice && data.ttsVoice !== 'Celeste-PlayAI');
+            const voiceHook = isPart ? participantVoiceRef.current : moderatorVoiceRef.current;
+            voiceHook?.playAudio(data.audioBase64 || null, data.text, data.speakerName);
           }
+          break;
+        }
+
+        case 'ai-interrupted': {
+          moderatorVoiceRef.current?.stopAll();
+          participantVoiceRef.current?.stopAll();
           break;
         }
 
@@ -600,6 +603,33 @@ export default function GDRoomPage() {
                   whiteSpace: 'nowrap',
                 }}>
                 {isSpeaking ? '⏹ Stop Mic' : '🎤 Click to Speak'}
+              </button>
+            )}
+
+            {sessionState === 'active' && (moderatorVoice.isPlaying || participantVoice.isPlaying) && !isSpeaking && (
+              <button
+                onClick={async () => {
+                  stopAllVoice();
+                  emit('interrupt-ai', { roomCode: code, userId: user?._id });
+                  if (isMuted) {
+                    setIsMuted(false);
+                    setRTCMuted(false);
+                    emit('media-status', { roomCode: code, userId: user?._id, isMuted: false });
+                  }
+                  await startSpeaking();
+                }}
+                style={{
+                  padding:'8px 18px', borderRadius:22, border:'none',
+                  background: '#ef4444',
+                  color:'#fff', fontWeight:800, cursor:'pointer',
+                  fontFamily:"'Nunito',sans-serif", fontSize:'.8rem',
+                  animation: 'gdpulse 1s ease-in-out infinite',
+                  display:'flex', alignItems:'center', gap:6,
+                  boxShadow: '0 0 0 6px rgba(239,68,68,0.35)',
+                  userSelect:'none', WebkitUserSelect:'none',
+                  whiteSpace: 'nowrap',
+                }}>
+                🛑 Interrupt AI & Speak
               </button>
             )}
 

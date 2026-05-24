@@ -10,6 +10,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getNaturalVoice } from '../utils/voiceHelper';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -20,25 +21,21 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
   const [permError,  setPermError]  = useState(false);
   const [supported]                 = useState(!!(window.SpeechRecognition||window.webkitSpeechRecognition));
 
-  // Use refs for everything that drives the session loop so there are zero stale closures
   const recRef      = useRef(null);
-  const finalRef    = useRef('');
-  const silRef      = useRef(null);
   const activeRef   = useRef(false);
   const onFinalRef  = useRef(onFinal);
   const onPartialRef= useRef(onPartial);
   const onErrorRef  = useRef(onError);
   const langRef     = useRef(lang);
   const silMsRef    = useRef(silenceMs);
+  const silRef      = useRef(null);
 
-  // Keep all callback/config refs fresh every render — no re-creating the session loop
   useEffect(()=>{ onFinalRef.current  = onFinal;   }, [onFinal]);
   useEffect(()=>{ onPartialRef.current= onPartial; }, [onPartial]);
   useEffect(()=>{ onErrorRef.current  = onError;   }, [onError]);
   useEffect(()=>{ langRef.current     = lang;      }, [lang]);
   useEffect(()=>{ silMsRef.current    = silenceMs; }, [silenceMs]);
 
-  // startSess stored in a ref — always current, never triggers re-render
   const startSessRef = useRef(null);
   startSessRef.current = () => {
     if (!activeRef.current) return;
@@ -57,38 +54,36 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
     r.onstart = () => setListening(true);
 
     r.onresult = e => {
-      let newFinal = '', interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      let finalSpeech = '', interimSpeech = '';
+      for (let i = 0; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) newFinal += chunk + ' ';
-        else interim = chunk;
+        if (e.results[i].isFinal) finalSpeech += chunk + ' ';
+        else interimSpeech += chunk;
       }
-      if (newFinal) {
-        finalRef.current += newFinal;
-        // Reset silence timer — fire onFinal after silenceMs of quiet
-        clearTimeout(silRef.current);
-        silRef.current = setTimeout(() => {
-          const t = finalRef.current.trim();
-          if (t) onFinalRef.current?.(t);
-        }, silMsRef.current);
-      }
-      onPartialRef.current?.((finalRef.current + interim).trim());
+      const totalSpeech = (finalSpeech + interimSpeech).trim();
+      onPartialRef.current?.(totalSpeech);
+
+      // Reset silence timer on ANY speech result (interim or final)
+      clearTimeout(silRef.current);
+      silRef.current = setTimeout(() => {
+        if (totalSpeech) {
+          onFinalRef.current?.(totalSpeech);
+        }
+      }, silMsRef.current);
     };
 
     r.onerror = e => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        // Mic permanently denied for this session — stop trying
         activeRef.current = false;
         setListening(false);
         setPermError(true);
-        onErrorRef.current?.('Microphone permission denied. Please allow microphone access in your browser settings and reload.');
+        onErrorRef.current?.('Microphone permission denied.');
         return;
       }
       console.warn('[STT] recognition error:', e.error);
     };
 
     r.onend = () => {
-      // Session ended (browser timeout, tab hidden, etc.) — restart if still active
       if (activeRef.current) {
         setTimeout(() => {
           if (activeRef.current) startSessRef.current?.();
@@ -99,7 +94,6 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
     };
 
     try { r.start(); } catch (err) {
-      console.error('[STT] start error:', err.message);
       if (activeRef.current) {
         setTimeout(() => {
           if (activeRef.current) startSessRef.current?.();
@@ -111,18 +105,16 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
   const start = useCallback(async () => {
     if (!supported) return;
 
-    // Explicitly request mic permission before starting SR — gives user a clear browser prompt
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop()); // SR will take over
+      stream.getTracks().forEach(t => t.stop());
       setPermError(false);
     } catch {
       setPermError(true);
-      onErrorRef.current?.('Microphone permission denied. Please allow microphone access and try again.');
+      onErrorRef.current?.('Microphone permission denied.');
       return;
     }
 
-    finalRef.current = '';
     clearTimeout(silRef.current);
     activeRef.current = true;
     startSessRef.current();
@@ -133,12 +125,8 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
     clearTimeout(silRef.current);
     try { recRef.current?.stop(); } catch {}
     setListening(false);
-    const t = finalRef.current.trim();
-    finalRef.current = '';
-    return t;
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => () => {
     activeRef.current = false;
     clearTimeout(silRef.current);
@@ -297,75 +285,57 @@ function AIAvatar({isSpeaking,isThinking,isListening,persona,size=132}){
 
 // ─── TalkingHeadInterviewer — Premium 2.5D Animated SVG Face ─────────────────
 function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) {
-  const [mouthY, setMouthY] = useState(0.15);
-  const [mouthX, setMouthX] = useState(1);
+  const pName = persona?.name || 'Arjun Sharma';
 
-  // Lip-sync timer loop when speaking
+  let eyeLeft = 45.2, eyeRight = 54.8, eyeTop = 40.5;
+  let mouthLeft = 50.0, mouthTop = 60.5;
+  let skinTone = '#d1a17b';
+
+  if (pName.includes('Priya')) {
+    eyeLeft = 45.8; eyeRight = 54.2; eyeTop = 41.2;
+    mouthLeft = 50.0; mouthTop = 59.2;
+    skinTone = '#dfb897';
+  } else if (pName.includes('Vikram')) {
+    eyeLeft = 45.5; eyeRight = 54.5; eyeTop = 42.0;
+    mouthLeft = 50.0; mouthTop = 61.5;
+    skinTone = '#c69367';
+  }
+
+  // Blinking effect
+  const [blink, setBlink] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBlink(true);
+      setTimeout(() => setBlink(false), 150);
+    }, 3800 + Math.random() * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Gaze drift
+  const [gazeX, setGazeX] = useState(0);
+  const [gazeY, setGazeY] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGazeX((Math.random() - 0.5) * 1.5);
+      setGazeY((Math.random() - 0.5) * 1);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Mouth morph height when speaking
+  const [mouthHeight, setMouthHeight] = useState(2);
   useEffect(() => {
     if (!isSpeaking) {
-      setMouthY(0.15); // closed neutral lip
-      setMouthX(1);
+      setMouthHeight(2);
       return;
     }
     const interval = setInterval(() => {
-      // Simulate natural mouth syllables
-      setMouthY(Math.random() * 0.7 + 0.35); // cycles open/closed heights
-      setMouthX(Math.random() * 0.3 + 0.85); // cycles speech width
+      setMouthHeight(Math.random() * 8 + 3);
     }, 110);
     return () => clearInterval(interval);
   }, [isSpeaking]);
 
-  const pName = persona?.name || 'Arjun Sharma';
-  const themeCol = persona?.color || '#531697';
-
-  // Customize features based on selected interviewer
-  let skinColor = '#d1a17b'; // Arjun (wheat)
-  let hairColor = '#1a1a1a';
-  let irisColor = '#2c3e50';
-  let isFemale = false;
-  let hasGlasses = false;
-  let glassesStyle = 'rect';
-  let hasBeard = false;
-  let bgGradient = 'linear-gradient(135deg, #130a21 0%, #061924 100%)'; // Tech space backdrop
-
-  if (pName.includes('Priya')) {
-    skinColor = '#dfb897'; // Priya (cream beige)
-    hairColor = '#2d1810'; // brown hair
-    irisColor = '#6e5028'; // hazel eyes
-    isFemale = true;
-    bgGradient = 'linear-gradient(135deg, #240a14 0%, #0b1a1f 100%)'; // warm boardroom backdrop
-  } else if (pName.includes('Vikram')) {
-    skinColor = '#c69367'; // Vikram (olive-grey mature)
-    hairColor = '#7f8c8d'; // mature silver hair
-    irisColor = '#57606f'; // grey-blue eyes
-    hasBeard = true;
-    hasGlasses = true;
-    glassesStyle = 'circle';
-    bgGradient = 'linear-gradient(135deg, #0e1620 0%, #1c2630 100%)'; // senior executive background
-  } else {
-    // Arjun Sharma
-    hasBeard = true;
-    hasGlasses = true;
-    glassesStyle = 'rect';
-  }
-
-  // Eyebrows & pupils offsets based on thinking/listening states
-  let eyebrowOffset = 0;
-  let pupilOffsetX = 0;
-  let pupilOffsetY = 0;
-
-  if (isThinking) {
-    eyebrowOffset = 1.5; // furrowed/down
-    pupilOffsetX = -3.5;
-    pupilOffsetY = -3; // looking up-left
-  } else if (isListening) {
-    eyebrowOffset = -1; // raised (interested)
-    pupilOffsetX = 0;
-    pupilOffsetY = 0.5; // focused forward/down slightly
-  }
-
-  // Node movement class
-  const headAnimClass = isSpeaking
+  const headClass = isSpeaking
     ? 'headTalk'
     : isThinking
     ? 'headThink'
@@ -375,211 +345,129 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
 
   return (
     <div style={{
+      position: 'relative',
       width: '100%',
       height: '100%',
-      background: bgGradient,
+      overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      position: 'relative',
+      background: 'linear-gradient(135deg, #0f172a 0%, #020617 100%)'
     }}>
       {/* Scanline CRT overlay */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.12) 50%)',
+        background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%)',
         backgroundSize: '100% 4px', zIndex: 5, opacity: 0.8
       }} />
 
       {/* Corporate Visualizer Grid */}
       <div style={{
-        position: 'absolute', inset: 0, opacity: 0.1, pointerEvents: 'none',
-        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
+        position: 'absolute', inset: 0, opacity: 0.12, pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(circle, rgba(19, 161, 165, 0.25) 1px, transparent 1px)',
         backgroundSize: '24px 24px', zIndex: 1
       }} />
 
-      <svg viewBox="0 0 100 120" style={{ width: '100%', height: '100%', maxWidth: '380px', maxHeight: '420px', zIndex: 2 }}>
-        <defs>
-          {/* Subtle drop shadows for head and hair depth */}
-          <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="2.5" stdDeviation="1.5" floodColor="#000" floodOpacity="0.3" />
-          </filter>
-        </defs>
+      {/* Main Face Container with CSS classes for breathing/nods */}
+      <div className={headClass} style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transformOrigin: 'bottom center',
+        transition: 'transform 0.5s ease-out'
+      }}>
+        {/* Base Portrait Image */}
+        <img
+          src={persona?.photo || '/arjun_sharma.png'}
+          alt={pName}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            userSelect: 'none',
+            WebkitUserDrag: 'none'
+          }}
+        />
 
-        <style>{`
-          .headTalk { animation: headTalkAnim 1.6s ease-in-out infinite; }
-          .headThink { animation: headThinkAnim 3s ease-in-out infinite; }
-          .headListen { animation: headListenAnim 4s ease-in-out infinite; }
-          .headIdle { animation: headIdleAnim 4s ease-in-out infinite; }
-          .blinkClass { animation: eyeBlinkAnim 4.2s ease-in-out infinite; }
+        {/* Eyelids Overlays */}
+        {/* Left Eyelid */}
+        <div style={{
+          position: 'absolute',
+          left: `${eyeLeft - 1}%`,
+          top: `${eyeTop}%`,
+          width: '18px',
+          height: blink ? '12px' : '0px',
+          background: skinTone,
+          borderRadius: '50%',
+          borderBottom: blink ? '1px solid rgba(0,0,0,0.35)' : 'none',
+          transform: `translate(-50%, -50%) translate(${gazeX}px, ${gazeY}px)`,
+          transition: 'height 0.08s ease-in-out',
+          zIndex: 4
+        }} />
 
-          @keyframes headTalkAnim {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            25% { transform: translateY(-1.5px) rotate(0.8deg); }
-            50% { transform: translateY(1px) rotate(-0.5deg); }
-            75% { transform: translateY(-0.5px) rotate(0.4deg); }
-          }
-          @keyframes headThinkAnim {
-            0%, 100% { transform: translate(0px, 0px) rotate(1deg); }
-            50% { transform: translate(-1px, 1.2px) rotate(2deg); }
-          }
-          @keyframes headListenAnim {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            33% { transform: translateY(1.5px) rotate(0.5deg); }
-            66% { transform: translateY(-0.5px) rotate(-0.2deg); }
-          }
-          @keyframes headIdleAnim {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-1px) rotate(0.2deg); }
-          }
-          @keyframes eyeBlinkAnim {
-            0%, 95%, 100% { transform: scaleY(1); }
-            97.5% { transform: scaleY(0.05); }
-          }
-        `}</style>
+        {/* Right Eyelid */}
+        <div style={{
+          position: 'absolute',
+          left: `${eyeRight + 1}%`,
+          top: `${eyeTop}%`,
+          width: '18px',
+          height: blink ? '12px' : '0px',
+          background: skinTone,
+          borderRadius: '50%',
+          borderBottom: blink ? '1px solid rgba(0,0,0,0.35)' : 'none',
+          transform: `translate(-50%, -50%) translate(${gazeX}px, ${gazeY}px)`,
+          transition: 'height 0.08s ease-in-out',
+          zIndex: 4
+        }} />
 
-        {/* ─── Blazer & Clothes (Torso) ─── */}
-        {isFemale ? (
-          // Priya (wine/burgundy jacket + cream inner shirt)
-          <g>
-            <path d="M 22 120 L 78 120 L 72 84 L 28 84 Z" fill="#701a27" filter="url(#shadow)" />
-            <path d="M 44 84 L 56 84 L 50 102 Z" fill="#f5f2eb" />
-            <path d="M 40 84 L 46 84 L 42 98 Z" fill="#58141f" />
-            <path d="M 60 84 L 54 84 L 58 98 Z" fill="#58141f" />
-          </g>
-        ) : pName.includes('Vikram') ? (
-          // Vikram (charcoal blazer + light blue shirt)
-          <g>
-            <path d="M 21 120 L 79 120 L 74 81 L 26 81 Z" fill="#2c3e50" filter="url(#shadow)" />
-            <path d="M 43 81 L 57 81 L 50 96 Z" fill="#dff9fb" />
-            <path d="M 38 81 L 45 81 L 40 93 Z" fill="#1e272e" />
-            <path d="M 62 81 L 55 81 L 60 93 Z" fill="#1e272e" />
-          </g>
-        ) : (
-          // Arjun (navy blazer + white collar shirt)
-          <g>
-            <path d="M 20 120 L 80 120 L 75 80 L 25 80 Z" fill="#1b3a4b" filter="url(#shadow)" />
-            <path d="M 43 80 L 57 80 L 50 96 Z" fill="#ffffff" />
-            <path d="M 38 80 L 45 80 L 41 94 Z" fill="#132733" />
-            <path d="M 62 80 L 55 80 L 59 94 Z" fill="#132733" />
-          </g>
-        )}
-
-        {/* Neck */}
-        <path d="M 44 68 L 56 68 L 55 84 L 45 84 Z" fill={skinColor} />
-        {/* Collar shadowing */}
-        <path d="M 44 78 Q 50 82 56 78 L 56 83 Q 50 86 44 83 Z" fill="#000" opacity="0.12" />
-
-        {/* ─── Head Group (Rotated / Noded) ─── */}
-        <g className={headAnimClass} style={{ transformOrigin: '50px 75px', transition: 'transform 0.4s ease-out' }}>
-          
-          {/* Back Hair (For long hair personas like Priya) */}
-          {isFemale && (
-            <ellipse cx="50" cy="55" rx="22" ry="26" fill={hairColor} />
-          )}
-
-          {/* Ears */}
-          <circle cx="32" cy="50" r="4.5" fill={skinColor} />
-          <circle cx="68" cy="50" r="4.5" fill={skinColor} />
-
-          {/* Head Base */}
-          <ellipse cx="50" cy="50" rx="17" ry="21" fill={skinColor} filter="url(#shadow)" />
-
-          {/* Beard / Stubble (Arjun / Vikram) */}
-          {hasBeard && (
-            pName.includes('Vikram') ? (
-              // Mature silver beard
-              <path d="M 33 48 C 33 71, 67 71, 67 48 L 64 54 C 64 68, 36 68, 36 54 Z" fill="#95a5a6" opacity="0.9" />
-            ) : (
-              // Short black stubble/beard outline for Arjun
-              <path d="M 33 48 C 33 71, 67 71, 67 48 L 64 54 C 64 67, 36 67, 36 54 Z" fill="#2c3e50" opacity="0.75" />
-            )
-          )}
-
-          {/* Front Hair Overlay */}
-          {isFemale ? (
-            // Priya front styled hair falling down
-            <g fill={hairColor}>
-              <path d="M 30 42 C 30 20, 70 20, 70 42 C 70 30, 62 26, 50 28 C 38 26, 30 30, 30 42 Z" />
-              <path d="M 30 40 Q 23 55 24 75 Q 26 75 32 45 Z" />
-              <path d="M 70 40 Q 77 55 76 75 Q 74 75 68 45 Z" />
-            </g>
-          ) : pName.includes('Vikram') ? (
-            // Vikram silver hair
-            <path d="M 31 38 C 31 20, 69 20, 69 38 C 69 28, 62 25, 50 26 C 38 25, 31 28, 31 38 Z" fill={hairColor} />
-          ) : (
-            // Arjun styled modern black hair spikes
-            <g fill={hairColor}>
-              <path d="M 31 38 C 31 18, 69 18, 69 38 C 69 28, 62 26, 50 27 C 38 26, 31 28, 31 38 Z" />
-              <path d="M 40 23 L 45 18 L 47 21 L 52 17 L 55 20 L 59 18 L 62 24 Z" />
-            </g>
-          )}
-
-          {/* Nose */}
-          <path d="M 49.5 50 Q 50 56 52 56" fill="none" stroke="#b08462" strokeWidth="1.5" strokeLinecap="round" />
-
-          {/* ── Eyebrows ── */}
-          <path d="M 35 41 Q 40 38 45 42" fill="none" stroke={hairColor} strokeWidth="1.8" strokeLinecap="round" style={{ transform: `translateY(${eyebrowOffset}px)`, transition: 'transform 0.3s' }} />
-          <path d="M 55 42 Q 60 38 65 41" fill="none" stroke={hairColor} strokeWidth="1.8" strokeLinecap="round" style={{ transform: `translateY(${eyebrowOffset}px)`, transition: 'transform 0.3s' }} />
-
-          {/* ── Eyes (Blinking Group) ── */}
-          <g className="blinkClass" style={{ transformOrigin: '50px 47px' }}>
-            {/* Eye whites */}
-            <ellipse cx="40" cy="47" rx="4.8" ry="3" fill="#ffffff" />
-            <ellipse cx="60" cy="47" rx="4.8" ry="3" fill="#ffffff" />
-
-            {/* Pupils with Gaze shifting */}
-            <circle cx={40 + pupilOffsetX} cy={47 + pupilOffsetY} r="2.2" fill={irisColor} style={{ transition: 'cx 0.3s, cy 0.3s' }} />
-            <circle cx={60 + pupilOffsetX} cy={47 + pupilOffsetY} r="2.2" fill={irisColor} style={{ transition: 'cx 0.3s, cy 0.3s' }} />
-
-            {/* Eye reflections */}
-            <circle cx={40 + pupilOffsetX + 0.8} cy={47 + pupilOffsetY - 0.7} r="0.7" fill="#ffffff" />
-            <circle cx={60 + pupilOffsetX + 0.8} cy={47 + pupilOffsetY - 0.7} r="0.7" fill="#ffffff" />
-          </g>
-
-          {/* Eye rims / outlines */}
-          <ellipse cx="40" cy="47" rx="4.8" ry="3" fill="none" stroke="#7f8c8d" strokeWidth="0.5" />
-          <ellipse cx="60" cy="47" rx="4.8" ry="3" fill="none" stroke="#7f8c8d" strokeWidth="0.5" />
-
-          {/* ── Glasses (Arjun & Vikram) ── */}
-          {hasGlasses && (
-            glassesStyle === 'rect' ? (
-              // Arjun: rectangular frames
-              <g stroke="#1a1a1a" strokeWidth="1.8" fill="none">
-                <rect x="33" y="41" width="14" height="11" rx="1.5" />
-                <rect x="53" y="41" width="14" height="11" rx="1.5" />
-                <line x1="47" y1="46" x2="53" y2="46" />
-                <line x1="33" y1="46" x2="31" y2="46" />
-                <line x1="67" y1="46" x2="69" y2="46" />
-              </g>
-            ) : (
-              // Vikram: silver round frames
-              <g stroke="#bdc3c7" strokeWidth="1.2" fill="none">
-                <circle cx="40" cy="47" r="7.2" />
-                <circle cx="60" cy="47" r="7.2" />
-                <line x1="47.2" y1="47" x2="52.8" y2="47" />
-                <line x1="32.8" y1="47" x2="31" y2="47" />
-                <line x1="67.2" y1="47" x2="69" y2="47" />
-              </g>
-            )
-          )}
-
-          {/* ── Mouth (Dynamic Morphing Lips) ── */}
-          <g style={{
-            transform: `translate(50px, 63px) scale(${mouthX}, ${mouthY})`,
-            transformOrigin: 'center',
-            transition: 'transform 0.08s ease-in-out',
+        {/* Talking Mouth Overlay */}
+        {isSpeaking && (
+          <div style={{
+            position: 'absolute',
+            left: `${mouthLeft}%`,
+            top: `${mouthTop}%`,
+            width: '32px',
+            height: `${mouthHeight}px`,
+            background: '#47121b',
+            borderRadius: '50%',
+            border: `2px solid ${skinTone}`,
+            transform: 'translate(-50%, -50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 4,
+            overflow: 'hidden'
           }}>
-            {/* Inner mouth */}
-            <ellipse cx="0" cy="8.5" rx="5" ry="5.5" fill="#7d2828" />
-            {/* Teeth */}
-            <path d="M -4 5 Q 0 2 4 5 L 4 7 Q 0 5 -4 7 Z" fill="#ffffff" />
-            {/* Tongue */}
-            <path d="M -2.8 11.5 Q 0 9 2.8 11.5 Z" fill="#ff7675" />
-            {/* Outer Lips outline */}
-            <ellipse cx="0" cy="8.5" rx="5" ry="5.5" fill="none" stroke={themeCol} strokeWidth="1.6" />
-          </g>
-        </g>
-      </svg>
+            {/* Teeth line */}
+            <div style={{
+              width: '24px',
+              height: '2px',
+              background: '#fff',
+              position: 'absolute',
+              top: '1px',
+              borderRadius: 1
+            }} />
+          </div>
+        )}
+      </div>
+
+      {/* Floating status banner */}
+      <div style={{
+        position: 'absolute', bottom: 16, left: 16,
+        background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px',
+        borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, zIndex: 10
+      }}>
+        <div style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: isSpeaking ? '#47d372' : isThinking ? '#f59e0b' : '#38bdf8',
+          boxShadow: isSpeaking ? '0 0 8px #47d372' : 'none'
+        }} />
+        <span style={{ fontSize: '.72rem', color: '#f8fafc', fontWeight: 800 }}>{pName}</span>
+      </div>
     </div>
   );
 }
@@ -724,75 +612,31 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
 
     const gender = interviewType === 'HR' ? 'female' : 'male';
 
-    // Configure rate and pitch based on gender to sound natural
     if (gender === 'male') {
-      utt.pitch = 0.85; // lower pitch for male
+      utt.pitch = 0.85;
       utt.rate = 0.90;
     } else {
-      utt.pitch = 1.15; // higher pitch for female
-      utt.rate = 0.92;
+      utt.pitch = 1.12;
+      utt.rate = 0.93;
     }
 
-    if(accent==='foreign'){
-      utt.lang='en-US';
-    }else if(accent==='default'){
-      utt.lang='en-US';
-    }else{
-      utt.lang='en-IN';
+    const voice = getNaturalVoice(accent, gender);
+    if (voice) {
+      utt.voice = voice;
+      utt.lang = voice.lang;
+    } else {
+      utt.lang = accent === 'foreign' ? 'en-US' : 'en-IN';
     }
 
-    const pick=()=>{
-      const vv=window.speechSynthesis.getVoices();
-
-      const isMaleVoice = (v) => {
-        const name = v.name.toLowerCase();
-        return name.includes('male') || name.includes('david') || name.includes('ravi') || name.includes('george') || name.includes('mark') || name.includes('google in 2') || name.includes('google india english 2') || name.includes('james') || name.includes('daniel') || name.includes('microsoft ravi');
-      };
-
-      const isFemaleVoice = (v) => {
-        const name = v.name.toLowerCase();
-        return name.includes('female') || name.includes('heera') || name.includes('raveena') || name.includes('zira') || name.includes('susan') || name.includes('hazel') || name.includes('google in') || name.includes('google india english') || name.includes('samantha') || name.includes('linda') || name.includes('mary') || name.includes('microsoft heera') || name.includes('priya');
-      };
-
-      let targetLang = 'en-IN';
-      if (accent === 'foreign') targetLang = 'en-US';
-      else if (accent === 'default') targetLang = 'en';
-
-      // 1. Preferred: target language + target gender
-      let matched = vv.filter(v =>
-        v.lang.toLowerCase().startsWith(targetLang.toLowerCase()) &&
-        (gender === 'male' ? isMaleVoice(v) : isFemaleVoice(v))
-      );
-
-      // 2. Fallback to target language with any voice
-      if (matched.length === 0) {
-        matched = vv.filter(v => v.lang.toLowerCase().startsWith(targetLang.toLowerCase()));
-      }
-
-      // 3. Fallback to English language with target gender
-      if (matched.length === 0) {
-        matched = vv.filter(v =>
-          v.lang.toLowerCase().startsWith('en') &&
-          (gender === 'male' ? isMaleVoice(v) : isFemaleVoice(v))
-        );
-      }
-
-      // 4. Fallback to any English voice
-      if (matched.length === 0) {
-        matched = vv.filter(v => v.lang.toLowerCase().startsWith('en'));
-      }
-
-      return matched[0] || vv[0] || null;
-    };
     utt.onstart=()=>setAiSpeaking(true);
     utt.onend=()=>setAiSpeaking(false);
     utt.onerror=()=>setAiSpeaking(false);
-    // Chrome fix: resume if paused when tab hidden
+    
     const keepAlive=setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},5000);
     utt.onend=()=>{clearInterval(keepAlive);setAiSpeaking(false);};
     if(!window.speechSynthesis.getVoices().length){
-      window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;utt.voice=pick();window.speechSynthesis.speak(utt);};
-    }else{utt.voice=pick();window.speechSynthesis.speak(utt);}
+      window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;const v=getNaturalVoice(accent, gender);if(v)utt.voice=v;window.speechSynthesis.speak(utt);};
+    }else{window.speechSynthesis.speak(utt);}
   },[ttsEnabled, interviewType]);
 
   const {listening,supported,permError:micPermError,start:startMic,stop:stopMic}=useContinuousSTT({
@@ -928,27 +772,28 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
   return(
     <div style={{
       fontFamily: "'Nunito',sans-serif",
-      background: '#0a0f1d',
+      background: '#090d16',
       borderRadius: 18,
       overflow: 'hidden',
       border: '1.5px solid #1e293b',
-      boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
+      boxShadow: '0 12px 36px rgba(0,0,0,0.3)',
       display: 'flex',
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      minHeight: '620px',
+      flexWrap: 'nowrap',
+      height: '660px',
+      width: '100%',
+      position: 'relative'
     }}>
 
-      {/* ── LEFT PANE: AI INTERVIEWER VIDEO FEED (60% width) ────────────────── */}
+      {/* ── LEFT PANE: MAIN MEETING SCREEN (70% width) ── */}
       <div style={{
-        flex: '3 3 500px',
-        background: '#0c101b',
-        borderRight: '1px solid #1e293b',
+        flex: 1,
+        background: '#020617',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        minHeight: '440px',
+        height: '100%'
       }}>
         {/* Call metadata overlays */}
         <div style={{
@@ -965,13 +810,10 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
               animation: 'avPulse 1.5s ease-in-out infinite'
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444' }} />
-              REC
+              LIVE RECORDING
             </span>
             <span style={{ background: 'rgba(255,255,255,0.08)', color: '#94a3b8', padding: '3px 8px', borderRadius: 4, fontSize: '.65rem', fontWeight: 700 }}>
               1080p HD
-            </span>
-            <span style={{ color: '#47d372', fontSize: '.75rem' }} title="Connection secure">
-              🛡️ Secure
             </span>
           </div>
 
@@ -993,7 +835,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
           </div>
         </div>
 
-        {/* Dynamic Vector AI Interviewer Avatar */}
+        {/* Dynamic Human Portrait AI Interviewer Avatar */}
         <TalkingHeadInterviewer
           isSpeaking={aiSpeaking}
           isThinking={loading}
@@ -1031,91 +873,103 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
             </div>
           )}
         </div>
+
+        {/* Candidate Webcam Overlay (PiP corner) */}
+        <div style={{
+          position: 'absolute',
+          bottom: 16,
+          right: 16,
+          zIndex: 10,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '2px solid rgba(255, 255, 255, 0.15)',
+        }}>
+          <WebcamPanel enabled={camEnabled} onToggle={setCamEnabled} />
+        </div>
       </div>
 
-      {/* ── RIGHT PANE: CANDIDATE PANEL & TRANSCRIPTS (40% width) ───────────── */}
+      {/* ── RIGHT PANE: MEETING SIDEBAR (300px width) ── */}
       <div style={{
-        flex: '2 2 340px',
+        width: 320,
         display: 'flex',
         flexDirection: 'column',
         background: '#0f172a',
+        borderLeft: '1px solid #1e293b',
         boxSizing: 'border-box',
         overflow: 'hidden',
+        height: '100%'
       }}>
-        {/* Top: Webcam Frame and Live Status */}
+        {/* Top: Metadata & Quick Controls */}
         <div style={{
-          padding: '16px 18px', borderBottom: '1px solid #1e293b',
-          display: 'flex', gap: 12, alignItems: 'center', background: '#0a0f1d'
+          padding: '12px 14px', borderBottom: '1px solid #1e293b',
+          display: 'flex', gap: 8, alignItems: 'center', background: '#0a0f1d', flexShrink: 0
         }}>
-          <WebcamPanel enabled={camEnabled} onToggle={setCamEnabled} />
-          
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Candidate Feed
+            <div style={{ fontSize: '.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Interview Feed
             </div>
-            <div style={{ fontWeight: 800, fontSize: '.88rem', color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontWeight: 800, fontSize: '.84rem', color: '#fff', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {userName}
             </div>
-            
-            {/* Action buttons (Mute TTS, Skip Q, etc) */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-              <button onClick={() => setTtsEnabled(t => !t)}
-                title={ttsEnabled ? 'Mute AI voice' : 'Unmute AI voice'}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => setTtsEnabled(t => !t)}
+              title={ttsEnabled ? 'Mute AI voice' : 'Unmute AI voice'}
+              style={{
+                padding: '4px 8px', borderRadius: 6, border: '1px solid #1e293b',
+                background: ttsEnabled ? 'rgba(19, 161, 165, 0.15)' : 'rgba(255,255,255,0.05)',
+                color: ttsEnabled ? '#13a1a5' : '#64748b', cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
+              }}>
+              {ttsEnabled ? '🔊' : '🔇'}
+            </button>
+            {!done && (
+              <button onClick={() => {
+                window.speechSynthesis?.cancel();
+                setAiSpeaking(false);
+                sendAnswer('I would like to skip this question.');
+              }}
+                title="Skip current question"
                 style={{
                   padding: '4px 8px', borderRadius: 6, border: '1px solid #1e293b',
-                  background: ttsEnabled ? 'rgba(19, 161, 165, 0.15)' : 'rgba(255,255,255,0.05)',
-                  color: ttsEnabled ? '#13a1a5' : '#64748b', cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
+                  background: 'rgba(255,255,255,0.05)', color: '#94a3b8',
+                  cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
                 }}>
-                {ttsEnabled ? '🔊 Voice ON' : '🔇 Voice OFF'}
+                ⏭️ Skip
               </button>
-              
-              {!done && (
-                <button onClick={() => {
-                  window.speechSynthesis?.cancel();
-                  setAiSpeaking(false);
-                  sendAnswer('I would like to skip this question.');
-                }}
-                  style={{
-                    padding: '4px 8px', borderRadius: 6, border: '1px solid #1e293b',
-                    background: 'rgba(255,255,255,0.05)', color: '#94a3b8',
-                    cursor: 'pointer', fontSize: '.68rem', fontWeight: 700
-                  }}>
-                  ⏭️ Skip Q
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
         {/* Scrollable Conversation Bubbles */}
         <div style={{
-          flex: 1, overflowY: 'auto', padding: '16px 18px',
+          flex: 1, overflowY: 'auto', padding: '14px',
           background: '#090d16', display: 'flex', flexDirection: 'column'
         }}>
           {msgs.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 12 }}>
+            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
               {m.role === 'ai' && (
                 <div style={{
-                  width: 26, height: 26, borderRadius: '50%',
+                  width: 22, height: 22, borderRadius: '50%',
                   background: `linear-gradient(135deg, #042c5d, ${persona.color})`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.7rem', color: '#fff',
-                  flexShrink: 0, marginRight: 8, alignSelf: 'flex-end'
+                  fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.65rem', color: '#fff',
+                  flexShrink: 0, marginRight: 6, alignSelf: 'flex-end'
                 }}>
                   {persona.name[0]}
                 </div>
               )}
               <div style={{
-                maxWidth: '82%', padding: '10px 14px',
-                borderRadius: m.role === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                maxWidth: '85%', padding: '8px 12px',
+                borderRadius: m.role === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
                 background: m.role === 'user' ? 'linear-gradient(135deg, #531697, #13a1a5)' : '#1e293b',
                 color: '#fff',
                 border: m.role === 'user' ? 'none' : '1px solid #2d3748',
-                fontSize: '.82rem', lineHeight: 1.6, whiteSpace: 'pre-wrap',
-                fontFamily: "'Nunito',sans-serif", boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                fontSize: '.78rem', lineHeight: 1.5, whiteSpace: 'pre-wrap',
+                fontFamily: "'Nunito',sans-serif", boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
               }}>
                 {m.loading ? (
-                  <span style={{ opacity: .4, animation: 'blink 0.8s ease-in-out infinite' }}>▋ Thinking…</span>
+                  <span style={{ opacity: .4, animation: 'blink 0.8s ease-in-out infinite' }}>Thinking…</span>
                 ) : m.content}
               </div>
             </div>
@@ -1123,15 +977,15 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
           
           {/* Live speech recognition caption overlay */}
           {listening && liveText && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
               <div style={{
-                maxWidth: '82%', padding: '8px 12px', borderRadius: '14px 14px 2px 14px',
+                maxWidth: '85%', padding: '6px 10px', borderRadius: '12px 12px 2px 12px',
                 background: 'rgba(83,22,151,0.2)', border: '1px dashed rgba(83,22,151,0.4)',
-                fontSize: '.8rem', color: '#c4a0f5', fontStyle: 'italic', fontFamily: "'Nunito',sans-serif"
+                fontSize: '.75rem', color: '#c4a0f5', fontStyle: 'italic', fontFamily: "'Nunito',sans-serif"
               }}>
                 <span style={{
-                  display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
-                  background: '#ef4444', marginRight: 6, verticalAlign: 'middle',
+                  display: 'inline-block', width: 5, height: 5, borderRadius: '50%',
+                  background: '#ef4444', marginRight: 5, verticalAlign: 'middle',
                   animation: 'blink 0.7s infinite'
                 }} />
                 {liveText}
@@ -1141,44 +995,44 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
           <div ref={bottomRef} />
         </div>
 
-        {/* Middle/Bottom: Real-time Performance Metrics */}
+        {/* Real-time Performance Metrics */}
         {metrics && (
-          <div style={{ padding: '0 16px', background: '#0a0f1d' }}>
+          <div style={{ padding: '8px 12px', background: '#0a0f1d', flexShrink: 0 }}>
             <ScorePanel m={metrics} />
           </div>
         )}
 
         {/* Bottom: Answer Submission Control Box */}
-        <div style={{ padding: '14px 18px', background: '#0f172a', borderTop: '1px solid #1e293b' }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', position: 'relative' }}>
+        <div style={{ padding: '12px', background: '#0f172a', borderTop: '1px solid #1e293b', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', position: 'relative' }}>
             <textarea
               value={input}
               onChange={e => { setInput(e.target.value); if (!ansStart) setAnsStart(Date.now()); }}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); } }}
-              placeholder={listening ? '🎙️ Listening... speak naturally (auto-sends after 2.5s pause)' : done ? 'Interview complete' : 'Type your answer or use microphone...'}
+              placeholder={listening ? '🎙️ Listening... speak naturally' : done ? 'Interview complete' : 'Type your answer...'}
               rows={2}
               disabled={loading || !ready || done}
               style={{
-                flex: 1, padding: '10px 12px', borderRadius: 10,
+                flex: 1, padding: '8px 10px', borderRadius: 8,
                 border: `1.5px solid ${listening ? '#ef4444' : '#1e293b'}`,
-                fontFamily: "'Nunito',sans-serif", fontSize: '.84rem', resize: 'none', outline: 'none',
-                lineHeight: 1.5, color: '#fff', background: done ? '#1e293b' : '#090d16',
+                fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', resize: 'none', outline: 'none',
+                lineHeight: 1.4, color: '#fff', background: done ? '#1e293b' : '#090d16',
                 transition: 'border-color 0.2s', boxSizing: 'border-box'
               }}
             />
             
-            {/* Microphone Toggle (Auto-managed, but shows status) */}
+            {/* Microphone Toggle */}
             {supported && !done && (
               <button
                 onClick={micPermError ? undefined : (listening ? stopMic : startMic)}
                 disabled={loading || !ready || micPermError}
                 title={micPermError ? 'Microphone blocked' : listening ? 'Mute Mic' : 'Start Speaking'}
                 style={{
-                  width: 42, height: 42, borderRadius: '50%', border: 'none', flexShrink: 0,
+                  width: 38, height: 38, borderRadius: '50%', border: 'none', flexShrink: 0,
                   cursor: loading || !ready || micPermError ? 'not-allowed' : 'pointer',
                   background: micPermError ? '#475569' : listening ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#531697,#13a1a5)',
-                  color: '#fff', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: micPermError ? 'none' : listening ? '0 0 12px rgba(239,68,68,0.4)' : '0 4px 10px rgba(83,22,151,0.2)',
+                  color: '#fff', fontSize: '.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: micPermError ? 'none' : listening ? '0 0 10px rgba(239,68,68,0.3)' : '0 3px 8px rgba(83,22,151,0.15)',
                   animation: listening ? 'micRing 1.4s ease-in-out infinite' : 'none', transition: 'background 0.2s'
                 }}>
                 {micPermError ? '🚫' : listening ? '⏹' : '🎙️'}

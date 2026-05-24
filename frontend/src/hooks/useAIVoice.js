@@ -1,50 +1,18 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { getNaturalVoice } from '../utils/voiceHelper';
 
 /**
- * useAIVoice — Enhanced
- *
- * New features:
- *  1. accent prop ('indian' | 'foreign' | 'default') — persisted in localStorage
- *  2. voiceRole prop ('moderator' | 'participant' | 'companion') — different pitch/rate per role
- *     so GD moderator vs AI participants sound distinct
- *  3. Groq TTS base64 primary (when AudioContext unlocked), Web Speech fallback
- *  4. Chrome autoplay-safe AudioContext unlock on first gesture
+ * useAIVoice — Upgraded
+ * Features:
+ *  1. accent prop ('indian' | 'foreign' | 'default')
+ *  2. voiceRole prop ('moderator' | 'participant' | 'companion')
+ *  3. Dynamically selects male/female natural browser voices
+ *  4. Exposes isPlaying state so UI can render the Interrupt option
+ *  5. Chrome autoplay-safe AudioContext unlock
  */
 
-// ── Voice profiles for Web Speech API ────────────────────────────────────────
-const VOICE_PROFILES = {
-  // role → { lang hint, rate, pitch, preferredNames[] }
-  moderator: {
-    indian:  { lang: 'en-IN', rate: 0.90, pitch: 1.10, preferred: ['Google हिन्दी','Raveena','Google IN'] },
-    foreign: { lang: 'en-US', rate: 0.88, pitch: 0.95, preferred: ['Google US English','Samantha','Alex'] },
-    default: { lang: 'en-IN', rate: 0.92, pitch: 1.00, preferred: ['Google','en-IN','en-US'] },
-  },
-  participant: {
-    indian:  { lang: 'en-IN', rate: 1.00, pitch: 0.90, preferred: ['Raveena','Google IN','hi-IN'] },
-    foreign: { lang: 'en-AU', rate: 0.95, pitch: 1.05, preferred: ['Karen','Google AU','en-AU'] },
-    default: { lang: 'en-GB', rate: 0.97, pitch: 0.85, preferred: ['Google UK','Daniel','en-GB'] },
-  },
-  companion: {
-    indian:  { lang: 'en-IN', rate: 0.93, pitch: 1.08, preferred: ['Google हिन्दी','Raveena','Google IN'] },
-    foreign: { lang: 'en-US', rate: 0.91, pitch: 1.10, preferred: ['Samantha','Google US English'] },
-    default: { lang: 'en-IN', rate: 0.93, pitch: 1.05, preferred: ['Google','en-IN'] },
-  },
-};
-
-function pickVoice(accent, role) {
-  const profile = (VOICE_PROFILES[role] || VOICE_PROFILES.companion)[accent] || VOICE_PROFILES.companion.default;
-  const voices  = window.speechSynthesis?.getVoices() || [];
-
-  for (const name of profile.preferred) {
-    const v = voices.find(v => v.name.includes(name) || v.lang.includes(name));
-    if (v) return { voice: v, rate: profile.rate, pitch: profile.pitch };
-  }
-  // Fallback: any voice matching lang
-  const byLang = voices.find(v => v.lang.startsWith(profile.lang.substring(0, 2)));
-  return { voice: byLang || voices[0] || null, rate: profile.rate, pitch: profile.pitch };
-}
-
 export function useAIVoice({ enabled = true, accent = 'indian', role = 'companion' } = {}) {
+  const [isPlaying, setIsPlaying] = useState(false);
   const queueRef    = useRef([]);
   const playingRef  = useRef(false);
   const audioCtxRef = useRef(null);
@@ -80,76 +48,104 @@ export function useAIVoice({ enabled = true, accent = 'indian', role = 'companio
   const processQueue = useRef(null);
   processQueue.current = () => {
     if (playingRef.current || queueRef.current.length === 0) return;
-    if (!enabledRef.current) { queueRef.current = []; return; }
+    if (!enabledRef.current) { queueRef.current = []; setIsPlaying(false); return; }
 
     const item = queueRef.current.shift();
     playingRef.current = true;
+    setIsPlaying(true);
 
     const onDone = () => {
       playingRef.current = false;
+      setIsPlaying(false);
       setTimeout(() => processQueue.current?.(), 180);
     };
 
     if (item.audioBase64 && audioCtxRef.current) {
-      tryPlayBase64(item.audioBase64, item.text, accentRef.current, roleRef.current, onDone);
+      tryPlayBase64(item.audioBase64, item.text, accentRef.current, roleRef.current, onDone, item.speakerName);
     } else {
-      speakWebSpeech(item.text, accentRef.current, roleRef.current, onDone);
+      speakWebSpeech(item.text, accentRef.current, roleRef.current, onDone, item.speakerName);
     }
   };
 
-  const enqueue = useCallback((audioBase64, text) => {
+  const enqueue = useCallback((audioBase64, text, speakerName) => {
     if (!text?.trim()) return;
-    queueRef.current.push({ audioBase64: audioBase64 || null, text });
+    queueRef.current.push({ audioBase64: audioBase64 || null, text, speakerName: speakerName || null });
     processQueue.current?.();
   }, []);
 
-  const playAudio = useCallback((audioBase64, text) => enqueue(audioBase64, text), [enqueue]);
-  const playText  = useCallback((text)              => enqueue(null, text),         [enqueue]);
+  const playAudio = useCallback((audioBase64, text, speakerName) => enqueue(audioBase64, text, speakerName), [enqueue]);
+  const playText  = useCallback((text, speakerName)              => enqueue(null, text, speakerName),         [enqueue]);
 
   const stopAll = useCallback(() => {
     queueRef.current  = [];
     playingRef.current = false;
+    setIsPlaying(false);
     window.speechSynthesis?.cancel();
   }, []);
 
   useEffect(() => () => stopAll(), [stopAll]);
 
-  return { playAudio, playText, stopAll };
+  return { playAudio, playText, stopAll, isPlaying };
 }
 
 // ── Play base64 mp3 via AudioContext ─────────────────────────────────────────
-function tryPlayBase64(base64, text, accent, role, onDone) {
+function tryPlayBase64(base64, text, accent, role, onDone, speakerName) {
   try {
     const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     const blob  = new Blob([bytes], { type: 'audio/mp3' });
     const url   = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.onended = () => { URL.revokeObjectURL(url); onDone(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); speakWebSpeech(text, accent, role, onDone); };
+    audio.onerror = () => { URL.revokeObjectURL(url); speakWebSpeech(text, accent, role, onDone, speakerName); };
     const p = audio.play();
-    if (p?.catch) p.catch(() => { URL.revokeObjectURL(url); speakWebSpeech(text, accent, role, onDone); });
+    if (p?.catch) p.catch(() => { URL.revokeObjectURL(url); speakWebSpeech(text, accent, role, onDone, speakerName); });
   } catch {
-    speakWebSpeech(text, accent, role, onDone);
+    speakWebSpeech(text, accent, role, onDone, speakerName);
   }
 }
 
-// ── Web Speech — accent + role aware ─────────────────────────────────────────
-export function speakWebSpeech(text, accent = 'indian', role = 'companion', onDone) {
+// ── Web Speech — Natural/Neural voice picker integration ─────────────────────
+export function speakWebSpeech(text, accent = 'indian', role = 'companion', onDone, speakerName) {
   if (!window.speechSynthesis || !text?.trim()) { onDone?.(); return; }
   window.speechSynthesis.cancel();
 
   const chunks = chunkText(text, 200);
   let idx = 0;
 
+  // Determine speaker gender
+  let gender = 'female';
+  if (role === 'participant') {
+    const name = (speakerName || '').toLowerCase();
+    const isMale = name.includes('arjun') || name.includes('vikram') || name.includes('rahul') || name.includes('fritz') || name.includes('angelo') || name.includes('atlas') || name.includes('briggs');
+    gender = isMale ? 'male' : 'female';
+  } else {
+    // Moderators and companions are female by default
+    gender = 'female';
+  }
+
   function speakChunk() {
     if (idx >= chunks.length) { onDone?.(); return; }
     const utt = new SpeechSynthesisUtterance(chunks[idx++]);
-    const { voice, rate, pitch } = pickVoice(accent, role);
-
-    utt.rate   = rate;
-    utt.pitch  = pitch;
+    
+    // Pick the best natural browser voice matching preferences
+    const voice = getNaturalVoice(accent, gender);
+    
+    // Fine-tune rates/pitches based on gender for maximum quality
+    if (gender === 'male') {
+      utt.pitch = 0.85;
+      utt.rate  = 0.90;
+    } else {
+      utt.pitch = 1.12;
+      utt.rate  = 0.93;
+    }
     utt.volume = 1.0;
-    if (voice) { utt.voice = voice; utt.lang = voice.lang; }
+
+    if (voice) {
+      utt.voice = voice;
+      utt.lang  = voice.lang;
+    } else {
+      utt.lang  = accent === 'foreign' ? 'en-US' : 'en-IN';
+    }
 
     const keepAlive = setInterval(() => {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();

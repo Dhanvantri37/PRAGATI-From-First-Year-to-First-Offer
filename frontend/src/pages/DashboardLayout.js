@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getNaturalVoice } from '../utils/voiceHelper';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -209,13 +210,22 @@ export default function DashboardLayout() {
     // Strip markdown bold/asterisks for cleaner speech
     const clean = text.replace(/\*\*(.*?)\*\*/g,'$1').replace(/\*(.*?)\*/g,'$1').replace(/#{1,3} /g,'').substring(0,400);
     const utt = new SpeechSynthesisUtterance(clean);
-    utt.rate = 0.93; utt.pitch = 1.08; utt.volume = 1; utt.lang = 'en-IN';
-    const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v=>v.name.includes('Google')&&v.lang==='en-IN')
-                ||voices.find(v=>v.lang.startsWith('en-IN'))
-                ||voices.find(v=>v.lang.startsWith('en')&&!v.localService)
-                ||voices.find(v=>v.lang.startsWith('en'))||voices[0];
-    if (voice) utt.voice = voice;
+    
+    // Pick the best natural browser voice matching preferences
+    const voice = getNaturalVoice(voiceAccent, 'female');
+    
+    // Fine-tune rates/pitches for premium quality female voice
+    utt.pitch = 1.12;
+    utt.rate  = 0.93;
+    utt.volume = 1.0;
+
+    if (voice) {
+      utt.voice = voice;
+      utt.lang  = voice.lang;
+    } else {
+      utt.lang  = voiceAccent === 'foreign' ? 'en-US' : 'en-IN';
+    }
+
     const keepAlive = setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},4000);
     utt.onend = ()=>clearInterval(keepAlive);
     utt.onerror = ()=>clearInterval(keepAlive);

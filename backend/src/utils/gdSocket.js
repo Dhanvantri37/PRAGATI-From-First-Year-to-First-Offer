@@ -122,9 +122,25 @@ async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', 
   // Distinct voice: moderator uses Celeste, AI participants use their own voice
   const ttsVoice = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
   groqTTS(text, ttsVoice).then(audioBase64 => {
-    if (audioBase64) {
-      namespace.to(roomCode).emit('ai-voice', { audioBase64, text, type, speakerId: sp.id, ttsVoice });
-    }
+    namespace.to(roomCode).emit('ai-voice', {
+      audioBase64: audioBase64 || null,
+      text,
+      type,
+      speakerId: sp.id,
+      speakerName: sp.name,
+      ttsVoice,
+      isParticipant: sp.isParticipant || false
+    });
+  }).catch(() => {
+    namespace.to(roomCode).emit('ai-voice', {
+      audioBase64: null,
+      text,
+      type,
+      speakerId: sp.id,
+      speakerName: sp.name,
+      ttsVoice,
+      isParticipant: sp.isParticipant || false
+    });
   });
 }
 
@@ -544,6 +560,11 @@ function registerGDSocket(io, GDRoom) {
         const p = room.participants.find(p => p.userId?.toString() === userId);
         if (p) { p.interruptions += 1; await room.save(); }
       } catch {}
+    });
+
+    // ── INTERRUPT AI ───────────────────────────────────────────────────────
+    socket.on('interrupt-ai', ({ roomCode, userId }) => {
+      gdIO.to(roomCode).emit('ai-interrupted', { userId });
     });
 
     // ── CHAT MESSAGE (text fallback) ───────────────────────────────────────
