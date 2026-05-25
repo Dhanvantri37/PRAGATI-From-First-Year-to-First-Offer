@@ -73,7 +73,7 @@ export default function InterviewPrepHub() {
         <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>💡</span>
         <div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.88rem', color: '#531697', marginBottom: 4 }}>How to use this hub</div>
-          <div style={{ fontSize: '.8rem', color: '#3d4e6b', lineHeight: 1.7 }}>
+          <div style={{ fontSize: '.8rem', color: 'var(--text-2)', lineHeight: 1.7 }}>
             <strong>Step 1:</strong> Click the AI Mock Interview card above for a fully adaptive voice-enabled interview experience. &nbsp;
             <strong>Step 2:</strong> Click any round card below to practice specific round types. &nbsp;
             <strong>Step 3:</strong> Practice from Company profiles → Recruitment Rounds → 🎯 Practice.
@@ -82,13 +82,13 @@ export default function InterviewPrepHub() {
       </div>
 
       {/* Round Cards Grid */}
-      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.78rem', color: '#7a8ba8', letterSpacing: '.08em', marginBottom: 12 }}>ALL ROUND TYPES</div>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.78rem', color: 'var(--text-3)', letterSpacing: '.08em', marginBottom: 12 }}>ALL ROUND TYPES</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14, marginBottom: 28 }}>
         {rounds.map(([key, meta]) => {
           const resources = ROUND_RESOURCES[key] || [];
           const showRes = activeResource === key;
           return (
-            <div key={key} style={{ background: '#fff', borderRadius: 14, border: '1px solid #e8edf5', boxShadow: '0 2px 12px rgba(4,44,93,0.05)', overflow: 'hidden', transition: 'box-shadow .2s' }}
+            <div key={key} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', boxShadow: '0 2px 12px rgba(4,44,93,0.05)', overflow: 'hidden', transition: 'box-shadow .2s' }}
               onMouseOver={e => e.currentTarget.style.boxShadow = '0 6px 24px rgba(83,22,151,0.12)'}
               onMouseOut={e => e.currentTarget.style.boxShadow = '0 2px 12px rgba(4,44,93,0.05)'}>
               {/* Card top */}
@@ -96,11 +96,11 @@ export default function InterviewPrepHub() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                   <span style={{ fontSize: '1.6rem' }}>{meta.icon}</span>
                   <div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#0f1a2e' }}>{meta.label}</div>
-                    <div style={{ fontSize: '.7rem', color: '#7a8ba8', marginTop: 1 }}>{resources.length} external resources</div>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)' }}>{meta.label}</div>
+                    <div style={{ fontSize: '.7rem', color: 'var(--text-3)', marginTop: 1 }}>{resources.length} external resources</div>
                   </div>
                 </div>
-                <div style={{ fontSize: '.78rem', color: '#3d4e6b', lineHeight: 1.6 }}>{meta.desc}</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--text-2)', lineHeight: 1.6 }}>{meta.desc}</div>
               </div>
 
               {/* Card actions */}
@@ -111,7 +111,7 @@ export default function InterviewPrepHub() {
                   {key === 'GD' ? '🎤 Join Live GD Room' : '🎯 Practice Now'}
                 </button>
                 <button onClick={() => setActiveResource(showRes ? null : key)}
-                  style={{ padding: '9px 14px', borderRadius: 9, border: `1.5px solid ${showRes ? meta.color : '#d0d7e8'}`, background: showRes ? meta.bg : '#fff', color: showRes ? meta.color : '#7a8ba8', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', transition: 'all .15s', whiteSpace: 'nowrap' }}>
+                  style={{ padding: '9px 14px', borderRadius: 9, border: `1.5px solid ${showRes ? meta.color : 'var(--border)'}`, background: showRes ? meta.bg : 'var(--surface)', color: showRes ? meta.color : 'var(--text-3)', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', transition: 'all .15s', whiteSpace: 'nowrap' }}>
                   📚 {showRes ? 'Hide' : 'Resources'}
                 </button>
               </div>
@@ -126,7 +126,7 @@ export default function InterviewPrepHub() {
                       onMouseOver={e => { e.currentTarget.style.background = meta.bg; e.currentTarget.style.borderColor = meta.color + '44'; }}
                       onMouseOut={e => { e.currentTarget.style.background = '#fafbff'; e.currentTarget.style.borderColor = '#e8edf5'; }}>
                       <span style={{ fontSize: '.62rem', fontWeight: 800, padding: '2px 6px', borderRadius: 5, background: r.color + '18', color: r.color, whiteSpace: 'nowrap', flexShrink: 0 }}>{r.tag}</span>
-                      <span style={{ fontSize: '.8rem', color: '#0f1a2e', fontWeight: 600, flex: 1 }}>{r.name}</span>
+                      <span style={{ fontSize: '.8rem', color: 'var(--text)', fontWeight: 600, flex: 1 }}>{r.name}</span>
                       <span style={{ color: '#b0bec9', fontSize: '.75rem', flexShrink: 0 }}>↗</span>
                     </a>
                   ))}
@@ -138,8 +138,8 @@ export default function InterviewPrepHub() {
       </div>
 
       {/* Preparation Roadmap */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e8edf5', padding: '22px 24px', marginBottom: 20 }}>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', color: '#0f1a2e', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '22px 24px', marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', color: 'var(--text)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
           🗺️ Recommended Preparation Roadmap
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
@@ -153,11 +153,11 @@ export default function InterviewPrepHub() {
           ].map((phase, i) => (
             <div key={i} style={{ padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${phase.color}22`, background: phase.color + '06' }}>
               <div style={{ fontSize: '.65rem', fontWeight: 800, color: phase.color, letterSpacing: '.06em', marginBottom: 4 }}>{phase.week}</div>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.82rem', color: '#0f1a2e', marginBottom: 8 }}>{phase.title}</div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.82rem', color: 'var(--text)', marginBottom: 8 }}>{phase.title}</div>
               {phase.items.map((item, j) => (
                 <div key={j} style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
                   <span style={{ color: phase.color, fontSize: '.7rem', flexShrink: 0, marginTop: 2 }}>▸</span>
-                  <span style={{ fontSize: '.73rem', color: '#3d4e6b', lineHeight: 1.5 }}>{item}</span>
+                  <span style={{ fontSize: '.73rem', color: 'var(--text-2)', lineHeight: 1.5 }}>{item}</span>
                 </div>
               ))}
             </div>
@@ -170,7 +170,7 @@ export default function InterviewPrepHub() {
         <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>🏢</span>
         <div>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.88rem', color: '#0d7a7e', marginBottom: 4 }}>Practice Company-Specific Rounds</div>
-          <div style={{ fontSize: '.8rem', color: '#3d4e6b', lineHeight: 1.7 }}>
+          <div style={{ fontSize: '.8rem', color: 'var(--text-2)', lineHeight: 1.7 }}>
             Go to <strong>Companies</strong> page → select a company → scroll to <strong>Recruitment Rounds</strong> → click <strong>🎯 Practice</strong> next to each round to practice round types specific to that company's interview process.
           </div>
           <button onClick={() => nav('/dashboard/companies')}

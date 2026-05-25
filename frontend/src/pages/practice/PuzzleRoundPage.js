@@ -49,7 +49,7 @@ export default function PuzzleRoundPage() {
       <RoundHeader icon="🧩" title="Puzzle Round Practice" subtitle="Logical puzzles with hints, answers, and explanations" />
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#dc2626':'#d0d7e8'}`, background:showRes?'rgba(220,38,38,0.06)':'#fff', color:showRes?'#dc2626':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#dc2626':'#d0d7e8'}`, background:showRes?'rgba(220,38,38,0.06)':'#fff', color:showRes?'#dc2626':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -72,11 +72,11 @@ export default function PuzzleRoundPage() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.85rem', flexShrink: 0 }}>P{i+1}</div>
               <div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#0f1a2e' }}>{pz.title}</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)' }}>{pz.title}</div>
                 <span style={{ padding: '1px 7px', borderRadius: 999, background: 'rgba(83,22,151,0.07)', color: '#531697', fontSize: '.65rem', fontWeight: 700 }}>{pz.category}</span>
               </div>
             </div>
-            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.85rem', color: '#3d4e6b', lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: 14 }}>
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.85rem', color: 'var(--text-2)', lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: 14 }}>
               {pz.puzzle}
             </div>
             <textarea value={answers[pz.id] || ''} onChange={e => setAnswers(a => ({ ...a, [pz.id]: e.target.value }))}
@@ -86,7 +86,7 @@ export default function PuzzleRoundPage() {
             />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => setShowHint(h => ({ ...h, [pz.id]: !h[pz.id] }))}
-                style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: showHint[pz.id] ? 'rgba(245,158,11,0.08)' : '#fff', color: showHint[pz.id] ? '#92400e' : '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>
+                style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: showHint[pz.id] ? 'rgba(245,158,11,0.08)' : '#fff', color: showHint[pz.id] ? '#92400e' : 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>
                 💡 {showHint[pz.id] ? 'Hide Hint' : 'Show Hint'}
               </button>
               <button onClick={() => setShowAnswer(h => ({ ...h, [pz.id]: !h[pz.id] }))}
@@ -104,7 +104,7 @@ export default function PuzzleRoundPage() {
                 <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(71,211,114,0.08)', border: '1px solid rgba(71,211,114,0.2)', fontSize: '.82rem', color: '#166534', fontWeight: 800, marginBottom: 8 }}>
                   ✅ Answer: {pz.answer}
                 </div>
-                <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.82rem', color: '#3d4e6b', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.82rem', color: 'var(--text-2)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                   📖 Explanation:\n{pz.explanation}
                 </div>
               </div>

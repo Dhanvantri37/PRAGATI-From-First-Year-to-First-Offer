@@ -67,6 +67,49 @@
   --font-mono:    'JetBrains Mono', monospace;
 }
 
+body.dark {
+  --bg:            #0f1623;
+  --bg-alt:        #161d2e;
+  --surface:       #1e293b;
+  --surface-2:     #1a2235;
+  --border:        #2d3a52;
+  --border-light:  #243049;
+  --text:          #f1f5f9;
+  --text-2:        #cbd5e1;
+  --text-3:        #94a3b8;
+  --grad-subtle:   linear-gradient(135deg, #101625 0%, #171025 50%, #102425 100%);
+  
+  --shadow-sm:     0 2px 4px rgba(0,0,0,0.3);
+  --shadow:        0 8px 24px rgba(0,0,0,0.4);
+  --shadow-lg:     0 16px 32px rgba(0,0,0,0.5);
+  
+  background-color: #0f1623 !important;
+  color: #f1f5f9 !important;
+}
+body.dark input, 
+body.dark select, 
+body.dark textarea {
+  background-color: #1a2235 !important;
+  color: #f1f5f9 !important;
+  border-color: #2d3a52 !important;
+}
+body.dark select option {
+  background-color: #1a2235 !important;
+  color: #f1f5f9 !important;
+}
+
+body.dark .card {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 22, 35, 0.7));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+body.dark .card-hover:hover {
+  border-color: rgba(19, 161, 165, 0.4);
+  box-shadow: 0 12px 40px rgba(19, 161, 165, 0.15), 0 4px 12px rgba(0,0,0,0.5);
+  transform: translateY(-3px);
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 15px; scroll-behavior: smooth; background: #f4f6fb; }
 body {
@@ -649,20 +692,24 @@ html { scroll-behavior: smooth; }
   .pragati-sidebar {
     display: none !important;
   }
-  /* Main content fills full width */
+  /* Main content fills full width with side padding */
   .pragati-main-content {
     margin-left: 0 !important;
+    padding: 16px 16px 76px !important; /* space for bottom nav */
+  }
+  .pragati-main-content.gd-room {
     padding: 0 !important;
-    padding-bottom: 70px !important; /* space for bottom nav */
   }
   /* Header shrinks on mobile */
   .pragati-header {
     padding: 8px 12px !important;
     gap: 8px !important;
   }
-  .pragati-header-streak,
+  .pragati-header-streak {
+    display: none !important; /* hide streak only */
+  }
   .pragati-header-darkmode {
-    display: none !important; /* hide non-essential header items on mobile */
+    display: flex !important; /* keep theme toggle visible on mobile */
   }
 }
 
@@ -814,4 +861,42 @@ html { scroll-behavior: smooth; }
   .pragati-main-content {
     padding-top: env(safe-area-inset-top) !important;
   }
+}
+
+/* ── Dark Mode Contrast Overrides (Headings & Custom Inline styles) ──────── */
+body.dark, body.dark html {
+  background: var(--bg) !important;
+  background-color: #0f1623 !important;
+}
+
+body.dark h1,
+body.dark h2,
+body.dark h3,
+body.dark h4,
+body.dark h5,
+body.dark h6 {
+  color: var(--text) !important;
+}
+
+/* Force light text color on custom inline styling with light-mode dark colors */
+body.dark [style*="color:#0f1a2e"],
+body.dark [style*="color: #0f1a2e"],
+body.dark [style*="color: '#0f1a2e'"],
+body.dark [style*="color:#0F1A2E"],
+body.dark [style*="color: rgb(15, 26, 46)"],
+body.dark [style*="color:rgb(15, 26, 46)"] {
+  color: var(--text) !important;
+}
+
+body.dark [style*="color:#1a2235"],
+body.dark [style*="color: #1a2235"],
+body.dark [style*="color: '#1a2235'"],
+body.dark [style*="color:#1A2235"],
+body.dark [style*="color: rgb(26, 34, 53)"] {
+  color: var(--text-2) !important;
+}
+
+/* Override display titles using 'Syne' font */
+body.dark [style*="Syne"] {
+  color: var(--text) !important;
 }

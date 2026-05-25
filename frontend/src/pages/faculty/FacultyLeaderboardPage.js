@@ -25,8 +25,8 @@ function DeptChart({ students }) {
       {sorted.map(d=>(
         <div key={d.dept}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
-            <span style={{ fontSize:'.75rem', fontWeight:700, color:'#0f1a2e' }}>{d.dept}</span>
-            <span style={{ fontSize:'.7rem', color:'#7a8ba8' }}>{d.count} students · avg {d.avgScore}pts</span>
+            <span style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text)' }}>{d.dept}</span>
+            <span style={{ fontSize:'.7rem', color:'var(--text-3)' }}>{d.count} students · avg {d.avgScore}pts</span>
           </div>
           <div style={{ height:8, background:'#f0f3fa', borderRadius:999, overflow:'hidden' }}>
             <div style={{ height:'100%', width:`${(d.avgScore/maxScore)*100}%`, background:GRAD, borderRadius:999, transition:'width .6s' }}/>
@@ -129,7 +129,7 @@ export default function FacultyLeaderboardPage() {
       <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center', flexWrap:'wrap' }}>
         {[['table','📋 Rankings'],['analytics','📊 Analytics']].map(([v,l])=>(
           <button key={v} onClick={()=>setView(v)}
-            style={{ padding:'8px 18px', borderRadius:9, border:`1.5px solid ${view===v?'#531697':'#d0d7e8'}`, background:view===v?GRAD:'#fff', color:view===v?'#fff':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
+            style={{ padding:'8px 18px', borderRadius:9, border:`1.5px solid ${view===v?'#531697':'#d0d7e8'}`, background:view===v?GRAD:'#fff', color:view===v?'#fff':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
             {l}
           </button>
         ))}
@@ -151,7 +151,7 @@ export default function FacultyLeaderboardPage() {
                 {[['0–39','At Risk','#ef4444'],['40–69','Average','#f59e0b'],['70+','Good','#47d372']].map(([r,l,c])=>(
                   <div key={r} style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <div style={{ width:9, height:9, borderRadius:3, background:c }}/>
-                    <span style={{ fontSize:'.62rem', color:'#7a8ba8' }}>{r} {l}</span>
+                    <span style={{ fontSize:'.62rem', color:'var(--text-3)' }}>{r} {l}</span>
                   </div>
                 ))}
               </div>
@@ -171,7 +171,7 @@ export default function FacultyLeaderboardPage() {
                 return (
                   <div key={level} style={{ textAlign:'center', padding:'14px', borderRadius:12, border:`2px solid ${col}22`, background:`${col}08` }}>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.6rem', color:col }}>{count}</div>
-                    <div style={{ fontSize:'.78rem', fontWeight:700, color:'#0f1a2e', margin:'4px 0' }}>{level}</div>
+                    <div style={{ fontSize:'.78rem', fontWeight:700, color:'var(--text)', margin:'4px 0' }}>{level}</div>
                     <div style={{ fontSize:'.65rem', color:'#b0bec9' }}>{pct}% of students</div>
                     <div style={{ height:5, background:'#f0f3fa', borderRadius:999, marginTop:8, overflow:'hidden' }}>
                       <div style={{ height:'100%', width:`${pct}%`, background:col, borderRadius:999 }}/>
@@ -194,7 +194,7 @@ export default function FacultyLeaderboardPage() {
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <div style={{ width:32, height:32, borderRadius:9, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'.8rem', flexShrink:0 }}>{top.name?.charAt(0)}</div>
                       <div style={{ minWidth:0 }}>
-                        <div style={{ fontWeight:700, fontSize:'.78rem', color:'#0f1a2e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{top.name}</div>
+                        <div style={{ fontWeight:700, fontSize:'.78rem', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{top.name}</div>
                         <div style={{ fontSize:'.62rem', color:'#b0bec9' }}>Score: <strong style={{ color:sc }}>{top.totalScore}</strong></div>
                       </div>
                     </div>
@@ -214,17 +214,17 @@ export default function FacultyLeaderboardPage() {
               placeholder="🔍 Name or roll no…"
               style={{ flex:1, minWidth:180, padding:'8px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', outline:'none' }}/>
             <select value={filterBranch} onChange={e=>setFB(e.target.value)}
-              style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'#3d4e6b', cursor:'pointer' }}>
+              style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
               {branches.map(b=><option key={b} value={b}>{b==='All'?'All Branches':b}</option>)}
             </select>
             <select value={filterYear} onChange={e=>setFY(e.target.value)}
-              style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'#3d4e6b', cursor:'pointer' }}>
+              style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
               {['All','1','2','3','4'].map(y=><option key={y} value={y}>{y==='All'?'All Years':`Year ${y}`}</option>)}
             </select>
             <div style={{ display:'flex', border:'1.5px solid #d0d7e8', borderRadius:9, overflow:'hidden' }}>
               {[['score','🏅 Score'],['streak','🔥 Streak'],['solved','💻 Solved'],['apt','🎯 Apt']].map(([k,l])=>(
                 <button key={k} onClick={()=>setSortBy(k)}
-                  style={{ padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
+                  style={{ padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
                   {l}
                 </button>
               ))}
@@ -256,11 +256,11 @@ export default function FacultyLeaderboardPage() {
                         <div style={{ width:48, height:48, borderRadius:13, background:`linear-gradient(135deg,${sc},#13a1a5)`, margin:'0 auto 10px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.2rem' }}>
                           {s.name?.charAt(0)}
                         </div>
-                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:'#0f1a2e', marginBottom:3 }}>{s.name?.split(' ')[0]}</div>
+                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:'var(--text)', marginBottom:3 }}>{s.name?.split(' ')[0]}</div>
                         <div style={{ fontSize:'.63rem', color:'#b0bec9', marginBottom:8 }}>{s.department} · Y{s.year}</div>
                         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.1rem', color:pc }}>{s.totalScore}</div>
                         <div style={{ fontSize:'.58rem', color:'#b0bec9', marginBottom:6 }}>points</div>
-                        <div style={{ display:'flex', justifyContent:'center', gap:8, fontSize:'.62rem', color:'#7a8ba8' }}>
+                        <div style={{ display:'flex', justifyContent:'center', gap:8, fontSize:'.62rem', color:'var(--text-3)' }}>
                           <span>🔥{s.streak||0}d</span>
                           <span>💻{s.codingProblems||0}</span>
                           <span>🎯{s.aptScore||0}%</span>
@@ -297,7 +297,7 @@ export default function FacultyLeaderboardPage() {
                           {s.name?.charAt(0)}
                         </div>
                         <div style={{ minWidth:0 }}>
-                          <div style={{ fontWeight:700, fontSize:'.82rem', color:'#0f1a2e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
+                          <div style={{ fontWeight:700, fontSize:'.82rem', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>
                           <div style={{ fontSize:'.62rem', color:'#b0bec9' }}>{s.department} · Y{s.year}{s.rollNumber?` · ${s.rollNumber}`:''}</div>
                         </div>
                       </div>

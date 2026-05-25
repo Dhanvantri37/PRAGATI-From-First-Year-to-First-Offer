@@ -15,7 +15,7 @@ function FileDropzone({ file, onFile }) {
     <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? '#13a1a5' : file ? '#47d372' : '#d0d7e8'}`, borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(71,211,114,0.04)' : '#fafbff', transition: 'all .2s' }}>
       <input {...getInputProps()} />
       <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{file ? '✅' : '📁'}</div>
-      <div style={{ fontSize: '.8rem', fontWeight: 700, color: file ? '#2ea854' : '#7a8ba8' }}>{file ? file.name : 'Drop file here or click to browse'}</div>
+      <div style={{ fontSize: '.8rem', fontWeight: 700, color: file ? '#2ea854' : 'var(--text-3)' }}>{file ? file.name : 'Drop file here or click to browse'}</div>
       <div style={{ fontSize: '.7rem', color: '#b0bec9', marginTop: 2 }}>PDF, DOCX, PPT, PPTX — max 20MB</div>
     </div>
   );
@@ -56,11 +56,11 @@ function UploadForm({ user, onUploaded }) {
   }
 
   const INP = { style: { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.875rem', outline: 'none', background: '#fafbff' } };
-  const LBL = ({ children, req }) => <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 700, color: '#3d4e6b', marginBottom: 4, fontFamily: "'Syne',sans-serif" }}>{children}{req && <span style={{ color: '#ef4444' }}> *</span>}</label>;
+  const LBL = ({ children, req }) => <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-2)', marginBottom: 4, fontFamily: "'Syne',sans-serif" }}>{children}{req && <span style={{ color: '#ef4444' }}> *</span>}</label>;
 
   return (
     <div style={{ background: '#fff', border: '1px solid #e8edf5', borderRadius: 16, padding: '22px 22px', marginBottom: 20, boxShadow: '0 2px 8px rgba(4,44,93,0.05)' }}>
-      <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', marginBottom: 16, color: '#0f1a2e' }}>
+      <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', marginBottom: 16, color: 'var(--text)' }}>
         📤 {user?.role === 'admin' ? 'Upload Notes on Behalf of Faculty' : 'Upload Notes'}
       </h3>
 
@@ -68,7 +68,7 @@ function UploadForm({ user, onUploaded }) {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         {[['file', '📁 File Upload'], ['drive', '🔗 Google Drive Link']].map(([m, l]) => (
           <button key={m} type="button" onClick={() => setMethod(m)}
-            style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1.5px solid ${method === m ? '#531697' : '#d0d7e8'}`, background: method === m ? 'rgba(83,22,151,0.06)' : 'transparent', color: method === m ? '#531697' : '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontSize: '.82rem', fontFamily: "'Nunito',sans-serif" }}>
+            style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1.5px solid ${method === m ? '#531697' : '#d0d7e8'}`, background: method === m ? 'rgba(83,22,151,0.06)' : 'transparent', color: method === m ? '#531697' : 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontSize: '.82rem', fontFamily: "'Nunito',sans-serif" }}>
             {l}
           </button>
         ))}
@@ -124,14 +124,14 @@ function UploadForm({ user, onUploaded }) {
             {user?.role === 'faculty' ? (
               <div style={{ padding: '10px 14px', borderRadius: 9, border: '1.5px solid #13a1a5', background: 'rgba(19,161,165,0.07)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontWeight: 700, fontSize: '.83rem', color: '#13a1a5' }}>🌐 Public</span>
-                <span style={{ fontSize: '.72rem', color: '#7a8ba8' }}>Faculty notes are always public — visible to all students after upload</span>
+                <span style={{ fontSize: '.72rem', color: 'var(--text-3)' }}>Faculty notes are always public — visible to all students after upload</span>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 8 }}>
                 {[['public','🌐 Public','Visible to all peers after faculty approval'],['private','🔒 Private','Only visible to you — uploaded instantly, no approval needed']].map(([val, label, desc]) => (
                   <button key={val} type="button" onClick={() => setForm(f => ({ ...f, visibility: val }))}
                     style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: `1.5px solid ${form.visibility === val ? (val === 'public' ? '#13a1a5' : '#531697') : '#d0d7e8'}`, background: form.visibility === val ? (val === 'public' ? 'rgba(19,161,165,0.07)' : 'rgba(83,22,151,0.07)') : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all .15s' }}>
-                    <div style={{ fontWeight: 700, fontSize: '.83rem', color: form.visibility === val ? (val === 'public' ? '#13a1a5' : '#531697') : '#7a8ba8', fontFamily: "'Nunito',sans-serif" }}>{label}</div>
+                    <div style={{ fontWeight: 700, fontSize: '.83rem', color: form.visibility === val ? (val === 'public' ? '#13a1a5' : '#531697') : 'var(--text-3)', fontFamily: "'Nunito',sans-serif" }}>{label}</div>
                     <div style={{ fontSize: '.68rem', color: '#b0bec9', marginTop: 2 }}>{desc}</div>
                   </button>
                 ))}
@@ -146,7 +146,7 @@ function UploadForm({ user, onUploaded }) {
               <>
                 <LBL req>Google Drive Shareable Link</LBL>
                 <input {...INP} type="url" value={form.driveUrl} onChange={set('driveUrl')} placeholder="https://drive.google.com/file/d/..." />
-                <div style={{ fontSize: '.7rem', color: '#7a8ba8', marginTop: 4 }}>Make sure sharing is set to "Anyone with link can view"</div>
+                <div style={{ fontSize: '.7rem', color: 'var(--text-3)', marginTop: 4 }}>Make sure sharing is set to "Anyone with link can view"</div>
               </>
             )}
           </div>
@@ -200,8 +200,8 @@ function NoteCard({ note, user, onRefresh }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg,rgba(83,22,151,0.08),rgba(19,161,165,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0 }}>{fileIcon}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: '.88rem', color: '#0f1a2e', fontFamily: "'Syne',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</div>
-          <div style={{ fontSize: '.72rem', color: '#7a8ba8', marginTop: 2 }}>
+          <div style={{ fontWeight: 800, fontSize: '.88rem', color: 'var(--text)', fontFamily: "'Syne',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{note.title}</div>
+          <div style={{ fontSize: '.72rem', color: 'var(--text-3)', marginTop: 2 }}>
             <span style={{ fontWeight: 700, color: '#531697' }}>{uploaderName}</span>
             {note.subject && <> · {note.subject}</>}
             {note.topic && <> · {note.topic}</>}
@@ -213,7 +213,7 @@ function NoteCard({ note, user, onRefresh }) {
         </div>
       </div>
 
-      {note.description && <div style={{ fontSize: '.77rem', color: '#7a8ba8', lineHeight: 1.5 }}>{note.description}</div>}
+      {note.description && <div style={{ fontSize: '.77rem', color: 'var(--text-3)', lineHeight: 1.5 }}>{note.description}</div>}
 
       {note.tags?.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
@@ -288,15 +288,15 @@ export default function NotesPage() {
   return (
     <div style={{ fontFamily: "'Nunito',sans-serif" }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.6rem', color: '#0f1a2e' }}>📚 Notes</h1>
-        <p style={{ color: '#7a8ba8', marginTop: 4 }}>Study materials organised by faculty, subject, and topic.</p>
+        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.6rem', color: 'var(--text)' }}>📚 Notes</h1>
+        <p style={{ color: 'var(--text-3)', marginTop: 4 }}>Study materials organised by faculty, subject, and topic.</p>
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 5, marginBottom: 20, borderBottom: '1px solid #e8edf5' }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            style={{ padding: '9px 18px', borderRadius: '9px 9px 0 0', border: 'none', borderBottom: activeTab === t.id ? '2px solid #531697' : '2px solid transparent', background: activeTab === t.id ? 'rgba(83,22,151,0.06)' : 'transparent', color: activeTab === t.id ? '#531697' : '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontSize: '.85rem', fontFamily: "'Nunito',sans-serif" }}>
+            style={{ padding: '9px 18px', borderRadius: '9px 9px 0 0', border: 'none', borderBottom: activeTab === t.id ? '2px solid #531697' : '2px solid transparent', background: activeTab === t.id ? 'rgba(83,22,151,0.06)' : 'transparent', color: activeTab === t.id ? '#531697' : 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontSize: '.85rem', fontFamily: "'Nunito',sans-serif" }}>
             {t.label}
           </button>
         ))}
@@ -306,10 +306,10 @@ export default function NotesPage() {
 
       {activeTab === 'pending' && user?.role === 'admin' && (
         <div>
-          <div style={{ marginBottom: 14, fontSize: '.85rem', color: '#7a8ba8' }}>{pending.length} notes awaiting approval</div>
+          <div style={{ marginBottom: 14, fontSize: '.85rem', color: 'var(--text-3)' }}>{pending.length} notes awaiting approval</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14 }}>
             {pending.map(n => <NoteCard key={n._id} note={n} user={user} onRefresh={() => { loadNotes(); loadPending(); }} />)}
-            {!pending.length && <div style={{ color: '#7a8ba8', padding: '24px 0', fontWeight: 700 }}>✅ All caught up!</div>}
+            {!pending.length && <div style={{ color: 'var(--text-3)', padding: '24px 0', fontWeight: 700 }}>✅ All caught up!</div>}
           </div>
         </div>
       )}
@@ -319,39 +319,39 @@ export default function NotesPage() {
           {/* ── Filter bar ── */}
           <div style={{ background: '#fff', border: '1px solid #e8edf5', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 auto' }}>
-              <div style={{ fontSize: '.7rem', fontWeight: 700, color: '#7a8ba8', marginBottom: 4 }}>FILTER BY</div>
+              <div style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--text-3)', marginBottom: 4 }}>FILTER BY</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {/* Faculty */}
                 <select value={filters.facultyName} onChange={setF('facultyName')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : '#fff', color: '#3d4e6b', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
                   <option value="">👤 All Faculty</option>
                   {filterOptions.faculties.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
 
                 {/* Subject */}
                 <select value={filters.subject} onChange={setF('subject')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : '#fff', color: '#3d4e6b', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
                   <option value="">📖 All Subjects</option>
                   {filterOptions.subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
 
                 {/* Topic */}
                 <select value={filters.topic} onChange={setF('topic')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : '#fff', color: '#3d4e6b', cursor: 'pointer', minWidth: 140 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">🏷️ All Topics</option>
                   {filterOptions.topics.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
 
                 {/* Department */}
                 <select value={filters.department} onChange={setF('department')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : '#fff', color: '#3d4e6b', cursor: 'pointer' }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <option value="">🏛️ All Depts</option>
                   {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
 
                 {/* Year */}
                 <select value={filters.year} onChange={setF('year')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : '#fff', color: '#3d4e6b', cursor: 'pointer' }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <option value="">📅 All Years</option>
                   {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
                 </select>
@@ -360,7 +360,7 @@ export default function NotesPage() {
 
             {hasFilters && (
               <button onClick={() => setFilters({ department: '', year: '', subject: '', topic: '', facultyName: '' })}
-                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem', fontFamily: "'Nunito',sans-serif", alignSelf: 'flex-end' }}>
+                style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem', fontFamily: "'Nunito',sans-serif", alignSelf: 'flex-end' }}>
                 ✕ Clear filters
               </button>
             )}
@@ -372,11 +372,11 @@ export default function NotesPage() {
           </div>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#7a8ba8' }}>Loading notes…</div>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>Loading notes…</div>
           ) : notes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0' }}>
               <div style={{ fontSize: '3rem', marginBottom: 12 }}>📚</div>
-              <div style={{ color: '#7a8ba8', fontWeight: 700 }}>No notes found</div>
+              <div style={{ color: 'var(--text-3)', fontWeight: 700 }}>No notes found</div>
               <div style={{ color: '#b0bec9', fontSize: '.83rem', marginTop: 4 }}>
                 {hasFilters ? 'Try removing some filters' : 'Upload the first note using the Upload tab'}
               </div>
@@ -393,7 +393,7 @@ export default function NotesPage() {
                 <div key={subject} style={{ marginBottom: 24 }}>
                   {/* Subject header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#0f1a2e' }}>📖 {subject}</div>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)' }}>📖 {subject}</div>
                     <div style={{ flex: 1, height: 1, background: '#e8edf5' }} />
                     <div style={{ fontSize: '.75rem', color: '#b0bec9', fontWeight: 600 }}>{subjectNotes.length} note{subjectNotes.length !== 1 ? 's' : ''}</div>
                   </div>

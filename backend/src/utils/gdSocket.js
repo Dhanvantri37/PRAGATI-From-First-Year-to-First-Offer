@@ -18,6 +18,30 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // ── AI Moderator identity ──────────────────────────────────────────────────
 const AI_MODERATOR = { id: 'ai-moderator', name: 'PRAGATI AI Moderator' };
 
+// ── AI Participant personas with avatars ───────────────────────────────────
+const AI_PERSONAS = [
+  { name: 'Arjun AI', avatarUrl: '/arjun_sharma.png' },
+  { name: 'Priya AI', avatarUrl: '/priya_mehta.png' },
+  { name: 'Vikram AI', avatarUrl: '/vikram_nair.png' },
+  { name: 'Neha AI',   avatarUrl: '/priya_mehta.png' },
+  { name: 'Rohan AI',  avatarUrl: '/arjun_sharma.png' },
+];
+
+function getAIParticipant(usedNames = []) {
+  const available = AI_PERSONAS.filter(p => !usedNames.includes(p.name));
+  const picked = available.length > 0
+    ? available[Math.floor(Math.random() * available.length)]
+    : AI_PERSONAS[0];
+  return {
+    userId: `ai-${picked.name.split(' ')[0].toLowerCase()}`,
+    name: picked.name,
+    isAI: true,
+    isParticipant: true,
+    avatarUrl: picked.avatarUrl,
+    speakingTime: 0, wordCount: 0, fillerWords: 0, interruptions: 0,
+  };
+}
+
 // ── Groq text generation ───────────────────────────────────────────────────
 async function groqChat(systemPrompt, userMessage, maxTokens = 300) {
   try {
@@ -62,6 +86,18 @@ async function groqTTS(text, voice = 'Celeste-PlayAI') {
 function voiceForAI(name) {
   const idx = name.charCodeAt(0) % AI_PARTICIPANT_VOICES.length;
   return AI_PARTICIPANT_VOICES[idx];
+}
+
+function mapParticipants(participants) {
+  return participants.map(p => ({
+    userId: p.userId,
+    name: p.name,
+    isAI: p.isAI || false,
+    isMuted: p.isMuted || false,
+    isCameraOff: p.isCameraOff || false,
+    socketId: p.socketId || null,
+    avatarUrl: p.avatarUrl || null,
+  }));
 }
 
 // ── Groq STT — transcribe audio chunk ─────────────────────────────────────
@@ -119,31 +155,33 @@ async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', 
     isParticipant: sp.isParticipant || false,
     ts: Date.now(),
   });
-  // Distinct voice: moderator uses Celeste, AI participants use their own voice
-  const ttsVoice = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
-  groqTTS(text, ttsVoice).then(audioBase64 => {
+
+  // Determine voice model based on speaker role
+  const ttsModel = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
+
+  groqTTS(text, ttsModel).then(audioBase64 => {
     namespace.to(roomCode).emit('ai-voice', {
       audioBase64: audioBase64 || null,
       text,
       type,
       speakerId: sp.id,
       speakerName: sp.name,
-      ttsVoice,
+      ttsVoice: ttsModel,
       isParticipant: sp.isParticipant || false
     });
-  }).catch(() => {
+  }).catch((err) => {
+    console.error('[broadcastAIVoice] TTS failed:', err.message);
     namespace.to(roomCode).emit('ai-voice', {
       audioBase64: null,
       text,
       type,
       speakerId: sp.id,
       speakerName: sp.name,
-      ttsVoice,
+      ttsVoice: ttsModel,
       isParticipant: sp.isParticipant || false
     });
   });
 }
-
 // ── Check if a speech is off-topic ────────────────────────────────────────
 async function checkTopicRelevance(topic, speech) {
   if (!speech || speech.length < 20) return { relevant: true, score: 80 };
@@ -344,11 +382,7 @@ function registerGDSocket(io, GDRoom) {
         // Init caption cache
         if (!recentCaptions[roomCode]) recentCaptions[roomCode] = [];
 
-        const parts = room.participants.map(p => ({
-          userId: p.userId, name: p.name, isAI: p.isAI,
-          isMuted: p.isMuted, isCameraOff: p.isCameraOff,
-          socketId: p.socketId || null,
-        }));
+        const parts = mapParticipants(room.participants);
 
         // Emit joined state — includes current topic/state so rejoin works
         socket.emit('joined', {
@@ -369,7 +403,7 @@ function registerGDSocket(io, GDRoom) {
           if (humanCount >= room.minParticipants) {
             // Enough humans — lock immediately
             clearTimeout(timers[`wait_${roomCode}`]);
-            await doLock(room, roomCode, gdIO, GDRoom, timers, recentCaptions);
+            await doLock(room, roomCode, gdIO, GDRoom, timers, silenceTimers, recentCaptions);
           } else if (humanCount === 1 && !room.waitTimerStarted) {
             // First human joined — start 2-min timer
             room.waitTimerStarted = new Date();
@@ -384,19 +418,25 @@ function registerGDSocket(io, GDRoom) {
               if (!freshRoom || freshRoom.state !== 'waiting') return;
               // AI auto-joins as participant/moderator
               const aiNeeded = freshRoom.minParticipants - freshRoom.participants.filter(p => !p.isAI).length;
-              const AI_NAMES = ['Arjun AI','Priya AI','Rahul AI','Sneha AI','Vikram AI'];
+              const AI_PERSONAS = [
+                { name: 'Arjun AI', avatarUrl: '/arjun_sharma.png' },
+                { name: 'Priya AI', avatarUrl: '/priya_mehta.png' },
+                { name: 'Vikram AI', avatarUrl: '/vikram_nair.png' }
+              ];
               for (let i = 0; i < Math.max(aiNeeded, 1); i++) {
+                const persona = AI_PERSONAS[i % AI_PERSONAS.length];
                 freshRoom.participants.push({
-                  name: AI_NAMES[i % AI_NAMES.length], isAI: true,
+                  name: persona.name, isAI: true,
+                  avatarUrl: persona.avatarUrl,
                   speakingTime: 0, wordCount: 0,
                 });
               }
               await freshRoom.save();
               gdIO.to(roomCode).emit('ai-joined', {
                 message: 'Minimum participants not reached. AI participants have joined to start the discussion.',
-                participants: freshRoom.participants.map(p => ({ userId: p.userId, name: p.name, isAI: p.isAI })),
+                participants: mapParticipants(freshRoom.participants),
               });
-              await doLock(freshRoom, roomCode, gdIO, GDRoom, timers, recentCaptions);
+              await doLock(freshRoom, roomCode, gdIO, GDRoom, timers, silenceTimers, recentCaptions);
             }, waitMs);
           }
         }
@@ -458,18 +498,7 @@ function registerGDSocket(io, GDRoom) {
             const fp = freshRoom.participants.find(p => p.userId?.toString() === userId);
             if (fp) { fp.offTopicCount = (fp.offTopicCount || 0) + 1; }
             fp?.transcript?.push({ time: Date.now(), text, isOffTopic: true });
-            freshRoom.aiModerator.interventions = (freshRoom.aiModerator.interventions || 0) + 1;
             await freshRoom.save();
-
-            // AI intervenes — redirect to topic
-            const intervention = await generateModeratorInterjection(
-              freshRoom.topic, recentCaptions[roomCode] || [], 'off_topic'
-            );
-            if (intervention) {
-              await broadcastAIVoice(gdIO, roomCode, intervention, 'warning');
-              recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-10),
-                { userName: AI_MODERATOR.name, text: intervention, isAI: true, ts: Date.now() }];
-            }
           } else {
             const fp = (await GDRoom.findOne({ roomCode }))?.participants.find(p => p.userId?.toString() === userId);
             if (fp) {
@@ -525,7 +554,7 @@ function registerGDSocket(io, GDRoom) {
                   gdIO.to(roomCode).emit('ai-message', { ...aiCaption });
                   recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-20), aiCaption];
                   // Speak the reply
-                  broadcastAIVoice(gdIO, roomCode, reply.trim(), 'participant');
+                  broadcastAIVoice(gdIO, roomCode, reply.trim(), 'participant', { id: `ai-${aiPart.name}`, name: aiPart.name, isAI: true, isParticipant: true });
                 }
               } catch (err) { console.error('[aiParticipantReply]', err.message); }
             }, thinkDelay);
@@ -605,17 +634,57 @@ function resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTi
   silenceTimers[roomCode] = setTimeout(async () => {
     const room = await GDRoom.findOne({ roomCode });
     if (!room || room.state !== 'active') return;
-    const msg = await generateModeratorInterjection(topic, recentCaptions[roomCode] || [], 'silence');
-    if (msg) {
-      await broadcastAIVoice(namespace, roomCode, msg, 'guide');
-      recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-10),
-        { userName: AI_MODERATOR.name, text: msg, isAI: true, ts: Date.now() }];
+    
+    // Have an AI participant speak instead of the moderator
+    const aiParticipants = room.participants.filter(p => p.isAI && !p.name.includes('Moderator'));
+    if (aiParticipants.length > 0) {
+      const aiPart = aiParticipants[Math.floor(Math.random() * aiParticipants.length)];
+      try {
+        const reply = await generateAIParticipantReply(
+          aiPart.name,
+          room.topic,
+          recentCaptions[roomCode] || [],
+          "[Silence in the room. Introduce a new strong point or question to restart the discussion.]"
+        );
+        if (reply && reply.trim().length > 10) {
+          const aiCaption = {
+            userId: `ai-${aiPart.name}`,
+            userName: aiPart.name,
+            text: reply.trim(),
+            isAI: true,
+            type: 'participant',
+            ts: Date.now(),
+          };
+          namespace.to(roomCode).emit('caption', aiCaption);
+          namespace.to(roomCode).emit('ai-message', { ...aiCaption });
+          recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-20), aiCaption];
+          broadcastAIVoice(namespace, roomCode, reply.trim(), 'participant', { id: `ai-${aiPart.name}`, name: aiPart.name, isAI: true, isParticipant: true });
+        }
+      } catch (err) { console.error('[aiParticipantSilenceReply]', err.message); }
+    } else {
+      // If there are NO AI participants, the moderator is allowed to interrupt
+      try {
+        const reply = await generateModeratorInterjection(room.topic, recentCaptions[roomCode] || [], 'interjection');
+        if (reply && reply.trim().length > 10) {
+          const aiCaption = {
+            userId: 'moderator',
+            userName: AI_MODERATOR.name,
+            text: reply.trim(),
+            isAI: true,
+            type: 'moderator',
+            ts: Date.now(),
+          };
+          namespace.to(roomCode).emit('caption', aiCaption);
+          recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-20), aiCaption];
+          broadcastAIVoice(namespace, roomCode, reply.trim(), 'moderator', { id: 'moderator', name: AI_MODERATOR.name, isAI: true });
+        }
+      } catch (err) { console.error('[moderatorSilenceReply]', err.message); }
     }
-  }, 25000); // 25 seconds of silence triggers AI
+  }, 12000); // 12 seconds of silence triggers an AI or Moderator
 }
 
 // ── LOCK & START ───────────────────────────────────────────────────────────
-async function doLock(room, roomCode, namespace, GDRoom, timers, recentCaptions) {
+async function doLock(room, roomCode, namespace, GDRoom, timers, silenceTimers, recentCaptions) {
   try {
     const topic = await generateTopic(room);
     room.topic    = topic;
@@ -625,7 +694,7 @@ async function doLock(room, roomCode, namespace, GDRoom, timers, recentCaptions)
 
     namespace.to(roomCode).emit('room-locked-announce', {
       message: 'The Group Discussion session is now locked.',
-      participants: room.participants.map(p => ({ name: p.name, isAI: p.isAI })),
+      participants: mapParticipants(room.participants),
     });
 
     // PREP phase
@@ -666,29 +735,23 @@ async function doLock(room, roomCode, namespace, GDRoom, timers, recentCaptions)
         }
       }, 4000);
 
-      // Mid-session guidance at 40% mark
-      const midpoint = Math.floor(r.durationSeconds * 0.4) * 1000;
-      setTimeout(async () => {
-        const fr = await GDRoom.findOne({ roomCode });
-        if (!fr || fr.state !== 'active') return;
-        const guideMsg = await generateModeratorInterjection(topic, recentCaptions[roomCode] || [], 'guide');
-        if (guideMsg) {
-          await broadcastAIVoice(namespace, roomCode, guideMsg, 'guide');
-          recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-10),
-            { userName: AI_MODERATOR.name, text: guideMsg, isAI: true, ts: Date.now() }];
-        }
-      }, midpoint);
+      // Moderator does not speak in the middle anymore, only at start and end.
+      
+      // Reset silence timer to allow AI participants to initiate if nobody speaks at the start
+      resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTimers, recentCaptions);
 
-      // 90-second warning
-      const warnDelay = Math.max((r.durationSeconds - 90) * 1000, 0);
+      // 60-second warning
+      const warnDelay = Math.max((r.durationSeconds - 60) * 1000, 0);
       setTimeout(async () => {
         const fr = await GDRoom.findOne({ roomCode });
         if (!fr || fr.state !== 'active') return;
         const warnMsg = await generateModeratorInterjection(topic, recentCaptions[roomCode] || [], 'time_warn');
         if (warnMsg) {
           await broadcastAIVoice(namespace, roomCode, warnMsg, 'warning');
+          recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-10),
+            { userName: AI_MODERATOR.name, text: warnMsg, isAI: true, ts: Date.now() }];
         }
-        namespace.to(roomCode).emit('time-warning', { secondsLeft: 90 });
+        namespace.to(roomCode).emit('time-warning', { secondsLeft: 60 });
       }, warnDelay);
 
       // Auto-end

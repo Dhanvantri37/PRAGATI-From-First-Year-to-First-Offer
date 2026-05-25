@@ -16,25 +16,21 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
 
 // ─── Continuous STT ───────────────────────────────────────────────────────────
-function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, onError }={}) {
+function useContinuousSTT({ lang='en-IN', onPartial, onError }={}) {
   const [listening,  setListening]  = useState(false);
   const [permError,  setPermError]  = useState(false);
   const [supported]                 = useState(!!(window.SpeechRecognition||window.webkitSpeechRecognition));
 
   const recRef      = useRef(null);
   const activeRef   = useRef(false);
-  const onFinalRef  = useRef(onFinal);
+  const mediaStreamRef = useRef(null);
   const onPartialRef= useRef(onPartial);
   const onErrorRef  = useRef(onError);
   const langRef     = useRef(lang);
-  const silMsRef    = useRef(silenceMs);
-  const silRef      = useRef(null);
 
-  useEffect(()=>{ onFinalRef.current  = onFinal;   }, [onFinal]);
   useEffect(()=>{ onPartialRef.current= onPartial; }, [onPartial]);
   useEffect(()=>{ onErrorRef.current  = onError;   }, [onError]);
   useEffect(()=>{ langRef.current     = lang;      }, [lang]);
-  useEffect(()=>{ silMsRef.current    = silenceMs; }, [silenceMs]);
 
   const startSessRef = useRef(null);
   startSessRef.current = () => {
@@ -62,14 +58,6 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
       }
       const totalSpeech = (finalSpeech + interimSpeech).trim();
       onPartialRef.current?.(totalSpeech);
-
-      // Reset silence timer on ANY speech result (interim or final)
-      clearTimeout(silRef.current);
-      silRef.current = setTimeout(() => {
-        if (totalSpeech) {
-          onFinalRef.current?.(totalSpeech);
-        }
-      }, silMsRef.current);
     };
 
     r.onerror = e => {
@@ -104,33 +92,32 @@ function useContinuousSTT({ lang='en-IN', silenceMs=2500, onPartial, onFinal, on
 
   const start = useCallback(async () => {
     if (!supported) return;
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-      setPermError(false);
-    } catch {
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
       setPermError(true);
-      onErrorRef.current?.('Microphone permission denied.');
       return;
     }
-
-    clearTimeout(silRef.current);
     activeRef.current = true;
     startSessRef.current();
   }, [supported]);
 
   const stop = useCallback(() => {
     activeRef.current = false;
-    clearTimeout(silRef.current);
     try { recRef.current?.stop(); } catch {}
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(t => t.stop());
+      mediaStreamRef.current = null;
+    }
     setListening(false);
   }, []);
 
   useEffect(() => () => {
     activeRef.current = false;
-    clearTimeout(silRef.current);
     try { recRef.current?.abort(); } catch {}
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(t => t.stop());
+    }
   }, []);
 
   return { listening, supported, permError, start, stop };
@@ -287,18 +274,24 @@ function AIAvatar({isSpeaking,isThinking,isListening,persona,size=132}){
 function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) {
   const pName = persona?.name || 'Arjun Sharma';
 
-  let eyeLeft = 45.2, eyeRight = 54.8, eyeTop = 40.5;
-  let mouthLeft = 50.0, mouthTop = 60.5;
-  let skinTone = '#d1a17b';
+  let eyeLeft = 56.35, eyeRight = 66.21, eyeTop = 36.23;
+  let mouthLeft = 50.00, mouthTop = 62.00;
+  let skinTone = '#dfb495';
+  let lipColor = '#a65c56';
+  let mouthScaleX = 14;
 
   if (pName.includes('Priya')) {
-    eyeLeft = 45.8; eyeRight = 54.2; eyeTop = 41.2;
-    mouthLeft = 50.0; mouthTop = 59.2;
-    skinTone = '#dfb897';
+    eyeLeft = 45.31; eyeRight = 54.30; eyeTop = 32.62;
+    mouthLeft = 50.00; mouthTop = 59.00;
+    skinTone = '#eec2a3';
+    lipColor = '#c86a62';
+    mouthScaleX = 12;
   } else if (pName.includes('Vikram')) {
-    eyeLeft = 45.5; eyeRight = 54.5; eyeTop = 42.0;
-    mouthLeft = 50.0; mouthTop = 61.5;
-    skinTone = '#c69367';
+    eyeLeft = 44.04; eyeRight = 53.61; eyeTop = 30.38;
+    mouthLeft = 50.00; mouthTop = 60.00;
+    skinTone = '#cca080';
+    lipColor = '#8c463c';
+    mouthScaleX = 12;
   }
 
   // Blinking effect
@@ -368,11 +361,13 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
         backgroundSize: '24px 24px', zIndex: 1
       }} />
 
-      {/* Main Face Container with CSS classes for breathing/nods */}
+      {/* Main Face Container centered with a fixed square aspect ratio */}
       <div className={headClass} style={{
         position: 'relative',
-        width: '100%',
         height: '100%',
+        width: 'auto',
+        maxWidth: '100%',
+        aspectRatio: '1 / 1',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -387,6 +382,7 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
             width: '100%',
             height: '100%',
             objectFit: 'cover',
+            objectPosition: 'top center',
             userSelect: 'none',
             WebkitUserDrag: 'none'
           }}
@@ -396,14 +392,14 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
         {/* Left Eyelid */}
         <div style={{
           position: 'absolute',
-          left: `${eyeLeft - 1}%`,
+          left: `${eyeLeft}%`,
           top: `${eyeTop}%`,
-          width: '18px',
-          height: blink ? '12px' : '0px',
+          width: '3.6%',
+          height: blink ? '1.8%' : '0%',
           background: skinTone,
           borderRadius: '50%',
           borderBottom: blink ? '1px solid rgba(0,0,0,0.35)' : 'none',
-          transform: `translate(-50%, -50%) translate(${gazeX}px, ${gazeY}px)`,
+          transform: `translate(-50%, -50%) translate(${gazeX * 0.15}%, ${gazeY * 0.15}%)`,
           transition: 'height 0.08s ease-in-out',
           zIndex: 4
         }} />
@@ -411,14 +407,14 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
         {/* Right Eyelid */}
         <div style={{
           position: 'absolute',
-          left: `${eyeRight + 1}%`,
+          left: `${eyeRight}%`,
           top: `${eyeTop}%`,
-          width: '18px',
-          height: blink ? '12px' : '0px',
+          width: '3.6%',
+          height: blink ? '1.8%' : '0%',
           background: skinTone,
           borderRadius: '50%',
           borderBottom: blink ? '1px solid rgba(0,0,0,0.35)' : 'none',
-          transform: `translate(-50%, -50%) translate(${gazeX}px, ${gazeY}px)`,
+          transform: `translate(-50%, -50%) translate(${gazeX * 0.15}%, ${gazeY * 0.15}%)`,
           transition: 'height 0.08s ease-in-out',
           zIndex: 4
         }} />
@@ -429,11 +425,11 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
             position: 'absolute',
             left: `${mouthLeft}%`,
             top: `${mouthTop}%`,
-            width: '32px',
-            height: `${mouthHeight}px`,
+            width: `${mouthScaleX}%`,
+            height: `${mouthHeight * 0.6}%`,
             background: '#47121b',
             borderRadius: '50%',
-            border: `2px solid ${skinTone}`,
+            border: `1.8px solid ${lipColor}`,
             transform: 'translate(-50%, -50%)',
             display: 'flex',
             alignItems: 'center',
@@ -443,9 +439,9 @@ function TalkingHeadInterviewer({ isSpeaking, isThinking, isListening, persona }
           }}>
             {/* Teeth line */}
             <div style={{
-              width: '24px',
-              height: '2px',
-              background: '#fff',
+              width: '75%',
+              height: '10%',
+              background: 'var(--surface)',
               position: 'absolute',
               top: '1px',
               borderRadius: 1
@@ -490,7 +486,7 @@ function WebcamPanel({enabled,onToggle}){
   },[enabled,onToggle]);
 
   return(
-    <div style={{position:'relative',borderRadius:12,overflow:'hidden',background:'#0f1a2e',border:'2px solid rgba(83,22,151,0.3)',flexShrink:0}}>
+    <div style={{position:'relative',borderRadius:12,overflow:'hidden',background:'var(--text)',border:'2px solid rgba(83,22,151,0.3)',flexShrink:0}}>
       {enabled?(
         <>
           <video ref={videoRef} muted playsInline autoPlay style={{width:220,height:160,objectFit:'cover',display:'block',transform:'scaleX(-1)'}}/>
@@ -504,7 +500,7 @@ function WebcamPanel({enabled,onToggle}){
         <button onClick={()=>onToggle(true)} style={{width:220,height:160,background:'rgba(83,22,151,0.08)',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,fontFamily:"'Nunito',sans-serif"}}>
           <span style={{fontSize:'1.8rem'}}>📷</span>
           <span style={{fontSize:'.72rem',color:'#531697',fontWeight:800}}>Enable Camera</span>
-          <span style={{fontSize:'.62rem',color:'#7a8ba8',maxWidth:150,textAlign:'center',lineHeight:1.4}}>See yourself like a real interview. No recording — local only.</span>
+          <span style={{fontSize:'.62rem',color:'var(--text-3)',maxWidth:150,textAlign:'center',lineHeight:1.4}}>See yourself like a real interview. No recording — local only.</span>
         </button>
       )}
     </div>
@@ -524,9 +520,9 @@ function ScorePanel({m}){
         <span style={{fontSize:'.7rem',fontWeight:800,color:col}}>{m.clarity}</span>
       </div>
       <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-        {[['📝','Words',m.words,m.words>=50?'#166534':'#92400e'],['💬','Fillers',m.fCount,m.fCount<=2?'#166534':'#991b1b'],['⚡','Pace',m.wpm>0?`${m.wpm}wpm`:'—',m.pace==='Good'?'#166534':'#92400e'],['📖','Example',m.hasEg?'Yes ✓':'Missing',m.hasEg?'#166534':'#991b1b'],['⭐','STAR',m.hasStar?'Yes ✓':'No',m.hasStar?'#166534':'#7a8ba8']].map(([ic,label,val,c])=>(
+        {[['📝','Words',m.words,m.words>=50?'#166534':'#92400e'],['💬','Fillers',m.fCount,m.fCount<=2?'#166534':'#991b1b'],['⚡','Pace',m.wpm>0?`${m.wpm}wpm`:'—',m.pace==='Good'?'#166534':'#92400e'],['📖','Example',m.hasEg?'Yes ✓':'Missing',m.hasEg?'#166534':'#991b1b'],['⭐','STAR',m.hasStar?'Yes ✓':'No',m.hasStar?'#166534':'var(--text-3)']].map(([ic,label,val,c])=>(
           <div key={label} style={{display:'flex',alignItems:'center',gap:3,fontSize:'.7rem'}}>
-            <span>{ic}</span><span style={{color:'#7a8ba8'}}>{label}:</span><strong style={{color:c}}>{val}</strong>
+            <span>{ic}</span><span style={{color:'var(--text-3)'}}>{label}:</span><strong style={{color:c}}>{val}</strong>
           </div>
         ))}
       </div>
@@ -574,6 +570,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
   const bottomRef=useRef(null);
   const sendRef=useRef(null);
   const doneRef=useRef(false);
+  const recognitionRef = useRef(null);
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs,liveText]);
 
@@ -584,10 +581,8 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
       setTimeLeft(t=>{
         if(t<=1){
           clearInterval(timerRef.current);
-          // Trigger end via ref so no stale closure issues
           if(!doneRef.current){
             doneRef.current=true;
-            // End interview gracefully
             setDone(true);
             window.speechSynthesis?.cancel();
             setAiSpeaking(false);
@@ -599,7 +594,6 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
       });
     },1000);
     return()=>clearInterval(timerRef.current);
-  // eslint-disable-next-line
   },[selectedDuration,done]);
 
   // TTS — speaks every interviewer message aloud (respects saved accent preference and gender)
@@ -640,19 +634,28 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
   },[ttsEnabled, interviewType]);
 
   const {listening,supported,permError:micPermError,start:startMic,stop:stopMic}=useContinuousSTT({
-    lang:'en-IN',silenceMs:2500,
+    lang:'en-IN',
     onPartial:t=>{setLiveText(t);if(!ansStart)setAnsStart(Date.now());},
-    onFinal:t=>{if(t.trim())sendRef.current?.(t.trim());},
   });
 
-  // Auto-start microphone when interviewer is silent and not thinking
+  const handleMicStart = useCallback(() => {
+    setLiveText('');
+    startMic().catch(e => console.warn('[STT] Manual start mic failed:', e.message));
+  }, [startMic]);
+
+  const handleMicStop = useCallback(() => {
+    stopMic();
+    if (liveText.trim()) {
+      sendRef.current?.(liveText.trim());
+    }
+  }, [stopMic, liveText]);
+
+  // Auto-stop microphone when interviewer starts speaking or thinking
   useEffect(() => {
-    if (ready && !done && !aiSpeaking && !loading && !micPermError) {
-      startMic().catch(e => console.warn('[STT] Auto-start mic failed:', e.message));
-    } else {
+    if (aiSpeaking || loading || done) {
       stopMic();
     }
-  }, [ready, done, aiSpeaking, loading, micPermError, startMic, stopMic]);
+  }, [aiSpeaking, loading, done, stopMic]);
 
   // Init — fires when student picks a duration
   useEffect(()=>{
@@ -672,7 +675,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
         : hasResume
         ? `I've looked at your resume — questions will reflect your actual background and experience.`
         : `I'll conduct a standard ${interviewType} interview for the ${targetRole} role.`;
-      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview for the ${targetRole} role. ${personalisedNote}\n\nYou have ${selectedDuration.label} — I'll keep asking questions until time runs out. The better your answers, the deeper we go!\n\n🎙️ Click the mic to speak hands-free — auto-sends after 2.5s silence.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1:\n\n${openQ}`;
+      const greeting=`Hello ${userName?.split(' ')[0]||'there'}! I'm ${persona.name}, ${persona.title} at ${persona.company}.\n\nI'll be conducting your ${interviewType} interview for the ${targetRole} role. ${personalisedNote}\n\nYou have ${selectedDuration.label} — I'll keep asking questions until time runs out. The better your answers, the deeper we go!\n\n🎙️ Click the mic to start speaking, and click it again when finished to send your answer.\n📷 Enable your camera for a real interview feel.\n\n❓ Question 1:\n\n${openQ}`;
       setMsgs([{role:'ai',content:greeting}]);
       setReady(true);
       setAnsStart(Date.now());
@@ -716,7 +719,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
     }catch{
       setMsgs(pp=>pp.map((msg,i)=>i===pp.length-1?{role:'ai',content:'Good effort! Keep adding concrete project examples.'}:msg));
     }finally{setLoading(false);}
-  },[input,loading,done,msgs,qNum,targetRole,interviewType,listening,stopMic,speak,ansStart,scores]);
+  },[input,loading,done,msgs,qNum,targetRole,interviewType,listening,stopMic,speak,ansStart,scores,resumeText,jdText]);
 
   useEffect(()=>{sendRef.current=sendAnswer;},[sendAnswer]);
 
@@ -736,7 +739,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
       setSelectedDuration(opt);
     }
     return(
-      <div style={{fontFamily:"'Nunito',sans-serif",background:'#fff',borderRadius:16,overflow:'hidden',border:'1px solid #e8edf5',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
+      <div style={{fontFamily:"'Nunito',sans-serif",background:'var(--surface)',borderRadius:16,overflow:'hidden',border:'1px solid var(--border)',boxShadow:'0 6px 28px rgba(4,44,93,0.1)'}}>
         <div style={{background:'linear-gradient(135deg,#042c5d 0%,#1a0d3e 45%,#0c3240 100%)',padding:'32px 28px',textAlign:'center'}}>
           <AIAvatar isSpeaking={false} isThinking={false} isListening={false} persona={persona} size={100}/>
           <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.25rem',color:'#fff',marginTop:16}}>{persona.name}</div>
@@ -744,8 +747,8 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
           <div style={{marginTop:12,padding:'6px 16px',borderRadius:999,background:'rgba(83,22,151,0.4)',display:'inline-block',color:'#e0d0ff',fontSize:'.75rem',fontWeight:800}}>{interviewType} Interview · {targetRole}</div>
         </div>
         <div style={{padding:'28px 28px 24px'}}>
-          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.05rem',color:'#0f1a2e',marginBottom:6,textAlign:'center'}}>⏱️ How long do you want to practice?</div>
-          <div style={{fontSize:'.82rem',color:'#7a8ba8',textAlign:'center',marginBottom:6}}>The AI will keep asking adaptive questions based on your answers until time runs out.</div>
+          <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.05rem',color:'var(--text)',marginBottom:6,textAlign:'center'}}>⏱️ How long do you want to practice?</div>
+          <div style={{fontSize:'.82rem',color:'var(--text-2)',textAlign:'center',marginBottom:6}}>The AI will keep asking adaptive questions based on your answers until time runs out.</div>
           <div style={{fontSize:'.75rem',color:'#13a1a5',textAlign:'center',marginBottom:20,fontWeight:700}}>🎙️ Clicking a duration will request microphone access — please allow it.</div>
           <div style={{display:'flex',gap:10,justifyContent:'center',flexWrap:'wrap',marginBottom:24}}>
             {DURATION_OPTIONS.map(opt=>(
@@ -1024,9 +1027,9 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
             {/* Microphone Toggle */}
             {supported && !done && (
               <button
-                onClick={micPermError ? undefined : (listening ? stopMic : startMic)}
+                onClick={micPermError ? undefined : (listening ? handleMicStop : handleMicStart)}
                 disabled={loading || !ready || micPermError}
-                title={micPermError ? 'Microphone blocked' : listening ? 'Mute Mic' : 'Start Speaking'}
+                title={micPermError ? 'Microphone blocked' : listening ? '⏹ Stop & Send Answer' : '🎙️ Click to Start Speaking'}
                 style={{
                   width: 38, height: 38, borderRadius: '50%', border: 'none', flexShrink: 0,
                   cursor: loading || !ready || micPermError ? 'not-allowed' : 'pointer',
@@ -1052,7 +1055,7 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
           </div>
           
           <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: '.65rem', color: '#64748b' }}>
-            <span>🎤 Continuous capturing: automatic based on speaker turn</span>
+            <span>🎙️ Click mic to start recording · Click again to stop &amp; send your answer</span>
             {scores.length > 0 && <span style={{ color: '#13a1a5', fontWeight: 800 }}>Score: {avgScore}/100</span>}
           </div>
         </div>
@@ -1113,14 +1116,14 @@ function PrepResult({data,targetRole}){
     <div>
       <div style={{background:'linear-gradient(135deg,rgba(83,22,151,0.05),rgba(19,161,165,0.05))',border:'1px solid rgba(83,22,151,0.12)',borderRadius:14,padding:'16px 18px',marginBottom:18}}>
         <div style={{fontSize:'.7rem',fontWeight:800,color:'#531697',marginBottom:6}}>🧠 PERSONALISED COACHING SUMMARY</div>
-        <div style={{fontSize:'.88rem',color:'#3d4e6b',lineHeight:1.75}}>{data.coaching_summary}</div>
+        <div style={{fontSize:'.88rem',color:'var(--text-2)',lineHeight:1.75}}>{data.coaching_summary}</div>
         <div style={{marginTop:8,fontSize:'.7rem',color:'#b0bec9'}}>For: <strong style={{color:'#531697'}}>{targetRole}</strong></div>
       </div>
-      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>{secs.map(s=><button key={s.id} onClick={()=>setSection(s.id)} style={{padding:'7px 14px',borderRadius:999,border:`1.5px solid ${section===s.id?'#531697':'#d0d7e8'}`,background:section===s.id?'rgba(83,22,151,0.08)':'#fff',color:section===s.id?'#531697':'#7a8ba8',fontWeight:700,cursor:'pointer',fontSize:'.78rem',fontFamily:"'Nunito',sans-serif"}}>{s.label} ({s.count||0})</button>)}</div>
-      {section==='technical'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.technical_questions||[]).map((q,i)=><div key={i} style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:`3px solid ${dc[q.difficulty]||'#531697'}`}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><div style={{fontWeight:700,fontSize:'.88rem',color:'#0f1a2e',flex:1,paddingRight:8}}>Q{i+1}. {q.question}</div><span style={{padding:'2px 8px',borderRadius:999,background:`${dc[q.difficulty]||'#531697'}15`,color:dc[q.difficulty]||'#531697',fontSize:'.65rem',fontWeight:700,flexShrink:0,textTransform:'capitalize'}}>{q.difficulty}</span></div><div style={{fontSize:'.78rem',color:'#7a8ba8'}}>💡 {q.tip}</div>{q.skill&&<span style={{display:'inline-block',marginTop:6,padding:'2px 8px',borderRadius:999,background:'rgba(83,22,151,0.07)',color:'#531697',fontSize:'.68rem',fontWeight:700}}>{q.skill}</span>}</div>)}</div>}
-      {section==='behavioral'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.behavioral_questions||[]).map((q,i)=><div key={i} style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:'3px solid #13a1a5'}}><div style={{fontWeight:700,fontSize:'.88rem',color:'#0f1a2e',marginBottom:6}}>Q{i+1}. {q.question}</div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span style={{padding:'2px 8px',borderRadius:999,background:'rgba(19,161,165,0.08)',color:'#0d7a7e',fontSize:'.68rem',fontWeight:700}}>Use {q.framework}</span><span style={{fontSize:'.75rem',color:'#7a8ba8'}}><em>{q.angle}</em></span></div></div>)}</div>}
-      {section==='gap'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.gap_questions||[]).map((q,i)=><div key={i} style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:'3px solid #f59e0b'}}><div style={{fontWeight:700,fontSize:'.88rem',color:'#0f1a2e',marginBottom:8}}>⚠️ {q.question}</div><div style={{padding:'10px 12px',background:'rgba(245,158,11,0.06)',borderRadius:8,fontSize:'.8rem',color:'#3d4e6b',lineHeight:1.6}}><strong style={{color:'#92400e'}}>How to handle: </strong>{q.how_to_handle}</div></div>)}</div>}
-      {section==='wins'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>{(data.quick_wins||[]).map((w,i)=><div key={i} style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderTop:'3px solid #47d372',display:'flex',gap:10}}><div style={{width:26,height:26,borderRadius:'50%',background:'rgba(71,211,114,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.75rem',color:'#166534',flexShrink:0}}>{i+1}</div><div style={{fontSize:'.83rem',color:'#3d4e6b',lineHeight:1.6}}>{w}</div></div>)}</div>}
+      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>{secs.map(s=><button key={s.id} onClick={()=>setSection(s.id)} style={{padding:'7px 14px',borderRadius:999,border:`1.5px solid ${section===s.id?'#531697':'#d0d7e8'}`,background:section===s.id?'rgba(83,22,151,0.08)':'#fff',color:section===s.id?'#531697':'var(--text-3)',fontWeight:700,cursor:'pointer',fontSize:'.78rem',fontFamily:"'Nunito',sans-serif"}}>{s.label} ({s.count||0})</button>)}</div>
+      {section==='technical'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.technical_questions||[]).map((q,i)=><div key={i} style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:`3px solid ${dc[q.difficulty]||'#531697'}`}}><div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}><div style={{fontWeight:700,fontSize:'.88rem',color:'var(--text)',flex:1,paddingRight:8}}>Q{i+1}. {q.question}</div><span style={{padding:'2px 8px',borderRadius:999,background:`${dc[q.difficulty]||'#531697'}15`,color:dc[q.difficulty]||'#531697',fontSize:'.65rem',fontWeight:700,flexShrink:0,textTransform:'capitalize'}}>{q.difficulty}</span></div><div style={{fontSize:'.78rem',color:'var(--text-3)'}}>💡 {q.tip}</div>{q.skill&&<span style={{display:'inline-block',marginTop:6,padding:'2px 8px',borderRadius:999,background:'rgba(83,22,151,0.07)',color:'#531697',fontSize:'.68rem',fontWeight:700}}>{q.skill}</span>}</div>)}</div>}
+      {section==='behavioral'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.behavioral_questions||[]).map((q,i)=><div key={i} style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:'3px solid #13a1a5'}}><div style={{fontWeight:700,fontSize:'.88rem',color:'var(--text)',marginBottom:6}}>Q{i+1}. {q.question}</div><div style={{display:'flex',gap:8,flexWrap:'wrap'}}><span style={{padding:'2px 8px',borderRadius:999,background:'rgba(19,161,165,0.08)',color: 'var(--text)',fontSize:'.68rem',fontWeight:700}}>Use {q.framework}</span><span style={{fontSize:'.75rem',color:'var(--text-3)'}}><em>{q.angle}</em></span></div></div>)}</div>}
+      {section==='gap'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>{(data.gap_questions||[]).map((q,i)=><div key={i} style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderLeft:'3px solid #f59e0b'}}><div style={{fontWeight:700,fontSize:'.88rem',color:'var(--text)',marginBottom:8}}>⚠️ {q.question}</div><div style={{padding:'10px 12px',background:'rgba(245,158,11,0.06)',borderRadius:8,fontSize:'.8rem',color:'var(--text-2)',lineHeight:1.6}}><strong style={{color:'#92400e'}}>How to handle: </strong>{q.how_to_handle}</div></div>)}</div>}
+      {section==='wins'&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>{(data.quick_wins||[]).map((w,i)=><div key={i} style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:12,padding:'14px 16px',borderTop:'3px solid #47d372',display:'flex',gap:10}}><div style={{width:26,height:26,borderRadius:'50%',background:'rgba(71,211,114,0.1)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:'.75rem',color:'#166534',flexShrink:0}}>{i+1}</div><div style={{fontSize:'.83rem',color:'var(--text-2)',lineHeight:1.6}}>{w}</div></div>)}</div>}
     </div>
   );
 }
@@ -1236,16 +1239,16 @@ export default function InterviewPrepPage(){
   return(
     <div style={{fontFamily:"'Nunito',sans-serif",maxWidth:960,margin:'0 auto'}}>
       <div style={{marginBottom:22}}>
-        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.65rem',color:'#0f1a2e',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:0}}>
+        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'1.65rem',color:'var(--text)',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',margin:0}}>
           🎤 AI Interview Coach
           <span style={{padding:'4px 12px',borderRadius:999,background:'linear-gradient(135deg,rgba(83,22,151,0.1),rgba(19,161,165,0.1))',color:'#531697',fontSize:'.7rem',fontWeight:800,border:'1px solid rgba(83,22,151,0.15)'}}>Human AI · Voice · Camera · Adaptive</span>
         </h1>
-        <p style={{color:'#7a8ba8',marginTop:6,fontSize:'.88rem',marginBottom:0}}>Your AI interviewer speaks, adapts every question to your answer, and listens continuously — just like a real interview.</p>
+        <p style={{color:'var(--text-3)',marginTop:6,fontSize:'.88rem',marginBottom:0}}>Your AI interviewer speaks, adapts every question to your answer, and listens continuously — just like a real interview.</p>
       </div>
 
       <div style={{display:'flex',gap:4,marginBottom:22,borderBottom:'1px solid #e8edf5'}}>
         {[['ai','🤖 AI Interview'],['bank','📚 Questions Bank']].map(([id,label])=>(
-          <button key={id} onClick={()=>setMainTab(id)} style={{padding:'9px 20px',borderRadius:'10px 10px 0 0',border:'none',borderBottom:mainTab===id?'2.5px solid #531697':'2.5px solid transparent',background:mainTab===id?'rgba(83,22,151,0.06)':'transparent',color:mainTab===id?'#531697':'#7a8ba8',fontWeight:800,cursor:'pointer',fontSize:'.85rem',fontFamily:"'Nunito',sans-serif"}}>{label}</button>
+          <button key={id} onClick={()=>setMainTab(id)} style={{padding:'9px 20px',borderRadius:'10px 10px 0 0',border:'none',borderBottom:mainTab===id?'2.5px solid #531697':'2.5px solid transparent',background:mainTab===id?'rgba(83,22,151,0.06)':'transparent',color:mainTab===id?'#531697':'var(--text-3)',fontWeight:800,cursor:'pointer',fontSize:'.85rem',fontFamily:"'Nunito',sans-serif"}}>{label}</button>
         ))}
       </div>
 
@@ -1254,7 +1257,7 @@ export default function InterviewPrepPage(){
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14,alignItems:'center'}}>
             <input value={bankSearch} onChange={e=>setBankSearch(e.target.value)} placeholder="🔍 Search questions…" style={{padding:'8px 14px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.84rem',flex:1,minWidth:170,outline:'none'}}/>
             {[['Role',BROLES,bankRole,setBankRole],['Subject',BSUBS,bankSub,setBankSub]].map(([label,opts,val,setter])=>(
-              <select key={label} value={val} onChange={e=>setter(e.target.value)} style={{padding:'8px 10px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem',fontWeight:700,color:'#3d4e6b',background:'#fff',cursor:'pointer'}}>
+              <select key={label} value={val} onChange={e=>setter(e.target.value)} style={{padding:'8px 10px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem',fontWeight:700,color:'var(--text-2)',background:'var(--surface)',cursor:'pointer'}}>
                 {opts.map(o=><option key={o}>{label}: {o}</option>)}
               </select>
             ))}
@@ -1264,7 +1267,7 @@ export default function InterviewPrepPage(){
             const isOpen=bankOpen===q._id;
             const dc2={Hard:'#ef4444',Medium:'#f59e0b',Easy:'#47d372'}[q.difficulty]||'#531697';
             return(
-              <div key={q._id} style={{padding:'14px 18px',marginBottom:10,background:'#fff',border:'1px solid #e8edf5',borderRadius:13}}>
+              <div key={q._id} style={{padding:'14px 18px',marginBottom:10,background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:13}}>
                 <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
                   <div style={{flex:1}}>
                     <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:7}}>
@@ -1272,7 +1275,7 @@ export default function InterviewPrepPage(){
                       {q.subject&&<span style={{padding:'2px 8px',borderRadius:999,background:'rgba(19,161,165,0.08)',color:'#13a1a5',fontSize:'.67rem',fontWeight:700}}>📘 {q.subject}</span>}
                       {q.difficulty&&<span style={{padding:'2px 8px',borderRadius:999,background:`${dc2}12`,color:dc2,fontSize:'.67rem',fontWeight:700}}>{q.difficulty}</span>}
                     </div>
-                    <div style={{fontWeight:700,fontSize:'.9rem',color:'#0f1a2e',lineHeight:1.55}}>{q.question}</div>
+                    <div style={{fontWeight:700,fontSize:'.9rem',color:'var(--text)',lineHeight:1.55}}>{q.question}</div>
                   </div>
                   <button onClick={()=>setBankOpen(isOpen?null:q._id)} style={{padding:'6px 12px',borderRadius:8,border:'1.5px solid #d0d7e8',background:isOpen?'rgba(83,22,151,0.06)':'transparent',color:'#531697',fontWeight:700,cursor:'pointer',fontSize:'.75rem',flexShrink:0,fontFamily:"'Nunito',sans-serif"}}>{isOpen?'▲ Hide':'▼ Answer'}</button>
                 </div>
@@ -1280,7 +1283,7 @@ export default function InterviewPrepPage(){
                   <div style={{marginTop:14,paddingTop:14,borderTop:'1px solid #f0f3fa'}}>
                     <textarea value={userAns[q._id]||''} onChange={e=>setUserAns(a=>({...a,[q._id]:e.target.value}))} placeholder="Write your answer here…" rows={3} style={{width:'100%',padding:'9px 12px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.84rem',resize:'vertical',outline:'none',boxSizing:'border-box',marginBottom:10}}/>
                     {q.answer&&<div style={{padding:'10px 14px',background:'rgba(71,211,114,0.07)',border:'1px solid rgba(71,211,114,0.25)',borderRadius:9,fontSize:'.83rem',color:'#166534',lineHeight:1.65,marginBottom:10}}><strong>📖 Suggested:</strong> {q.answer}</div>}
-                    {aiAns[q._id]&&<div style={{padding:'10px 14px',background:'rgba(83,22,151,0.05)',border:'1px solid rgba(83,22,151,0.12)',borderRadius:9,fontSize:'.83rem',color:'#3d4e6b',lineHeight:1.65,marginBottom:10}}><strong style={{color:'#531697'}}>🤖 AI:</strong> {aiAns[q._id]}</div>}
+                    {aiAns[q._id]&&<div style={{padding:'10px 14px',background:'rgba(83,22,151,0.05)',border:'1px solid rgba(83,22,151,0.12)',borderRadius:9,fontSize:'.83rem',color:'var(--text-2)',lineHeight:1.65,marginBottom:10}}><strong style={{color:'#531697'}}>🤖 AI:</strong> {aiAns[q._id]}</div>}
                     <button onClick={()=>getAiAns(q._id,q.question)} disabled={aiAnsLoad[q._id]} style={{padding:'7px 16px',borderRadius:8,border:'none',background:aiAnsLoad[q._id]?'#e8edf5':'linear-gradient(135deg,#531697,#13a1a5)',color:aiAnsLoad[q._id]?'#b0bec9':'#fff',fontWeight:700,cursor:'pointer',fontSize:'.78rem',fontFamily:"'Nunito',sans-serif"}}>{aiAnsLoad[q._id]?'⏳ Loading…':'🤖 Get AI Answer'}</button>
                   </div>
                 )}
@@ -1293,39 +1296,39 @@ export default function InterviewPrepPage(){
 
       {mainTab==='ai'&&(
         <div>
-          <div style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:14,padding:'16px 20px',marginBottom:20,boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}>
+          <div style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:14,padding:'16px 20px',marginBottom:20,boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}>
             <div style={{display:'flex',gap:14,flexWrap:'wrap',alignItems:'center',marginBottom:14}}>
-              <div style={{fontSize:'.78rem',fontWeight:800,color:'#3d4e6b',flexShrink:0}}>🎯 Target Role:</div>
-              <input value={targetRole} onChange={e=>setRole(e.target.value)} placeholder="e.g. Software Engineer, Data Scientist" style={{flex:1,minWidth:200,padding:'9px 14px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.9rem',outline:'none',color:'#0f1a2e'}}/>
-              {latest&&<div style={{fontSize:'.72rem',color:'#7a8ba8'}}>ATS: <strong style={{color:'#531697'}}>{latest.atsScore}/100</strong> · Gaps: <strong style={{color:'#991b1b'}}>{gaps.length}</strong></div>}
+              <div style={{fontSize:'.78rem',fontWeight:800,color:'var(--text-2)',flexShrink:0}}>🎯 Target Role:</div>
+              <input value={targetRole} onChange={e=>setRole(e.target.value)} placeholder="e.g. Software Engineer, Data Scientist" style={{flex:1,minWidth:200,padding:'9px 14px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.9rem',outline:'none',color:'var(--text)'}}/>
+              {latest&&<div style={{fontSize:'.72rem',color:'var(--text-3)'}}>ATS: <strong style={{color:'#531697'}}>{latest.atsScore}/100</strong> · Gaps: <strong style={{color:'#991b1b'}}>{gaps.length}</strong></div>}
             </div>
             {/* ── Resume + JD Upload ── */}
             <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-start',marginBottom:14,padding:'12px 14px',borderRadius:11,border:'1.5px solid #e8edf5',background:'#fafbff'}}>
               <div style={{flex:1,minWidth:200}}>
-                <div style={{fontSize:'.72rem',fontWeight:800,color:'#3d4e6b',marginBottom:5}}>📄 Upload Resume (optional):</div>
+                <div style={{fontSize:'.72rem',fontWeight:800,color:'var(--text-2)',marginBottom:5}}>📄 Upload Resume (optional):</div>
                 <input type="file" accept=".pdf,.docx,.txt" onChange={e=>handleResumeUpload(e.target.files?.[0])} style={{fontSize:'.78rem',color:'#531697',cursor:'pointer'}}/>
-                {uploadingResume&&<div style={{fontSize:'.68rem',color:'#7a8ba8',marginTop:4}}>⏳ Extracting text…</div>}
+                {uploadingResume&&<div style={{fontSize:'.68rem',color:'var(--text-3)',marginTop:4}}>⏳ Extracting text…</div>}
                 {resumeText&&!uploadingResume&&<div style={{fontSize:'.68rem',color:'#166534',marginTop:4}}>✅ Resume loaded — AI will personalise questions</div>}
               </div>
               <div style={{flex:1,minWidth:200}}>
-                <div style={{fontSize:'.72rem',fontWeight:800,color:'#3d4e6b',marginBottom:5}}>📋 Job Description (optional):</div>
+                <div style={{fontSize:'.72rem',fontWeight:800,color:'var(--text-2)',marginBottom:5}}>📋 Job Description (optional):</div>
                 <textarea value={jdText} onChange={e=>setJdText(e.target.value)} placeholder="Paste the JD here — e.g. Amazon SDE-2 requirements…" rows={3}
-                  style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem',outline:'none',resize:'vertical',color:'#0f1a2e',boxSizing:'border-box'}}/>
+                  style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem',outline:'none',resize:'vertical',color:'var(--text)',boxSizing:'border-box'}}/>
                 {jdText&&<div style={{fontSize:'.68rem',color:'#166534',marginTop:2}}>✅ JD loaded — questions tailored to this role</div>}
               </div>
             </div>
-            <div style={{fontSize:'.72rem',fontWeight:800,color:'#7a8ba8',marginBottom:10}}>Interview Type:</div>
+            <div style={{fontSize:'.72rem',fontWeight:800,color:'var(--text-3)',marginBottom:10}}>Interview Type:</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
               {ITYPES.map(t=>(
-                <button key={t.id} onClick={()=>setIType(t.id)} style={{padding:'10px 18px',borderRadius:11,border:`1.5px solid ${iType===t.id?t.color:'#d0d7e8'}`,background:iType===t.id?`${t.color}12`:'#fff',color:iType===t.id?t.color:'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem',display:'flex',alignItems:'center',gap:6}}>
+                <button key={t.id} onClick={()=>setIType(t.id)} style={{padding:'10px 18px',borderRadius:11,border:`1.5px solid ${iType===t.id?t.color:'#d0d7e8'}`,background:iType===t.id?`${t.color}12`:'#fff',color:iType===t.id?t.color:'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem',display:'flex',alignItems:'center',gap:6}}>
                   {t.icon} {t.id}{iType===t.id&&' ✓'}
                 </button>
               ))}
             </div>
-            {iType&&<div style={{marginTop:8,fontSize:'.75rem',color:'#7a8ba8'}}>{ITYPES.find(t=>t.id===iType)?.desc}</div>}
+            {iType&&<div style={{marginTop:8,fontSize:'.75rem',color:'var(--text-3)'}}>{ITYPES.find(t=>t.id===iType)?.desc}</div>}
           </div>
 
-          {mode&&<button onClick={()=>{setMode(null);setPrepResult(null);setDeepResult(null);setPrepError('');window.speechSynthesis?.cancel();}} style={{marginBottom:16,padding:'7px 16px',borderRadius:9,border:'1.5px solid #d0d7e8',background:'transparent',color:'#7a8ba8',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem'}}>← Back to modes</button>}
+          {mode&&<button onClick={()=>{setMode(null);setPrepResult(null);setDeepResult(null);setPrepError('');window.speechSynthesis?.cancel();}} style={{marginBottom:16,padding:'7px 16px',borderRadius:9,border:'1.5px solid #d0d7e8',background:'transparent',color:'var(--text-3)',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem'}}>← Back to modes</button>}
 
           {!mode&&(
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14}}>
@@ -1348,20 +1351,20 @@ export default function InterviewPrepPage(){
                 <div style={{display:'inline-block',padding:'7px 16px',borderRadius:999,background:'linear-gradient(135deg,#531697,#13a1a5)',color:'#fff',fontWeight:800,fontSize:'.8rem'}}>Start Interview →</div>
               </div>
               <div onClick={()=>{setMode('prep');runPrep();}}
-                style={{background:'#fff',border:'1.5px solid #e8edf5',borderRadius:16,padding:'22px 20px',cursor:'pointer',transition:'all .2s',boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}
+                style={{background:'var(--surface)',border:'1.5px solid #e8edf5',borderRadius:16,padding:'22px 20px',cursor:'pointer',transition:'all .2s',boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}
                 onMouseOver={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#531697';}}
                 onMouseOut={e=>{e.currentTarget.style.transform='';e.currentTarget.style.borderColor='#e8edf5';}}>
                 <div style={{fontSize:'2rem',marginBottom:10}}>🎯</div>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'#0f1a2e',marginBottom:6}}>Full Interview Prep</div>
-                <div style={{fontSize:'.8rem',color:'#7a8ba8',lineHeight:1.6}}>Personalised: technical questions, behavioral prep, skill gaps, quick wins.</div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'var(--text)',marginBottom:6}}>Full Interview Prep</div>
+                <div style={{fontSize:'.8rem',color:'var(--text-3)',lineHeight:1.6}}>Personalised: technical questions, behavioral prep, skill gaps, quick wins.</div>
               </div>
               <div onClick={()=>setMode('tips')}
-                style={{background:'#fff',border:'1.5px solid #e8edf5',borderRadius:16,padding:'22px 20px',cursor:'pointer',transition:'all .2s',boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}
+                style={{background:'var(--surface)',border:'1.5px solid #e8edf5',borderRadius:16,padding:'22px 20px',cursor:'pointer',transition:'all .2s',boxShadow:'0 2px 10px rgba(4,44,93,0.05)'}}
                 onMouseOver={e=>{e.currentTarget.style.transform='translateY(-3px)';e.currentTarget.style.borderColor='#531697';}}
                 onMouseOut={e=>{e.currentTarget.style.transform='';e.currentTarget.style.borderColor='#e8edf5';}}>
                 <div style={{fontSize:'2rem',marginBottom:10}}>💡</div>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'#0f1a2e',marginBottom:6}}>Topic Deep Dive</div>
-                <div style={{fontSize:'.8rem',color:'#7a8ba8',lineHeight:1.6}}>Pick any skill gap — focused explanation, practice questions, quick interview prep.</div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:900,fontSize:'.95rem',color:'var(--text)',marginBottom:6}}>Topic Deep Dive</div>
+                <div style={{fontSize:'.8rem',color:'var(--text-3)',lineHeight:1.6}}>Pick any skill gap — focused explanation, practice questions, quick interview prep.</div>
               </div>
             </div>
           )}
@@ -1370,7 +1373,7 @@ export default function InterviewPrepPage(){
 
           {mode==='prep'&&(
             <div>
-              {prepLoading&&<div style={{textAlign:'center',padding:'50px 0'}}><div style={{width:42,height:42,border:'3px solid #e8edf5',borderTopColor:'#531697',borderRadius:'50%',animation:'spin .7s linear infinite',margin:'0 auto 14px'}}/><div style={{color:'#7a8ba8'}}>Generating prep guide…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>}
+              {prepLoading&&<div style={{textAlign:'center',padding:'50px 0'}}><div style={{width:42,height:42,border:'3px solid #e8edf5',borderTopColor:'#531697',borderRadius:'50%',animation:'spin .7s linear infinite',margin:'0 auto 14px'}}/><div style={{color:'var(--text-3)'}}>Generating prep guide…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>}
               {prepError&&<div style={{padding:'14px 18px',background:'#fee2e2',border:'1px solid #fca5a5',borderRadius:10,color:'#991b1b',fontSize:'.85rem',fontWeight:600,marginBottom:14}}>⚠️ {prepError} <button onClick={runPrep} style={{marginLeft:10,padding:'4px 12px',borderRadius:7,border:'none',background:'#991b1b',color:'#fff',cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>Retry</button></div>}
               {prepResult&&!prepLoading&&<PrepResult data={prepResult} targetRole={targetRole}/>}
             </div>
@@ -1378,8 +1381,8 @@ export default function InterviewPrepPage(){
 
           {mode==='tips'&&(
             <div>
-              <div style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:14,padding:'20px 22px',marginBottom:16}}>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.95rem',marginBottom:12,color:'#0f1a2e'}}>💡 Topic Deep Dive</div>
+              <div style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:14,padding:'20px 22px',marginBottom:16}}>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.95rem',marginBottom:12,color:'var(--text)'}}>💡 Topic Deep Dive</div>
                 {gaps.length>0&&<div style={{marginBottom:14}}><div style={{fontSize:'.7rem',fontWeight:800,color:'#991b1b',marginBottom:8}}>YOUR SKILL GAPS:</div><div style={{display:'flex',flexWrap:'wrap',gap:6}}>{gaps.slice(0,10).map(s=><button key={s} onClick={()=>setDeepTopic(s)} style={{padding:'5px 12px',borderRadius:999,border:`1.5px solid ${deepTopic===s?'#531697':'rgba(239,68,68,0.3)'}`,background:deepTopic===s?'rgba(83,22,151,0.08)':'rgba(239,68,68,0.06)',color:deepTopic===s?'#531697':'#991b1b',fontSize:'.78rem',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}}>{s}</button>)}</div></div>}
                 <div style={{display:'flex',gap:10}}>
                   <input value={deepTopic} onChange={e=>setDeepTopic(e.target.value)} placeholder="Type any skill: Docker, System Design, React Hooks…" style={{flex:1,padding:'10px 14px',borderRadius:9,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.9rem',outline:'none'}}/>
@@ -1388,9 +1391,9 @@ export default function InterviewPrepPage(){
               </div>
               {deepResult&&(
                 <div style={{display:'flex',flexDirection:'column',gap:14}}>
-                  <div style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:13,padding:'16px 18px'}}><div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:10,color:'#0f1a2e'}}>📖 About {deepTopic}</div><div style={{fontSize:'.86rem',color:'#3d4e6b',lineHeight:1.75}}>{deepResult.explanation}</div></div>
-                  {deepResult.practice_questions?.length>0&&<div style={{background:'#fff',border:'1px solid #e8edf5',borderRadius:13,padding:'16px 18px'}}><div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:10,color:'#0f1a2e'}}>❓ Practice Questions</div>{deepResult.practice_questions.map((q,i)=><div key={i} style={{padding:'9px 12px',background:'#f8f9fc',borderRadius:8,marginBottom:7,fontSize:'.84rem',color:'#3d4e6b'}}>Q{i+1}. {q}</div>)}</div>}
-                  {deepResult.quick_prep&&<div style={{background:'rgba(83,22,151,0.04)',border:'1px solid rgba(83,22,151,0.12)',borderRadius:13,padding:'14px 18px',fontSize:'.84rem',color:'#3d4e6b',lineHeight:1.7}}><strong style={{color:'#531697'}}>⚡ Quick Interview Prep: </strong>{deepResult.quick_prep}</div>}
+                  <div style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:13,padding:'16px 18px'}}><div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:10,color:'var(--text)'}}>📖 About {deepTopic}</div><div style={{fontSize:'.86rem',color:'var(--text-2)',lineHeight:1.75}}>{deepResult.explanation}</div></div>
+                  {deepResult.practice_questions?.length>0&&<div style={{background:'var(--surface)',border:'1px solid #e8edf5',borderRadius:13,padding:'16px 18px'}}><div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:10,color:'var(--text)'}}>❓ Practice Questions</div>{deepResult.practice_questions.map((q,i)=><div key={i} style={{padding:'9px 12px',background:'#f8f9fc',borderRadius:8,marginBottom:7,fontSize:'.84rem',color:'var(--text-2)'}}>Q{i+1}. {q}</div>)}</div>}
+                  {deepResult.quick_prep&&<div style={{background:'rgba(83,22,151,0.04)',border:'1px solid rgba(83,22,151,0.12)',borderRadius:13,padding:'14px 18px',fontSize:'.84rem',color:'var(--text-2)',lineHeight:1.7}}><strong style={{color:'#531697'}}>⚡ Quick Interview Prep: </strong>{deepResult.quick_prep}</div>}
                 </div>
               )}
             </div>

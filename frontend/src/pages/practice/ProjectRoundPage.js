@@ -49,7 +49,7 @@ export default function ProjectRoundPage() {
       <RoundHeader icon="⚫" title="Project Round Practice" subtitle="Mock interviewer questions about your projects with sample answers" />
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:12 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#374151':'#d0d7e8'}`, background:showRes?'rgba(55,65,81,0.07)':'#fff', color:showRes?'#374151':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#374151':'#d0d7e8'}`, background:showRes?'rgba(55,65,81,0.07)':'#fff', color:showRes?'#374151':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -72,7 +72,7 @@ export default function ProjectRoundPage() {
           {['Know your project inside-out — architecture, all dependencies, every design choice', 'Quantify impact: "handles 500 concurrent users", "reduced load time by 40%"', 'Prepare a 2-min and 5-min version of your project pitch', 'Be honest about limitations — it shows maturity', 'Have GitHub open and code ready to show'].map((tip, i) => (
             <div key={i} style={{ display: 'flex', gap: 8, padding: '8px 10px', borderRadius: 8, background: '#fff', border: '1px solid #e8edf5' }}>
               <span style={{ color: '#531697', fontWeight: 800, fontSize: '.75rem', flexShrink: 0 }}>💡</span>
-              <span style={{ fontSize: '.75rem', color: '#3d4e6b', lineHeight: 1.5 }}>{tip}</span>
+              <span style={{ fontSize: '.75rem', color: 'var(--text-2)', lineHeight: 1.5 }}>{tip}</span>
             </div>
           ))}
         </div>

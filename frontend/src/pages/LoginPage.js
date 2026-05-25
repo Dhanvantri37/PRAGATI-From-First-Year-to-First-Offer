@@ -56,7 +56,7 @@ export default function LoginPage() {
       border: `1.5px solid ${touched[field] && !form[field] ? '#ef4444' : '#d0d7e8'}`,
       fontFamily: "'Nunito',sans-serif", fontSize: '.9rem', outline: 'none',
       background: '#fafbff', transition: 'border .15s, box-shadow .15s',
-      color: '#0f1a2e',
+      color: 'var(--text)',
     }
   });
 
@@ -71,14 +71,14 @@ export default function LoginPage() {
         <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420 }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <a href="/"><img src="/logo.png" alt="PRAGATI" style={{ height: 60, objectFit: 'contain', filter: 'drop-shadow(0 6px 20px rgba(83,22,151,0.18))' }} /></a>
-            <p style={{ fontSize: '.83rem', color: '#7a8ba8', marginTop: 8, fontFamily: "'Nunito',sans-serif" }}>Sign in to your account</p>
+            <p style={{ fontSize: '.83rem', color: 'var(--text-3)', marginTop: 8, fontFamily: "'Nunito',sans-serif" }}>Sign in to your account</p>
           </div>
 
           <div style={{ background: '#fff', borderRadius: 22, padding: '32px', boxShadow: '0 8px 48px rgba(4,44,93,0.10)', border: '1px solid rgba(83,22,151,0.08)', position: 'relative' }}>
             <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 3, borderRadius: '0 0 3px 3px', background: 'linear-gradient(90deg,#042c5d,#531697,#13a1a5,#47d372)' }} />
 
-            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.4rem', color: '#0f1a2e', marginBottom: 6 }}>Welcome back</h2>
-            <p style={{ fontSize: '.83rem', color: '#7a8ba8', marginBottom: 24 }}>Your placement journey continues here</p>
+            <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.4rem', color: 'var(--text)', marginBottom: 6 }}>Welcome back</h2>
+            <p style={{ fontSize: '.83rem', color: 'var(--text-3)', marginBottom: 24 }}>Your placement journey continues here</p>
 
             {/* Error message — prominent, clear, with icon */}
             {error && (
@@ -97,7 +97,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} noValidate>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 700, color: '#3d4e6b', marginBottom: 5, fontFamily: "'Syne',sans-serif" }}>
+                <label style={{ display: 'block', fontSize: '.78rem', fontWeight: 700, color: 'var(--text-2)', marginBottom: 5, fontFamily: "'Syne',sans-serif" }}>
                   Email Address
                 </label>
                 <input
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
               <div style={{ marginBottom: 22 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                  <label style={{ fontSize: '.78rem', fontWeight: 700, color: '#3d4e6b', fontFamily: "'Syne',sans-serif" }}>
+                  <label style={{ fontSize: '.78rem', fontWeight: 700, color: 'var(--text-2)', fontFamily: "'Syne',sans-serif" }}>
                     Password
                   </label>
                 </div>
@@ -132,16 +132,16 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '.83rem', color: '#7a8ba8' }}>
+            <p style={{ textAlign: 'center', marginTop: 20, fontSize: '.83rem', color: 'var(--text-3)' }}>
               New here? <a href="/register" style={{ color: '#531697', fontWeight: 700, textDecoration: 'none' }}>Create account</a>
             </p>
           </div>
 
           {/* Demo hint box */}
-          <div style={{ marginTop: 14, padding: '11px 16px', background: 'rgba(19,161,165,0.06)', border: '1px solid rgba(19,161,165,0.15)', borderRadius: 10, fontSize: '.73rem', color: '#3d4e6b' }}>
+          <div style={{ marginTop: 14, padding: '11px 16px', background: 'rgba(19,161,165,0.06)', border: '1px solid rgba(19,161,165,0.15)', borderRadius: 10, fontSize: '.73rem', color: 'var(--text-2)' }}>
             <div style={{ fontWeight: 700, color: '#0d7a7e', marginBottom: 4 }}>🔑 Demo Credentials</div>
             <div>admin@pragati.edu · faculty@pragati.edu · student@pragati.edu</div>
-            <div style={{ marginTop: 2, color: '#7a8ba8' }}>Password: <strong>Admin@123 / Faculty@123 / Student@123</strong></div>
+            <div style={{ marginTop: 2, color: 'var(--text-3)' }}>Password: <strong>Admin@123 / Faculty@123 / Student@123</strong></div>
           </div>
         </div>
       </div>

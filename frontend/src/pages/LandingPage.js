@@ -20,7 +20,7 @@ export default function LandingPage() {
   const nav = useNavigate();
 
   return (
-    <div style={{ fontFamily: "'Nunito', sans-serif", color: '#0f1a2e', overflowX: 'hidden', background: 'transparent' }}>
+    <div style={{ fontFamily: "'Nunito', sans-serif", color: 'var(--text)', overflowX: 'hidden', background: 'transparent' }}>
 
       {/* ── Topbar ── */}
       <nav style={{
@@ -80,7 +80,7 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        <p className="fade-up-3" style={{ fontSize: '1.1rem', color: '#3d4e6b', maxWidth: 580, marginBottom: 36, lineHeight: 1.7 }}>
+        <p className="fade-up-3" style={{ fontSize: '1.1rem', color: 'var(--text-2)', maxWidth: 580, marginBottom: 36, lineHeight: 1.7 }}>
           PRAGATI unifies your academic notes, daily coding practice, aptitude prep, company intelligence, and AI-powered resume analysis — into one platform built for engineering students.
         </p>
 
@@ -98,7 +98,7 @@ export default function LandingPage() {
           {[['6', 'Integrated Modules'],['AI', 'Powered Analysis'],['3', 'User Roles'],['∞', 'Growth Potential']].map(([n,l]) => (
             <div key={l} style={{ textAlign:'center' }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'2rem', background:'linear-gradient(135deg,#042c5d,#531697)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>{n}</div>
-              <div style={{ fontSize:'.78rem', color:'#7a8ba8', fontWeight:600, marginTop:2 }}>{l}</div>
+              <div style={{ fontSize:'.78rem', color:'var(--text-3)', fontWeight:600, marginTop:2 }}>{l}</div>
             </div>
           ))}
         </div>
@@ -111,7 +111,7 @@ export default function LandingPage() {
             Everything you need to
             <span style={{ display:'block', background:'linear-gradient(90deg,#531697,#13a1a5)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>crack placements</span>
           </h2>
-          <p style={{ color:'#7a8ba8', maxWidth:500, margin:'0 auto', lineHeight:1.7 }}>Six focused modules that work together across your entire preparation journey.</p>
+          <p style={{ color:'var(--text-3)', maxWidth:500, margin:'0 auto', lineHeight:1.7 }}>Six focused modules that work together across your entire preparation journey.</p>
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:20, maxWidth:1100, margin:'0 auto' }}>
@@ -119,7 +119,7 @@ export default function LandingPage() {
             <div key={f.title} className="card card-hover" style={{ padding:'24px 22px', transition:'all .2s' }}>
               <div style={{ width:48, height:48, borderRadius:14, background:`${f.color}14`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.4rem', marginBottom:14 }}>{f.icon}</div>
               <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'1.05rem', marginBottom:8, color:f.color }}>{f.title}</h3>
-              <p style={{ color:'#7a8ba8', fontSize:'.875rem', lineHeight:1.65 }}>{f.desc}</p>
+              <p style={{ color:'var(--text-3)', fontSize:'.875rem', lineHeight:1.65 }}>{f.desc}</p>
             </div>
           ))}
         </div>
@@ -131,7 +131,7 @@ export default function LandingPage() {
           <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'clamp(1.6rem,3vw,2.4rem)', marginBottom:12 }}>
             How PRAGATI works
           </h2>
-          <p style={{ color:'#7a8ba8' }}>Different roles, one connected platform.</p>
+          <p style={{ color:'var(--text-3)' }}>Different roles, one connected platform.</p>
         </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:24, maxWidth:1000, margin:'0 auto' }}>
@@ -140,7 +140,7 @@ export default function LandingPage() {
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', marginBottom:18, color:['#042c5d','#531697','#0d7a7e'][i] }}>{h.role}</div>
               <ol style={{ listStyle:'none', display:'flex', flexDirection:'column', gap:10 }}>
                 {h.steps.map((s,j) => (
-                  <li key={j} style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:'.875rem', color:'#3d4e6b' }}>
+                  <li key={j} style={{ display:'flex', gap:10, alignItems:'flex-start', fontSize:'.875rem', color:'var(--text-2)' }}>
                     <span style={{
                       width:22, height:22, borderRadius:'50%', flexShrink:0,
                       background:['linear-gradient(135deg,#042c5d,#531697)','linear-gradient(135deg,#531697,#13a1a5)','linear-gradient(135deg,#13a1a5,#47d372)'][i],

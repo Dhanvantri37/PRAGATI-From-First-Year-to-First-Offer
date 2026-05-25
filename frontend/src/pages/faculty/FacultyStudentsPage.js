@@ -36,7 +36,7 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
           ))}
         </svg>
         <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.3rem', color:'#0f1a2e', lineHeight:1 }}>{solved}</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.3rem', color:'var(--text)', lineHeight:1 }}>{solved}</div>
           <div style={{ fontSize:'.58rem', color:'#b0bec9', fontWeight:700, marginTop:2 }}>/{total} Solved</div>
         </div>
       </div>
@@ -44,8 +44,8 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
         {paths.map(s=>(
           <div key={s.label} style={{ display:'flex', alignItems:'center', gap:7 }}>
             <div style={{ width:9, height:9, borderRadius:3, background:s.color }}/>
-            <div style={{ fontSize:'.72rem', color:'#7a8ba8', minWidth:44 }}>{s.label}</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'#0f1a2e' }}>{s.val}</div>
+            <div style={{ fontSize:'.72rem', color:'var(--text-3)', minWidth:44 }}>{s.label}</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'var(--text)' }}>{s.val}</div>
           </div>
         ))}
       </div>
@@ -97,7 +97,7 @@ function ScoreBreakdown({ breakdown }) {
       {Object.entries(breakdown).map(([k,v])=>(
         <div key={k} style={{ display:'flex', gap:8, marginBottom:4, fontSize:'.72rem' }}>
           <span style={{ fontWeight:800, color:'#531697', minWidth:60, textTransform:'capitalize' }}>{k}:</span>
-          <span style={{ color:'#3d4e6b' }}>{v}</span>
+          <span style={{ color:'var(--text-2)' }}>{v}</span>
         </div>
       ))}
     </div>
@@ -158,7 +158,7 @@ function StudentProfileModal({ student, onClose }) {
         <div style={{ background:'#fff', display:'flex', gap:0, borderBottom:'1px solid #e8edf5', padding:'0 24px' }}>
           {TABS.map(t=>(
             <button key={t} onClick={()=>setTab(t)}
-              style={{ padding:'12px 16px', border:'none', background:'transparent', cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontWeight:700, fontSize:'.8rem', color:tab===t?'#531697':'#7a8ba8', borderBottom:`2px solid ${tab===t?'#531697':'transparent'}`, transition:'all .15s', textTransform:'capitalize' }}>
+              style={{ padding:'12px 16px', border:'none', background:'transparent', cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontWeight:700, fontSize:'.8rem', color:tab===t?'#531697':'var(--text-3)', borderBottom:`2px solid ${tab===t?'#531697':'transparent'}`, transition:'all .15s', textTransform:'capitalize' }}>
               {t==='overview'?'📊 Overview':t==='aptitude'?'🎯 Aptitude':t==='coding'?'💻 Coding':'📅 Activity'}
             </button>
           ))}
@@ -208,8 +208,8 @@ function StudentProfileModal({ student, onClose }) {
                           ['Rank', `#${s.rank||'N/A'}`],
                         ].map(([l,v])=>(
                           <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #f0f3fa' }}>
-                            <span style={{ fontSize:'.75rem', color:'#7a8ba8' }}>{l}</span>
-                            <span style={{ fontSize:'.78rem', fontWeight:800, color:'#0f1a2e' }}>{v}</span>
+                            <span style={{ fontSize:'.75rem', color:'var(--text-3)' }}>{l}</span>
+                            <span style={{ fontSize:'.78rem', fontWeight:800, color:'var(--text)' }}>{v}</span>
                           </div>
                         ))}
                       </div>
@@ -219,7 +219,7 @@ function StudentProfileModal({ student, onClose }) {
                   {/* Social links */}
                   <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
                     {s.linkedinUrl && <a href={s.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'6px 14px', borderRadius:8, background:'rgba(37,99,235,0.08)', color:'#2563eb', fontWeight:700, fontSize:'.75rem', textDecoration:'none' }}>💼 LinkedIn</a>}
-                    {s.githubUrl   && <a href={s.githubUrl}   target="_blank" rel="noopener noreferrer" style={{ padding:'6px 14px', borderRadius:8, background:'rgba(15,26,46,0.06)', color:'#0f1a2e', fontWeight:700, fontSize:'.75rem', textDecoration:'none' }}>🐙 GitHub</a>}
+                    {s.githubUrl   && <a href={s.githubUrl}   target="_blank" rel="noopener noreferrer" style={{ padding:'6px 14px', borderRadius:8, background:'rgba(15,26,46,0.06)', color:'var(--text)', fontWeight:700, fontSize:'.75rem', textDecoration:'none' }}>🐙 GitHub</a>}
                     {s.portfolioUrl && <a href={s.portfolioUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'6px 14px', borderRadius:8, background:'rgba(83,22,151,0.07)', color:'#531697', fontWeight:700, fontSize:'.75rem', textDecoration:'none' }}>🌐 Portfolio</a>}
                   </div>
 
@@ -253,7 +253,7 @@ function StudentProfileModal({ student, onClose }) {
                           <div key={stat.topic} style={{ background:'#fff', borderRadius:10, padding:'12px 14px', border:'1px solid #e8edf5' }}>
                             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
                               <div>
-                                <span style={{ fontWeight:700, fontSize:'.82rem', color:'#0f1a2e' }}>{stat.topic}</span>
+                                <span style={{ fontWeight:700, fontSize:'.82rem', color:'var(--text)' }}>{stat.topic}</span>
                                 <span style={{ fontSize:'.65rem', color:'#b0bec9', marginLeft:8 }}>{stat.total} attempts</span>
                               </div>
                               <span style={{ fontWeight:800, fontSize:'.82rem', color:c }}>{pct}% ({stat.correct}/{stat.total})</span>
@@ -290,7 +290,7 @@ function StudentProfileModal({ student, onClose }) {
                         ['Total Solved',  easy+medium+hard, '#531697'],
                       ].map(([l,v,c])=>(
                         <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:'1px solid #f0f3fa' }}>
-                          <span style={{ fontSize:'.75rem', color:'#7a8ba8' }}>{l}</span>
+                          <span style={{ fontSize:'.75rem', color:'var(--text-3)' }}>{l}</span>
                           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:c }}>{v}</span>
                         </div>
                       ))}
@@ -305,7 +305,7 @@ function StudentProfileModal({ student, onClose }) {
                         return (
                           <div key={stat.topic} style={{ background:'#fff', borderRadius:10, padding:'10px 14px', border:'1px solid #e8edf5', marginBottom:7 }}>
                             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                              <span style={{ fontWeight:700, fontSize:'.8rem', color:'#0f1a2e' }}>{stat.topic}</span>
+                              <span style={{ fontWeight:700, fontSize:'.8rem', color:'var(--text)' }}>{stat.topic}</span>
                               <span style={{ fontSize:'.75rem', color:'#531697', fontWeight:800 }}>{stat.solved}/{stat.total}</span>
                             </div>
                             <div style={{ height:5, background:'#f0f3fa', borderRadius:999, overflow:'hidden' }}>
@@ -338,7 +338,7 @@ function StudentProfileModal({ student, onClose }) {
                         <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:i<9?'1px solid #f0f3fa':'none' }}>
                           <span style={{ fontSize:'1rem' }}>{a.correct?'✅':'❌'}</span>
                           <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontWeight:600, fontSize:'.78rem', color:'#0f1a2e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            <div style={{ fontWeight:600, fontSize:'.78rem', color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                               {a.questionId?.question || 'Question'}
                             </div>
                             <div style={{ fontSize:'.65rem', color:'#b0bec9' }}>
@@ -414,8 +414,8 @@ export default function FacultyStudentsPage() {
 
       {/* Header */}
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'#0f1a2e', margin:0 }}>👥 Students</h1>
-        <p style={{ color:'#7a8ba8', marginTop:4, fontSize:'.85rem' }}>View all students, their performance metrics, and detailed profiles</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)', margin:0 }}>👥 Students</h1>
+        <p style={{ color:'var(--text-3)', marginTop:4, fontSize:'.85rem' }}>View all students, their performance metrics, and detailed profiles</p>
       </div>
 
       {/* Summary stats */}
@@ -431,7 +431,7 @@ export default function FacultyStudentsPage() {
               <span style={{ fontSize:'1.2rem' }}>{ic}</span>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:c }}>{v}</div>
             </div>
-            <div style={{ fontSize:'.72rem', color:'#7a8ba8', fontWeight:600 }}>{l}</div>
+            <div style={{ fontSize:'.72rem', color:'var(--text-3)', fontWeight:600 }}>{l}</div>
           </div>
         ))}
       </div>
@@ -447,13 +447,13 @@ export default function FacultyStudentsPage() {
           [filterSkill,  setFS, ['All','Beginner','Intermediate','Expert']],
         ].map(([val,set,opts],i)=>(
           <select key={i} value={val} onChange={e=>set(e.target.value)}
-            style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'#3d4e6b', cursor:'pointer' }}>
+            style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
             {opts.map(o=><option key={o} value={o}>{o==='All'?['All Branches','All Years','All Levels'][i]:o==='1'||o==='2'||o==='3'||o==='4'?`Year ${o}`:o}</option>)}
           </select>
         ))}
         {/* Sort */}
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
-          style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'#3d4e6b', cursor:'pointer' }}>
+          style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
           {[['score','Sort: Score'],['streak','Sort: Streak'],['solved','Sort: Solved'],['apt','Sort: Aptitude'],['name','Sort: Name']].map(([v,l])=>(
             <option key={v} value={v}>{l}</option>
           ))}
@@ -474,7 +474,7 @@ export default function FacultyStudentsPage() {
       ) : filtered.length === 0 ? (
         <div style={{ textAlign:'center', padding:40, background:'#fff', borderRadius:14, border:'1px solid #e8edf5' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:8 }}>🔍</div>
-          <div style={{ color:'#7a8ba8', fontSize:'.85rem' }}>No students match this filter</div>
+          <div style={{ color:'var(--text-3)', fontSize:'.85rem' }}>No students match this filter</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -501,7 +501,7 @@ export default function FacultyStudentsPage() {
                 {/* Info */}
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                    <span style={{ fontWeight:700, fontSize:'.88rem', color:'#0f1a2e' }}>{s.name}</span>
+                    <span style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)' }}>{s.name}</span>
                     <span style={{ padding:'1px 7px', borderRadius:999, background:sc+'18', color:sc, fontSize:'.62rem', fontWeight:800 }}>{s.skillLevel||'Beginner'}</span>
                   </div>
                   <div style={{ fontSize:'.68rem', color:'#b0bec9', marginTop:2 }}>

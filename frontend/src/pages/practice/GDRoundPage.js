@@ -176,9 +176,9 @@ function AIGDSimulator({ topic }) {
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}); },[convo,liveText]);
 
   const {listening,supported,start:startMic,stop:stopMic} = useContinuousSTT({
-    lang:'en-IN', silenceMs:2500,
+    lang:'en-IN', silenceMs:999999, // disable auto-silence submit
     onPartial: t=>setLive(t),
-    onFinal: t=>{ if(t.trim()) sendRef.current?.(t.trim()); },
+    // no onFinal, wait for manual stop/send
   });
 
   async function startGD() {
@@ -189,9 +189,13 @@ function AIGDSimulator({ topic }) {
   }
 
   const handleSend = useCallback(async(textOverride)=>{
-    const text=(textOverride!==undefined?textOverride:input).trim();
+    let text = (textOverride!==undefined?textOverride:input).trim();
+    if(listening) {
+      const micText = stopMic();
+      if (!text && micText) text = micText;
+    }
+    setLive(''); setInput('');
     if(!text||loading||done)return;
-    if(listening)stopMic(); setLive(''); setInput('');
     const isLast = turn>=totalTurns-1;
     const newConvo=[...convo,{role:'participant',text}];
     setConvo(newConvo); setLoad(true);
@@ -212,9 +216,9 @@ function AIGDSimulator({ topic }) {
   if(!started) return (
     <div style={{textAlign:'center',padding:'30px 20px'}}>
       <div style={{fontSize:'2.5rem',marginBottom:12}}>🎙️</div>
-      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'#0f1a2e',marginBottom:8}}>AI GD Simulator</div>
+      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'var(--text)',marginBottom:8}}>AI GD Simulator</div>
       <div style={{fontWeight:700,fontSize:'.9rem',color:'#531697',marginBottom:6}}>{topic.topic}</div>
-      <div style={{color:'#7a8ba8',fontSize:'.84rem',marginBottom:20,maxWidth:460,margin:'0 auto 20px'}}>The AI moderator will introduce the topic, challenge your arguments, ask follow-ups, and summarize — just like a real GD panel.</div>
+      <div style={{color:'var(--text-3)',fontSize:'.84rem',marginBottom:20,maxWidth:460,margin:'0 auto 20px'}}>The AI moderator will introduce the topic, challenge your arguments, ask follow-ups, and summarize — just like a real GD panel.</div>
       <button onClick={startGD} style={{padding:'12px 28px',borderRadius:10,border:'none',background:'linear-gradient(135deg,#531697,#13a1a5)',color:'#fff',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.9rem'}}>🚀 Start GD Session</button>
     </div>
   );
@@ -223,7 +227,7 @@ function AIGDSimulator({ topic }) {
     <div>
       {/* Progress */}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-        <span style={{fontSize:'.7rem',color:'#7a8ba8',fontWeight:700}}>Turn {Math.min(turn,totalTurns)}/{totalTurns}</span>
+        <span style={{fontSize:'.7rem',color:'var(--text-3)',fontWeight:700}}>Turn {Math.min(turn,totalTurns)}/{totalTurns}</span>
         <div style={{flex:1,height:4,background:'#f0f3fa',borderRadius:999,margin:'0 10px'}}>
           <div style={{width:`${(turn/totalTurns)*100}%`,height:'100%',background:'linear-gradient(90deg,#531697,#13a1a5)',borderRadius:999,transition:'width .4s'}}/>
         </div>
@@ -236,7 +240,7 @@ function AIGDSimulator({ topic }) {
           <div key={i} style={{display:'flex',flexDirection:'column',alignItems:msg.role==='participant'?'flex-end':'flex-start'}}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
               {msg.role==='moderator'&&<>
-                <span style={{fontSize:'.65rem',fontWeight:800,color:'#7a8ba8'}}>🎤 MODERATOR</span>
+                <span style={{fontSize:'.65rem',fontWeight:800,color:'var(--text-3)'}}>🎤 MODERATOR</span>
                 {msg.tone&&<span style={{fontSize:'.6rem',fontWeight:800,padding:'1px 6px',borderRadius:999,background:`${tc[msg.tone]||'#531697'}18`,color:tc[msg.tone]||'#531697'}}>{tl[msg.tone]}</span>}
               </>}
               {msg.role==='participant'&&<>
@@ -244,14 +248,14 @@ function AIGDSimulator({ topic }) {
                 {msg.pq&&<span style={{fontSize:'.6rem',fontWeight:800,padding:'1px 6px',borderRadius:999,background:`${qc[msg.pq]||'#531697'}18`,color:qc[msg.pq]||'#531697',textTransform:'capitalize'}}>{msg.pq}</span>}
               </>}
             </div>
-            <div style={{maxWidth:'85%',padding:'12px 16px',borderRadius:msg.role==='participant'?'16px 16px 4px 16px':'16px 16px 16px 4px',background:msg.role==='participant'?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:msg.role==='participant'?'#fff':'#0f1a2e',border:msg.role==='participant'?'none':'1px solid #e8edf5',fontSize:'.85rem',lineHeight:1.65,whiteSpace:'pre-wrap',boxShadow:msg.role==='participant'?'0 4px 14px rgba(83,22,151,0.2)':'0 2px 8px rgba(4,44,93,0.05)'}}>
+            <div style={{maxWidth:'85%',padding:'12px 16px',borderRadius:msg.role==='participant'?'16px 16px 4px 16px':'16px 16px 16px 4px',background:msg.role==='participant'?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:msg.role==='participant'?'#fff':'var(--text)',border:msg.role==='participant'?'none':'1px solid #e8edf5',fontSize:'.85rem',lineHeight:1.65,whiteSpace:'pre-wrap',boxShadow:msg.role==='participant'?'0 4px 14px rgba(83,22,151,0.2)':'0 2px 8px rgba(4,44,93,0.05)'}}>
               {msg.text}
             </div>
           </div>
         ))}
         {loading&&<div style={{display:'flex',alignItems:'center',gap:8,opacity:.6}}>
           <div style={{width:28,height:28,borderRadius:'50%',background:'linear-gradient(135deg,#531697,#13a1a5)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.8rem'}}>🎤</div>
-          <div style={{padding:'10px 14px',background:'#fff',border:'1px solid #e8edf5',borderRadius:'12px 12px 12px 4px',fontSize:'.82rem',color:'#7a8ba8'}}>Moderator is thinking…</div>
+          <div style={{padding:'10px 14px',background:'#fff',border:'1px solid #e8edf5',borderRadius:'12px 12px 12px 4px',fontSize:'.82rem',color:'var(--text-3)'}}>Moderator is thinking…</div>
         </div>}
         {listening&&liveText&&(
           <div style={{display:'flex',justifyContent:'flex-end'}}>
@@ -269,7 +273,7 @@ function AIGDSimulator({ topic }) {
           <div style={{display:'flex',gap:8,alignItems:'flex-end',marginBottom:6}}>
             <textarea value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSend();}}}
-              placeholder={listening?'🔴 Listening — speak freely, auto-sends after 2.5s pause…':'Share your viewpoint (click mic to speak or type here)…'}
+              placeholder={listening?'🔴 Listening — speak freely, click mic or send when done…':'Share your viewpoint (click mic to speak or type here)…'}
               rows={2} disabled={loading}
               style={{flex:1,padding:'10px 14px',borderRadius:10,border:`1.5px solid ${listening?'#ef4444':'#d0d7e8'}`,fontFamily:"'Nunito',sans-serif",fontSize:'.88rem',resize:'none',outline:'none',lineHeight:1.5,transition:'border-color .2s'}}
             />
@@ -284,7 +288,7 @@ function AIGDSimulator({ topic }) {
               {loading?'…':'Send ↑'}
             </button>
           </div>
-          <div style={{fontSize:'.68rem',color:'#b0bec9'}}>🎙️ Click mic once → speak naturally → auto-sends after 2.5s pause · ⌨️ Enter to send</div>
+          <div style={{fontSize:'.68rem',color:'#b0bec9'}}>🎙️ Click mic once → speak naturally → click mic again to send · ⌨️ Enter to send</div>
         </div>
       )}
       <style>{`
@@ -323,12 +327,12 @@ export default function GDRoundPage() {
       <div style={{display:'flex',gap:8,marginBottom:20,flexWrap:'wrap'}}>
         {[["rules","📋 Do's & Don'ts"],["topics","📝 GD Topics"],["practice","⏱️ Practice Mode"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
-            style={{padding:'8px 18px',borderRadius:9,border:`1.5px solid ${tab===id?'#531697':'#d0d7e8'}`,background:tab===id?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:tab===id?'#fff':'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem'}}>
+            style={{padding:'8px 18px',borderRadius:9,border:`1.5px solid ${tab===id?'#531697':'#d0d7e8'}`,background:tab===id?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:tab===id?'#fff':'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.82rem'}}>
             {label}
           </button>
         ))}
         <div style={{flex:1}}/>
-        <button onClick={()=>setShowRes(r=>!r)} style={{padding:'7px 14px',borderRadius:9,border:`1.5px solid ${showRes?'#531697':'#d0d7e8'}`,background:showRes?'rgba(83,22,151,0.07)':'#fff',color:showRes?'#531697':'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
+        <button onClick={()=>setShowRes(r=>!r)} style={{padding:'7px 14px',borderRadius:9,border:`1.5px solid ${showRes?'#531697':'#d0d7e8'}`,background:showRes?'rgba(83,22,151,0.07)':'#fff',color:showRes?'#531697':'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -354,7 +358,7 @@ export default function GDRoundPage() {
             {DOS_DONTS.filter(d=>d.type==='do').map((d,i)=>(
               <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:10}}>
                 <span style={{width:20,height:20,borderRadius:'50%',background:'rgba(71,211,114,0.15)',color:'#166534',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.7rem',flexShrink:0,marginTop:1}}>✓</span>
-                <span style={{fontSize:'.83rem',color:'#3d4e6b',lineHeight:1.5}}>{d.text}</span>
+                <span style={{fontSize:'.83rem',color:'var(--text-2)',lineHeight:1.5}}>{d.text}</span>
               </div>
             ))}
           </Card>
@@ -363,7 +367,7 @@ export default function GDRoundPage() {
             {DOS_DONTS.filter(d=>d.type==='dont').map((d,i)=>(
               <div key={i} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:10}}>
                 <span style={{width:20,height:20,borderRadius:'50%',background:'rgba(239,68,68,0.1)',color:'#991b1b',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.7rem',flexShrink:0,marginTop:1}}>✗</span>
-                <span style={{fontSize:'.83rem',color:'#3d4e6b',lineHeight:1.5}}>{d.text}</span>
+                <span style={{fontSize:'.83rem',color:'var(--text-2)',lineHeight:1.5}}>{d.text}</span>
               </div>
             ))}
           </Card>
@@ -373,7 +377,7 @@ export default function GDRoundPage() {
               {[['Communication','Clarity, fluency, vocabulary'],['Content','Relevance, depth, examples'],['Leadership','Initiating, summarizing'],['Teamwork','Listening, acknowledging others'],['Confidence','Body language, assertiveness'],['Logic','Structured, data-backed arguments']].map(([title,desc])=>(
                 <div key={title} style={{padding:'10px 12px',borderRadius:10,background:'#fff',border:'1px solid #e8edf5'}}>
                   <div style={{fontWeight:800,fontSize:'.78rem',color:'#531697',marginBottom:3}}>{title}</div>
-                  <div style={{fontSize:'.72rem',color:'#7a8ba8'}}>{desc}</div>
+                  <div style={{fontSize:'.72rem',color:'var(--text-3)'}}>{desc}</div>
                 </div>
               ))}
             </div>
@@ -387,7 +391,7 @@ export default function GDRoundPage() {
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
             {cats.map(c=>(
               <button key={c} onClick={()=>setFilter(c)}
-                style={{padding:'5px 12px',borderRadius:999,border:`1px solid ${filterCat===c?'#531697':'#d0d7e8'}`,background:filterCat===c?'rgba(83,22,151,0.08)':'#fff',color:filterCat===c?'#531697':'#7a8ba8',fontWeight:700,fontSize:'.75rem',cursor:'pointer',fontFamily:"'Nunito',sans-serif"}}>
+                style={{padding:'5px 12px',borderRadius:999,border:`1px solid ${filterCat===c?'#531697':'#d0d7e8'}`,background:filterCat===c?'rgba(83,22,151,0.08)':'#fff',color:filterCat===c?'#531697':'var(--text-3)',fontWeight:700,fontSize:'.75rem',cursor:'pointer',fontFamily:"'Nunito',sans-serif"}}>
                 {c}
               </button>
             ))}
@@ -396,13 +400,13 @@ export default function GDRoundPage() {
             {filtered.map((t,i)=>(
               <Card key={i} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px'}}>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:800,fontSize:'.9rem',color:'#0f1a2e',marginBottom:5}}>{t.topic}</div>
+                  <div style={{fontWeight:800,fontSize:'.9rem',color:'var(--text)',marginBottom:5}}>{t.topic}</div>
                   <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:6}}>
                     <span style={{padding:'2px 8px',borderRadius:999,background:'rgba(83,22,151,0.07)',color:'#531697',fontSize:'.68rem',fontWeight:700}}>{t.category}</span>
                     <span style={{padding:'2px 8px',borderRadius:999,background:t.difficulty==='Easy'?'rgba(71,211,114,0.1)':t.difficulty==='Hard'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',color:t.difficulty==='Easy'?'#166534':t.difficulty==='Hard'?'#991b1b':'#92400e',fontSize:'.68rem',fontWeight:700}}>{t.difficulty}</span>
                   </div>
                   <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                    {t.keyPoints.map(kp=><span key={kp} style={{padding:'1px 6px',borderRadius:5,background:'#f0f3fa',color:'#7a8ba8',fontSize:'.65rem'}}>{kp}</span>)}
+                    {t.keyPoints.map(kp=><span key={kp} style={{padding:'1px 6px',borderRadius:5,background:'#f0f3fa',color:'var(--text-3)',fontSize:'.65rem'}}>{kp}</span>)}
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8,flexShrink:0}}>
@@ -421,8 +425,8 @@ export default function GDRoundPage() {
           {!selectedTopic?(
             <Card style={{textAlign:'center',padding:'40px 20px'}}>
               <div style={{fontSize:'2.5rem',marginBottom:12}}>💬</div>
-              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'#0f1a2e',marginBottom:6}}>No topic selected</div>
-              <div style={{color:'#7a8ba8',fontSize:'.84rem',marginBottom:16}}>Go to GD Topics and click "Write" or "AI GD"</div>
+              <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'var(--text)',marginBottom:6}}>No topic selected</div>
+              <div style={{color:'var(--text-3)',fontSize:'.84rem',marginBottom:16}}>Go to GD Topics and click "Write" or "AI GD"</div>
               <button onClick={()=>setTab('topics')} style={{padding:'10px 24px',borderRadius:10,border:'none',background:'linear-gradient(135deg,#531697,#13a1a5)',color:'#fff',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif"}}>Browse Topics →</button>
             </Card>
           ):(
@@ -430,16 +434,16 @@ export default function GDRoundPage() {
               {/* Mode switcher */}
               <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
                 {[['write','✍️ Write Mode'],['ai-gd','🤖 AI GD Simulator']].map(([m,label])=>(
-                  <button key={m} onClick={()=>setGdMode(m)} style={{padding:'8px 16px',borderRadius:9,border:`1.5px solid ${gdMode===m?'#531697':'#d0d7e8'}`,background:gdMode===m?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:gdMode===m?'#fff':'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem'}}>
+                  <button key={m} onClick={()=>setGdMode(m)} style={{padding:'8px 16px',borderRadius:9,border:`1.5px solid ${gdMode===m?'#531697':'#d0d7e8'}`,background:gdMode===m?'linear-gradient(135deg,#531697,#13a1a5)':'#fff',color:gdMode===m?'#fff':'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.8rem'}}>
                     {label}
                   </button>
                 ))}
-                <button onClick={()=>{setTopic(null);setTimer(false);}} style={{marginLeft:'auto',padding:'8px 14px',borderRadius:9,border:'1px solid #d0d7e8',background:'#fff',color:'#7a8ba8',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>Change Topic</button>
+                <button onClick={()=>{setTopic(null);setTimer(false);}} style={{marginLeft:'auto',padding:'8px 14px',borderRadius:9,border:'1px solid #d0d7e8',background:'#fff',color:'var(--text-3)',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>Change Topic</button>
               </div>
 
               {/* Topic header */}
               <Card style={{marginBottom:16,background:'linear-gradient(135deg,rgba(83,22,151,0.04),rgba(19,161,165,0.04))',border:'1.5px solid rgba(83,22,151,0.15)'}}>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'#0f1a2e',marginBottom:4}}>📌 GD Topic</div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'1rem',color:'var(--text)',marginBottom:4}}>📌 GD Topic</div>
                 <div style={{fontSize:'.95rem',color:'#531697',fontWeight:700}}>{selectedTopic.topic}</div>
                 <div style={{display:'flex',gap:6,marginTop:8,flexWrap:'wrap'}}>
                   <span style={{padding:'2px 8px',borderRadius:999,background:'rgba(83,22,151,0.07)',color:'#531697',fontSize:'.68rem',fontWeight:700}}>{selectedTopic.category}</span>
@@ -464,7 +468,7 @@ export default function GDRoundPage() {
                     <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                       {selectedTopic.keyPoints.map(kp=>{
                         const covered = answer.toLowerCase().includes(kp.toLowerCase());
-                        return <span key={kp} style={{padding:'4px 10px',borderRadius:999,fontSize:'.75rem',fontWeight:700,background:covered?'rgba(71,211,114,0.12)':'#f0f3fa',color:covered?'#166534':'#7a8ba8',border:`1px solid ${covered?'rgba(71,211,114,0.3)':'#e8edf5'}`,transition:'all .3s'}}>{covered?'✅ ':''}{kp}</span>;
+                        return <span key={kp} style={{padding:'4px 10px',borderRadius:999,fontSize:'.75rem',fontWeight:700,background:covered?'rgba(71,211,114,0.12)':'#f0f3fa',color:covered?'#166534':'var(--text-3)',border:`1px solid ${covered?'rgba(71,211,114,0.3)':'#e8edf5'}`,transition:'all .3s'}}>{covered?'✅ ':''}{kp}</span>;
                       })}
                     </div>
                   </Card>

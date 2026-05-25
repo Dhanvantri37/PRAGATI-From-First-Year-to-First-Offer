@@ -36,7 +36,7 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
           ))}
         </svg>
         <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.1rem', color:'#0f1a2e', lineHeight:1 }}>{solved}</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.1rem', color:'var(--text)', lineHeight:1 }}>{solved}</div>
           <div style={{ fontSize:'.52rem', color:'#b0bec9', fontWeight:700 }}>/{total}</div>
         </div>
       </div>
@@ -44,8 +44,8 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
         {paths.map(s => (
           <div key={s.label} style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
             <div style={{ width:8, height:8, borderRadius:2, background:s.color }}/>
-            <span style={{ fontSize:'.68rem', color:'#7a8ba8', minWidth:36 }}>{s.label}</span>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.75rem', color:'#0f1a2e' }}>{s.val}</span>
+            <span style={{ fontSize:'.68rem', color:'var(--text-3)', minWidth:36 }}>{s.label}</span>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.75rem', color:'var(--text)' }}>{s.val}</span>
           </div>
         ))}
       </div>
@@ -171,7 +171,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
         <div style={{ display:'flex', background:'#fff', borderBottom:'1px solid #e8edf5' }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
-              style={{ flex:1, padding:'12px 8px', border:'none', background:'transparent', color:activeTab===t.id?'#531697':'#7a8ba8', fontWeight:activeTab===t.id?800:600, fontSize:'.75rem', cursor:'pointer', borderBottom:activeTab===t.id?'2px solid #531697':'2px solid transparent', fontFamily:"'Nunito',sans-serif", transition:'all .15s' }}>
+              style={{ flex:1, padding:'12px 8px', border:'none', background:'transparent', color:activeTab===t.id?'#531697':'var(--text-3)', fontWeight:activeTab===t.id?800:600, fontSize:'.75rem', cursor:'pointer', borderBottom:activeTab===t.id?'2px solid #531697':'2px solid transparent', fontFamily:"'Nunito',sans-serif", transition:'all .15s' }}>
               {t.label}
             </button>
           ))}
@@ -217,7 +217,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
                 <div style={{ background:'rgba(83,22,151,0.04)', border:'1px solid rgba(83,22,151,0.12)', borderRadius:12, padding:'12px 14px' }}>
                   <div style={{ fontSize:'.65rem', fontWeight:800, color:'#531697', marginBottom:8 }}>📊 SCORE BREAKDOWN</div>
                   {Object.entries(s.scoreBreakdown).map(([k,v]) => (
-                    <div key={k} style={{ fontSize:'.72rem', color:'#3d4e6b', lineHeight:1.7 }}>
+                    <div key={k} style={{ fontSize:'.72rem', color:'var(--text-2)', lineHeight:1.7 }}>
                       <strong style={{ textTransform:'capitalize' }}>{k}:</strong> {v}
                     </div>
                   ))}
@@ -226,7 +226,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
 
               {/* Links */}
               <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:14 }}>
-                {s.githubUrl   && <a href={s.githubUrl}    target="_blank" rel="noreferrer" style={{ padding:'6px 12px', borderRadius:8, background:'#f0f3fa', color:'#3d4e6b', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>🐙 GitHub</a>}
+                {s.githubUrl   && <a href={s.githubUrl}    target="_blank" rel="noreferrer" style={{ padding:'6px 12px', borderRadius:8, background:'#f0f3fa', color:'var(--text-2)', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>🐙 GitHub</a>}
                 {s.linkedinUrl && <a href={s.linkedinUrl}  target="_blank" rel="noreferrer" style={{ padding:'6px 12px', borderRadius:8, background:'rgba(37,99,235,0.08)', color:'#2563eb', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>💼 LinkedIn</a>}
                 {s.portfolioUrl&& <a href={s.portfolioUrl} target="_blank" rel="noreferrer" style={{ padding:'6px 12px', borderRadius:8, background:'rgba(83,22,151,0.08)', color:'#531697', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>🌐 Portfolio</a>}
                 {s.resumeUrl   && <a href={s.resumeUrl}    target="_blank" rel="noreferrer" style={{ padding:'6px 12px', borderRadius:8, background:'rgba(71,211,114,0.08)', color:'#166534', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>📄 Resume</a>}
@@ -261,7 +261,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
                   <div key={stat.topic} style={{ marginBottom:10, background:'#fff', borderRadius:10, border:'1px solid #e8edf5', padding:'10px 14px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                       <div>
-                        <span style={{ fontWeight:800, fontSize:'.82rem', color:'#0f1a2e' }}>{stat.topic}</span>
+                        <span style={{ fontWeight:800, fontSize:'.82rem', color:'var(--text)' }}>{stat.topic}</span>
                         <span style={{ fontSize:'.68rem', color:'#b0bec9', marginLeft:8 }}>{stat.total} attempts</span>
                       </div>
                       <span style={{ fontWeight:800, fontSize:'.82rem', color:col }}>{pct}%</span>
@@ -300,7 +300,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
                 return (
                   <div key={stat.topic||'misc'} style={{ marginBottom:10, background:'#fff', borderRadius:10, border:'1px solid #e8edf5', padding:'10px 14px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                      <span style={{ fontWeight:800, fontSize:'.82rem', color:'#0f1a2e' }}>{stat.topic||'General'}</span>
+                      <span style={{ fontWeight:800, fontSize:'.82rem', color:'var(--text)' }}>{stat.topic||'General'}</span>
                       <span style={{ fontSize:'.75rem', color:'#531697', fontWeight:700 }}>{stat.solved}/{stat.total}</span>
                     </div>
                     <div style={{ height:5, background:'#f0f3fa', borderRadius:999, overflow:'hidden' }}>
@@ -328,7 +328,7 @@ function StudentProfileModal({ student, profileData, onClose }) {
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid #f0f3fa' }}>
                     <span style={{ fontSize:'.75rem', fontWeight:800, padding:'2px 6px', borderRadius:5, background:a.correct?'rgba(71,211,114,0.1)':'rgba(239,68,68,0.08)', color:a.correct?'#166534':'#991b1b', flexShrink:0 }}>{a.correct?'✓':'✗'}</span>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:'.75rem', color:'#3d4e6b', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.questionId?.question||'Question'}</div>
+                      <div style={{ fontSize:'.75rem', color:'var(--text-2)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.questionId?.question||'Question'}</div>
                       <div style={{ fontSize:'.62rem', color:'#b0bec9' }}>{a.questionId?.topic||a.topic} · {a.questionId?.difficulty}</div>
                     </div>
                     <div style={{ fontSize:'.62rem', color:'#b0bec9', flexShrink:0 }}>{a.attemptedAt ? new Date(a.attemptedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) : ''}</div>
@@ -389,7 +389,7 @@ export default function FacultyStudentsPage() {
     });
 
   const medals = ['🥇','🥈','🥉'];
-  const SS = { padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'#3d4e6b', cursor:'pointer' };
+  const SS = { padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' };
 
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
@@ -401,8 +401,8 @@ export default function FacultyStudentsPage() {
       )}
 
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:'#0f1a2e', margin:0 }}>👥 Students</h1>
-        <p style={{ color:'#7a8ba8', marginTop:4, fontSize:'.82rem' }}>{students.length} students · Click any row to view full LeetCode-style profile</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:'var(--text)', margin:0 }}>👥 Students</h1>
+        <p style={{ color:'var(--text-3)', marginTop:4, fontSize:'.82rem' }}>{students.length} students · Click any row to view full LeetCode-style profile</p>
       </div>
 
       {/* Summary stats */}
@@ -434,7 +434,7 @@ export default function FacultyStudentsPage() {
         <div style={{ display:'flex', borderRadius:9, overflow:'hidden', border:'1.5px solid #d0d7e8' }}>
           {[['score','🏅 Score'],['apt','🎯 Aptitude'],['solved','💻 Solved'],['streak','🔥 Streak']].map(([k,lbl])=>(
             <button key={k} onClick={()=>setSortBy(k)}
-              style={{ padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
+              style={{ padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
               {lbl}
             </button>
           ))}
@@ -480,7 +480,7 @@ export default function FacultyStudentsPage() {
 
             {/* Info */}
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontWeight:700, fontSize:'.88rem', color:'#0f1a2e' }}>{s.name}</div>
+              <div style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)' }}>{s.name}</div>
               <div style={{ fontSize:'.68rem', color:'#b0bec9', marginTop:1 }}>
                 {s.department} · Y{s.year}{s.rollNumber?` · ${s.rollNumber}`:''} · <span style={{ color:sc, fontWeight:700 }}>{s.skillLevel||'Beginner'}</span>
               </div>

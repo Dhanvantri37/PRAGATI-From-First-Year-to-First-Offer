@@ -46,7 +46,7 @@ export default function CaseStudyPage() {
         <RoundHeader icon="🟡" title="Case Study" subtitle={cs.title} onBack={() => { setSelected(null); setShowModel(false); setAnswers({}); }} />
         <Card style={{ marginBottom: 16, background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.2)' }}>
           <SectionTitle>📋 Context</SectionTitle>
-          <div style={{ fontSize: '.85rem', color: '#3d4e6b', lineHeight: 1.8 }}>{cs.context}</div>
+          <div style={{ fontSize: '.85rem', color: 'var(--text-2)', lineHeight: 1.8 }}>{cs.context}</div>
         </Card>
         {cs.sections.map(section => (
           <Card key={section} style={{ marginBottom: 14 }}>
@@ -66,7 +66,7 @@ export default function CaseStudyPage() {
               {cs.sections.map(s => (
                 <div key={s} style={{ marginBottom: 12 }}>
                   <div style={{ fontWeight: 800, fontSize: '.78rem', color: '#531697', marginBottom: 4 }}>{s}</div>
-                  <div style={{ padding: '10px 14px', borderRadius: 9, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.83rem', color: '#3d4e6b', lineHeight: 1.7 }}>{cs.sampleAnswer[s]}</div>
+                  <div style={{ padding: '10px 14px', borderRadius: 9, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.83rem', color: 'var(--text-2)', lineHeight: 1.7 }}>{cs.sampleAnswer[s]}</div>
                 </div>
               ))}
             </div>
@@ -82,7 +82,7 @@ export default function CaseStudyPage() {
       {/* Resources bar */}
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#ca8a04':'#d0d7e8'}`, background:showRes?'rgba(202,138,4,0.07)':'#fff', color:showRes?'#ca8a04':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#ca8a04':'#d0d7e8'}`, background:showRes?'rgba(202,138,4,0.07)':'#fff', color:showRes?'#ca8a04':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -103,11 +103,11 @@ export default function CaseStudyPage() {
         {CASE_STUDIES.map(cs => (
           <Card key={cs.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#0f1a2e', marginBottom: 6 }}>{cs.title}</div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)', marginBottom: 6 }}>{cs.title}</div>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 <span style={{ padding: '2px 8px', borderRadius: 999, background: cs.difficulty === 'Hard' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: cs.difficulty === 'Hard' ? '#991b1b' : '#92400e', fontSize: '.68rem', fontWeight: 700 }}>{cs.difficulty}</span>
               </div>
-              <div style={{ fontSize: '.78rem', color: '#7a8ba8', lineHeight: 1.5 }}>{cs.context.slice(0, 100)}…</div>
+              <div style={{ fontSize: '.78rem', color: 'var(--text-3)', lineHeight: 1.5 }}>{cs.context.slice(0, 100)}…</div>
             </div>
             <button onClick={() => setSelected(cs.id)}
               style={{ padding: '9px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', flexShrink: 0 }}>

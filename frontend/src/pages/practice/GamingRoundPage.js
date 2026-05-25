@@ -54,15 +54,15 @@ function MemoryMatch() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <SectionTitle>🧠 Memory Match</SectionTitle>
         <div style={{ display: 'flex', gap: 14 }}>
-          <span style={{ fontSize: '.78rem', color: '#7a8ba8', fontWeight: 700 }}>Moves: <strong style={{ color: '#531697' }}>{moves}</strong></span>
-          <span style={{ fontSize: '.78rem', color: '#7a8ba8', fontWeight: 700 }}>Time: <strong style={{ color: '#531697' }}>{elapsedTime}s</strong></span>
+          <span style={{ fontSize: '.78rem', color: 'var(--text-3)', fontWeight: 700 }}>Moves: <strong style={{ color: '#531697' }}>{moves}</strong></span>
+          <span style={{ fontSize: '.78rem', color: 'var(--text-3)', fontWeight: 700 }}>Time: <strong style={{ color: '#531697' }}>{elapsedTime}s</strong></span>
         </div>
       </div>
       {done ? (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🎉</div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.1rem', color: '#0f1a2e', marginBottom: 4 }}>Completed!</div>
-          <div style={{ color: '#7a8ba8', fontSize: '.85rem', marginBottom: 14 }}>{moves} moves · {elapsedTime} seconds</div>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.1rem', color: 'var(--text)', marginBottom: 4 }}>Completed!</div>
+          <div style={{ color: 'var(--text-3)', fontSize: '.85rem', marginBottom: 14 }}>{moves} moves · {elapsedTime} seconds</div>
           <button onClick={reset} style={{ padding: '9px 22px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>Play Again</button>
         </div>
       ) : (
@@ -111,11 +111,11 @@ function PatternGame() {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
         <SectionTitle>🔢 Pattern Recognition</SectionTitle>
-        <span style={{ fontSize: '.78rem', color: '#7a8ba8', fontWeight: 700 }}>Score: <strong style={{ color: '#531697' }}>{score}/{PATTERNS.length}</strong></span>
+        <span style={{ fontSize: '.78rem', color: 'var(--text-3)', fontWeight: 700 }}>Score: <strong style={{ color: '#531697' }}>{score}/{PATTERNS.length}</strong></span>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         {p.seq.map((n, i) => (
-          <div key={i} style={{ minWidth: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: n === '?' ? 'linear-gradient(135deg,#531697,#13a1a5)' : '#f0f3fa', color: n === '?' ? '#fff' : '#0f1a2e', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', border: n === '?' ? 'none' : '1px solid #e8edf5' }}>
+          <div key={i} style={{ minWidth: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: n === '?' ? 'linear-gradient(135deg,#531697,#13a1a5)' : '#f0f3fa', color: n === '?' ? '#fff' : 'var(--text)', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', border: n === '?' ? 'none' : '1px solid #e8edf5' }}>
             {n}
           </div>
         ))}
@@ -135,7 +135,7 @@ function PatternGame() {
         </div>
       )}
       {result === null && (
-        <button onClick={() => setShowHint(s => !s)} style={{ marginTop: 8, padding: '4px 12px', borderRadius: 7, border: '1px solid #d0d7e8', background: 'transparent', color: '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.75rem' }}>
+        <button onClick={() => setShowHint(s => !s)} style={{ marginTop: 8, padding: '4px 12px', borderRadius: 7, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.75rem' }}>
           {showHint ? 'Hide hint' : '💡 Hint'}
         </button>
       )}
@@ -175,7 +175,7 @@ function ReactionTimer() {
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
         <SectionTitle>⚡ Reaction Timer</SectionTitle>
-        {avg && <span style={{ fontSize: '.78rem', color: '#7a8ba8' }}>Avg: <strong style={{ color: '#531697' }}>{avg}ms</strong></span>}
+        {avg && <span style={{ fontSize: '.78rem', color: 'var(--text-3)' }}>Avg: <strong style={{ color: '#531697' }}>{avg}ms</strong></span>}
       </div>
       <div onClick={handleClick}
         style={{ height: 140, borderRadius: 14, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: state === 'ready' ? '#47d372' : state === 'waiting' ? '#ef4444' : 'linear-gradient(135deg,#531697,#13a1a5)', transition: 'background .1s', userSelect: 'none' }}>
@@ -203,7 +203,7 @@ export default function GamingRoundPage() {
       <RoundHeader icon="🎮" title="Gaming Round Practice" subtitle="Mini games to test memory, pattern recognition, and reaction speed" />
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#059669':'#d0d7e8'}`, background:showRes?'rgba(5,150,105,0.06)':'#fff', color:showRes?'#059669':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#059669':'#d0d7e8'}`, background:showRes?'rgba(5,150,105,0.06)':'#fff', color:showRes?'#059669':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>

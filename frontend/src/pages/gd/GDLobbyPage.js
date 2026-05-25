@@ -20,7 +20,7 @@ const inputStyle = {
 function FormField({ label, children }) {
   return (
     <div>
-      <label style={{ display:'block', fontSize:'.72rem', fontWeight:700, color:'#7a8ba8', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</label>
+      <label style={{ display:'block', fontSize:'.72rem', fontWeight:700, color:'var(--text-3)', marginBottom:5, textTransform:'uppercase', letterSpacing:'0.04em' }}>{label}</label>
       {children}
     </div>
   );
@@ -34,13 +34,11 @@ export default function GDLobbyPage() {
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [joinCode, setJoinCode] = useState('');
-  const [notifications, setNotifications] = useState([]);
   const [form, setForm] = useState({
     company:'TCS', difficulty:'Medium', minParticipants:3,
     maxParticipants:5, durationSeconds:600, language:'English', isPrivate:false,
   });
   const socketRef    = useRef(null);
-  const notifTimers  = useRef({});
 
   async function fetchRooms() {
     try {
@@ -53,23 +51,16 @@ export default function GDLobbyPage() {
 
   useEffect(() => { fetchRooms(); }, []);
 
-  // Global socket for new-room notifications
+  // Global socket for room creation refreshes
   useEffect(() => {
     const token = localStorage.getItem('pragati_token');
     const socket = io(BASE, { auth:{ token }, transports:['websocket'], reconnection:true });
     socketRef.current = socket;
-    socket.on('gd-room-created', (data) => {
-      const id = Date.now();
-      setNotifications(n => [...n.slice(-3), { id, ...data }]);
-      notifTimers.current[id] = setTimeout(() => {
-        setNotifications(n => n.filter(x => x.id !== id));
-        delete notifTimers.current[id];
-      }, 8000);
+    socket.on('gd-room-created', () => {
       fetchRooms();
     });
     return () => {
       socket.disconnect();
-      Object.values(notifTimers.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line
   }, []);
@@ -100,25 +91,6 @@ export default function GDLobbyPage() {
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif", maxWidth:960, margin:'0 auto', padding:'0 8px 60px' }}>
 
-      {/* Toast Notifications */}
-      <div style={{ position:'fixed', top:20, right:20, zIndex:9999, display:'flex', flexDirection:'column', gap:10 }}>
-        {notifications.map(n => (
-          <div key={n.id} style={{ background:'#fff', borderRadius:12, padding:'14px 18px', boxShadow:'0 8px 32px rgba(83,22,151,0.18)', border:'1.5px solid rgba(83,22,151,0.15)', maxWidth:320, animation:'slideIn .3s ease' }}>
-            <div style={{ fontWeight:800, fontSize:'.85rem', color:'#531697', marginBottom:4 }}>🎤 New GD Session</div>
-            <div style={{ fontSize:'.78rem', color:'#3d4e6b', marginBottom:8 }}>{n.message}</div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => nav(`/dashboard/gd/${n.roomCode}`)}
-                style={{ flex:1, padding:'6px', borderRadius:8, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>
-                Join Now →
-              </button>
-              <button onClick={() => setNotifications(x => x.filter(i => i.id !== n.id))}
-                style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #e8edf5', background:'transparent', cursor:'pointer', fontSize:'.8rem', color:'#b0bec9' }}>✕</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <style>{`@keyframes slideIn{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}`}</style>
-
       {/* Header */}
       <div style={{ background:GRAD, borderRadius:16, padding:'28px 32px', marginBottom:20, color:'#fff' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12 }}>
@@ -141,7 +113,7 @@ export default function GDLobbyPage() {
       {/* Create Room Form */}
       {showCreate && (
         <div style={{ background:'#fff', borderRadius:16, padding:'24px 28px', marginBottom:20, boxShadow:'0 4px 24px rgba(83,22,151,0.1)', border:'1.5px solid rgba(83,22,151,0.12)' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', marginBottom:18, color:'#0f1a2e' }}>Configure New GD Room</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', marginBottom:18, color:'var(--text)' }}>Configure New GD Room</div>
           <form onSubmit={handleCreate}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14, marginBottom:18 }}>
               <FormField label="Company Context">
@@ -175,7 +147,7 @@ export default function GDLobbyPage() {
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
               <input type="checkbox" id="priv" checked={form.isPrivate} onChange={e => setForm(f => ({ ...f, isPrivate:e.target.checked }))} />
-              <label htmlFor="priv" style={{ fontSize:'.85rem', color:'#3d4e6b', fontWeight:700, cursor:'pointer' }}>🔒 Private room (invite only)</label>
+              <label htmlFor="priv" style={{ fontSize:'.85rem', color:'var(--text-2)', fontWeight:700, cursor:'pointer' }}>🔒 Private room (invite only)</label>
             </div>
             <button type="submit" disabled={creating}
               style={{ padding:'12px 32px', borderRadius:12, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:creating?'wait':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.95rem' }}>
@@ -187,7 +159,7 @@ export default function GDLobbyPage() {
 
       {/* Join by Code */}
       <div style={{ background:'#fff', borderRadius:14, padding:'18px 22px', marginBottom:20, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #e8edf5' }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', marginBottom:12, color:'#0f1a2e' }}>🔑 Join with Room Code</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', marginBottom:12, color:'var(--text)' }}>🔑 Join with Room Code</div>
         <form onSubmit={handleJoinCode} style={{ display:'flex', gap:10 }}>
           <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
             placeholder="e.g. A1B2C3D4" maxLength={10}
@@ -201,11 +173,11 @@ export default function GDLobbyPage() {
 
       {/* Live Rooms */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', color:'#0f1a2e' }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', color:'var(--text)' }}>
           🔴 Live Sessions
           {rooms.length > 0 && <span style={{ marginLeft:8, background:'#ef4444', color:'#fff', borderRadius:20, padding:'2px 10px', fontSize:'.72rem', fontWeight:800 }}>{rooms.length}</span>}
         </div>
-        <button onClick={fetchRooms} style={{ padding:'7px 16px', borderRadius:8, border:'1px solid #e8edf5', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>↻ Refresh</button>
+        <button onClick={fetchRooms} style={{ padding:'7px 16px', borderRadius:8, border:'1px solid #e8edf5', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>↻ Refresh</button>
       </div>
 
       {loading ? (
@@ -213,8 +185,8 @@ export default function GDLobbyPage() {
       ) : rooms.length === 0 ? (
         <div style={{ textAlign:'center', padding:'50px 20px', background:'#fff', borderRadius:14, border:'1px dashed #d0d7e8' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:12 }}>🎤</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'#0f1a2e', marginBottom:8 }}>No sessions open right now</div>
-          <div style={{ color:'#7a8ba8', fontSize:'.85rem', marginBottom:20 }}>Create a room — others will be notified instantly</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:8 }}>No sessions open right now</div>
+          <div style={{ color:'var(--text-3)', fontSize:'.85rem', marginBottom:20 }}>Create a room — others will be notified instantly</div>
           <button onClick={() => setShowCreate(true)} style={{ padding:'10px 24px', borderRadius:10, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>Create Room</button>
         </div>
       ) : (
@@ -230,17 +202,17 @@ export default function GDLobbyPage() {
                   <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:'.9rem', color:'#531697', background:'rgba(83,22,151,0.08)', padding:'3px 10px', borderRadius:6 }}>{room.roomCode}</div>
                   <div style={{ display:'flex', gap:6 }}>
                     <span style={{ padding:'2px 9px', borderRadius:10, background:`${diffColor[room.difficulty]||'#9ab0c8'}18`, color:diffColor[room.difficulty]||'#9ab0c8', fontWeight:800, fontSize:'.68rem' }}>{room.difficulty}</span>
-                    {room.isPrivate && <span style={{ padding:'2px 9px', borderRadius:10, background:'#f0f3fa', color:'#7a8ba8', fontWeight:700, fontSize:'.68rem' }}>🔒</span>}
+                    {room.isPrivate && <span style={{ padding:'2px 9px', borderRadius:10, background:'#f0f3fa', color:'var(--text-3)', fontWeight:700, fontSize:'.68rem' }}>🔒</span>}
                   </div>
                 </div>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                   {[['🏢',room.companyContext||'General'],['⏱',`${Math.round(room.durationSeconds/60)} min`],['🌐',room.language||'English']].map(([ic,txt]) => (
-                    <span key={txt} style={{ fontSize:'.75rem', fontWeight:700, color:'#3d4e6b', background:'#f8faff', padding:'3px 9px', borderRadius:6 }}>{ic} {txt}</span>
+                    <span key={txt} style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-2)', background:'#f8faff', padding:'3px 9px', borderRadius:6 }}>{ic} {txt}</span>
                   ))}
                 </div>
                 <div>
                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                    <span style={{ fontSize:'.72rem', fontWeight:700, color:'#7a8ba8' }}>Participants</span>
+                    <span style={{ fontSize:'.72rem', fontWeight:700, color:'var(--text-3)' }}>Participants</span>
                     <span style={{ fontSize:'.72rem', fontWeight:800, color:bColor }}>{count}/{room.maxParticipants}</span>
                   </div>
                   <div style={{ height:5, borderRadius:4, background:'#f0f3fa', overflow:'hidden' }}>
@@ -266,7 +238,7 @@ export default function GDLobbyPage() {
 
       {/* How it works */}
       <div style={{ marginTop:32, background:'#fff', borderRadius:16, padding:'24px 28px', border:'1px solid #e8edf5' }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', marginBottom:18, color:'#0f1a2e' }}>🤖 How AI-Powered GD Works</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', marginBottom:18, color:'var(--text)' }}>🤖 How AI-Powered GD Works</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:14 }}>
           {[
             ['1️⃣','Enable Camera & Mic','Google Meet-style permission with live preview before joining'],
@@ -278,8 +250,8 @@ export default function GDLobbyPage() {
           ].map(([n, title, desc]) => (
             <div key={n} style={{ padding:'14px', borderRadius:10, background:'#f8faff', border:'1px solid #e8edf5' }}>
               <div style={{ fontSize:'1.3rem', marginBottom:6 }}>{n}</div>
-              <div style={{ fontWeight:800, fontSize:'.82rem', color:'#0f1a2e', marginBottom:4 }}>{title}</div>
-              <div style={{ fontSize:'.75rem', color:'#7a8ba8', lineHeight:1.5 }}>{desc}</div>
+              <div style={{ fontWeight:800, fontSize:'.82rem', color:'var(--text)', marginBottom:4 }}>{title}</div>
+              <div style={{ fontSize:'.75rem', color:'var(--text-3)', lineHeight:1.5 }}>{desc}</div>
             </div>
           ))}
         </div>

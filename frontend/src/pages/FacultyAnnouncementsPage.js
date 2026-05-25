@@ -66,8 +66,8 @@ export default function FacultyAnnouncementsPage() {
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:'#0f1a2e', margin:0 }}>📢 Announcements</h1>
-          <p style={{ color:'#7a8ba8', marginTop:4, fontSize:'.82rem' }}>{announcements.length} announcements posted</p>
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:'var(--text)', margin:0 }}>📢 Announcements</h1>
+          <p style={{ color:'var(--text-3)', marginTop:4, fontSize:'.82rem' }}>{announcements.length} announcements posted</p>
         </div>
         <button onClick={() => setShowForm(s=>!s)}
           style={{ padding:'10px 20px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem' }}>
@@ -84,19 +84,19 @@ export default function FacultyAnnouncementsPage() {
       {/* Create Form */}
       {showForm && (
         <div style={{ background:'#fff', borderRadius:14, border:'1.5px solid rgba(83,22,151,0.2)', padding:'20px 22px', marginBottom:20, boxShadow:'0 4px 20px rgba(83,22,151,0.08)' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'#0f1a2e', marginBottom:16 }}>📝 New Announcement</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:16 }}>📝 New Announcement</div>
           <form onSubmit={post}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
               <div style={{ gridColumn:'1/-1' }}>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>TITLE *</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>TITLE *</label>
                 <input style={inp} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Announcement title…" required/>
               </div>
               <div style={{ gridColumn:'1/-1' }}>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>MESSAGE *</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>MESSAGE *</label>
                 <textarea style={{ ...inp, resize:'vertical' }} rows={4} value={form.message} onChange={e=>setForm(f=>({...f,message:e.target.value}))} placeholder="Announcement message…" required/>
               </div>
               <div>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>PRIORITY</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>PRIORITY</label>
                 <select style={inp} value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))}>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
@@ -104,7 +104,7 @@ export default function FacultyAnnouncementsPage() {
                 </select>
               </div>
               <div>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>TARGET AUDIENCE</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>TARGET AUDIENCE</label>
                 <select style={inp} value={form.targetRole} onChange={e=>setForm(f=>({...f,targetRole:e.target.value}))}>
                   <option value="all">All Students</option>
                   <option value="student">Students Only</option>
@@ -112,11 +112,11 @@ export default function FacultyAnnouncementsPage() {
                 </select>
               </div>
               <div>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>DEPARTMENT (optional)</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>DEPARTMENT (optional)</label>
                 <input style={inp} value={form.targetDept} onChange={e=>setForm(f=>({...f,targetDept:e.target.value}))} placeholder="e.g. CSE, IT, ENTC"/>
               </div>
               <div>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>YEAR (optional)</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>YEAR (optional)</label>
                 <select style={inp} value={form.targetYear} onChange={e=>setForm(f=>({...f,targetYear:e.target.value}))}>
                   <option value="">All Years</option>
                   <option value="1">Year 1</option>
@@ -126,7 +126,7 @@ export default function FacultyAnnouncementsPage() {
                 </select>
               </div>
               <div style={{ gridColumn:'1/-1' }}>
-                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'#7a8ba8', marginBottom:4 }}>LINK (optional)</label>
+                <label style={{ display:'block', fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', marginBottom:4 }}>LINK (optional)</label>
                 <input type="url" style={inp} value={form.link} onChange={e=>setForm(f=>({...f,link:e.target.value}))} placeholder="https://…"/>
               </div>
             </div>
@@ -147,8 +147,8 @@ export default function FacultyAnnouncementsPage() {
       ) : announcements.length === 0 ? (
         <div style={{ textAlign:'center', padding:'60px 20px', background:'#fff', borderRadius:14, border:'1px solid #e8edf5' }}>
           <div style={{ fontSize:'3rem', marginBottom:12 }}>📢</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:'#0f1a2e', marginBottom:6 }}>No announcements yet</div>
-          <div style={{ color:'#7a8ba8', fontSize:'.82rem' }}>Click "+ New Announcement" to post your first announcement</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:'var(--text)', marginBottom:6 }}>No announcements yet</div>
+          <div style={{ color:'var(--text-3)', fontSize:'.82rem' }}>Click "+ New Announcement" to post your first announcement</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -165,8 +165,8 @@ export default function FacultyAnnouncementsPage() {
                       {ann.targetFilter?.year && <span style={{ padding:'2px 8px', borderRadius:999, background:'#f0f3fa', color:'#13a1a5', fontSize:'.62rem', fontWeight:700 }}>Year {ann.targetFilter.year}</span>}
                       {date && <span style={{ fontSize:'.62rem', color:'#b0bec9' }}>{date.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span>}
                     </div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:6 }}>{ann.title}</div>
-                    <div style={{ fontSize:'.82rem', color:'#3d4e6b', lineHeight:1.7 }}>{ann.message}</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:6 }}>{ann.title}</div>
+                    <div style={{ fontSize:'.82rem', color:'var(--text-2)', lineHeight:1.7 }}>{ann.message}</div>
                     {ann.link && (
                       <a href={ann.link} target="_blank" rel="noreferrer"
                         style={{ display:'inline-block', marginTop:8, padding:'4px 10px', borderRadius:7, background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.72rem', fontWeight:700, textDecoration:'none' }}>

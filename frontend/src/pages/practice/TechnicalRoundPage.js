@@ -118,7 +118,7 @@ export default function TechnicalRoundPage() {
       <div style={{display:'flex',gap:7,flexWrap:'wrap',marginBottom:14}}>
         {SUBJECTS.map(s=>(
           <button key={s} onClick={()=>{setActiveSub(s);setExpanded({});setFcIdx(0);setFcFlip(false);setShowRes(false);}}
-            style={{padding:'7px 14px',borderRadius:9,border:`1.5px solid ${activeSub===s?'#531697':'#d0d7e8'}`,background:activeSub===s?GRAD:'#fff',color:activeSub===s?'#fff':'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem',display:'flex',alignItems:'center',gap:5}}>
+            style={{padding:'7px 14px',borderRadius:9,border:`1.5px solid ${activeSub===s?'#531697':'#d0d7e8'}`,background:activeSub===s?GRAD:'#fff',color:activeSub===s?'#fff':'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem',display:'flex',alignItems:'center',gap:5}}>
             <span>{SUBJECT_ICONS[s]||'📖'}</span>{s}
           </button>
         ))}
@@ -128,14 +128,14 @@ export default function TechnicalRoundPage() {
       <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
         {[['expandable','📖 Q&A Mode'],['flashcard','🃏 Flashcard']].map(([m,lbl])=>(
           <button key={m} onClick={()=>{setMode(m);setFcIdx(0);setFcFlip(false);}}
-            style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${mode===m?'#13a1a5':'#d0d7e8'}`,background:mode===m?'rgba(19,161,165,0.08)':'#fff',color:mode===m?'#0d7a7e':'#7a8ba8',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
+            style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${mode===m?'#13a1a5':'#d0d7e8'}`,background:mode===m?'rgba(19,161,165,0.08)':'#fff',color:mode===m?'#0d7a7e':'var(--text-3)',fontWeight:700,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
             {lbl}
           </button>
         ))}
         <div style={{flex:1}}/>
         <span style={{fontSize:'.72rem',color:'#b0bec9',fontWeight:700}}>{questions.length} Q in {activeSub}</span>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${showRes?'#531697':'#d0d7e8'}`,background:showRes?'rgba(83,22,151,0.07)':'#fff',color:showRes?'#531697':'#7a8ba8',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
+          style={{padding:'7px 14px',borderRadius:8,border:`1px solid ${showRes?'#531697':'#d0d7e8'}`,background:showRes?'rgba(83,22,151,0.07)':'#fff',color:showRes?'#531697':'var(--text-3)',fontWeight:800,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem'}}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -147,7 +147,7 @@ export default function TechnicalRoundPage() {
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10}}>
             {(RESOURCE_LINKS[activeSub]||[]).map((r,i)=>(
               <a key={i} href={r.url} target="_blank" rel="noreferrer"
-                style={{padding:'7px 14px',borderRadius:8,background:'#fff',border:'1px solid #e8edf5',color:'#531697',fontWeight:700,textDecoration:'none',fontSize:'.78rem'}}>
+                style={{padding:'7px 14px',borderRadius:8,background:'var(--surface)',border:'1px solid #e8edf5',color:'#531697',fontWeight:700,textDecoration:'none',fontSize:'.78rem'}}>
                 📖 {r.name} ↗
               </a>
             ))}
@@ -172,12 +172,12 @@ export default function TechnicalRoundPage() {
               <button onClick={()=>setExpanded(e=>({...e,[i]:!e[i]}))}
                 style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'14px 18px',border:'none',background:'transparent',cursor:'pointer',textAlign:'left',fontFamily:"'Nunito',sans-serif"}}>
                 <div style={{width:30,height:30,borderRadius:'50%',background:expanded[i]?GRAD:'#f0f3fa',color:expanded[i]?'#fff':'#531697',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'.78rem',fontWeight:800,flexShrink:0}}>Q{i+1}</div>
-                <span style={{flex:1,fontWeight:700,fontSize:'.88rem',color:'#0f1a2e',textAlign:'left'}}>{item.q}</span>
+                <span style={{flex:1,fontWeight:700,fontSize:'.88rem',color:'var(--text)',textAlign:'left'}}>{item.q}</span>
                 <span style={{color:'#531697',fontSize:'1rem',flexShrink:0,transform:expanded[i]?'rotate(180deg)':'none',transition:'transform .2s',display:'inline-block'}}>⌄</span>
               </button>
               {expanded[i]&&(
                 <div style={{padding:'0 18px 16px'}}>
-                  <div style={{padding:'14px 16px',borderRadius:10,background:'rgba(83,22,151,0.04)',border:'1px solid rgba(83,22,151,0.1)',fontSize:'.83rem',color:'#3d4e6b',lineHeight:1.85,whiteSpace:'pre-wrap'}}>{item.a}</div>
+                  <div style={{padding:'14px 16px',borderRadius:10,background:'rgba(83,22,151,0.04)',border:'1px solid rgba(83,22,151,0.1)',fontSize:'.83rem',color:'var(--text-2)',lineHeight:1.85,whiteSpace:'pre-wrap'}}>{item.a}</div>
                 </div>
               )}
             </Card>
@@ -191,7 +191,7 @@ export default function TechnicalRoundPage() {
           <Card style={{minHeight:300,display:'flex',flexDirection:'column',justifyContent:'center',cursor:'pointer',background:fcFlip?'rgba(83,22,151,0.04)':'#fff',border:`2px solid ${fcFlip?'rgba(83,22,151,0.2)':'#e8edf5'}`,transition:'all .3s'}}>
             <div onClick={()=>setFcFlip(f=>!f)} style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',padding:'16px'}}>
               <div style={{fontSize:'.68rem',fontWeight:800,color:'#b0bec9',marginBottom:14,textAlign:'center'}}>{fcFlip?'💡 ANSWER':'❓ QUESTION'} — {activeSub} · {fcIdx+1}/{questions.length}</div>
-              <div style={{fontSize:fcFlip?'.82rem':'.9rem',color:'#0f1a2e',fontWeight:fcFlip?400:700,lineHeight:1.8,textAlign:'center',whiteSpace:'pre-wrap'}}>
+              <div style={{fontSize:fcFlip?'.82rem':'.9rem',color:'var(--text)',fontWeight:fcFlip?400:700,lineHeight:1.8,textAlign:'center',whiteSpace:'pre-wrap'}}>
                 {fcFlip?questions[fcIdx]?.a:questions[fcIdx]?.q}
               </div>
               {!fcFlip&&<div style={{textAlign:'center',marginTop:18,fontSize:'.72rem',color:'#b0bec9'}}>Click to reveal answer</div>}

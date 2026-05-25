@@ -8,7 +8,7 @@ export function RoundHeader({ icon, title, subtitle, onBack }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <button onClick={() => onBack ? onBack() : nav(-1)}
-        style={{ marginBottom: 14, padding: '6px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: '#7a8ba8', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem' }}>
+        style={{ marginBottom: 14, padding: '6px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem' }}>
         ← Back
       </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -16,8 +16,8 @@ export function RoundHeader({ icon, title, subtitle, onBack }) {
           {icon}
         </div>
         <div>
-          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.4rem', color: '#0f1a2e', margin: 0 }}>{title}</h1>
-          {subtitle && <p style={{ color: '#7a8ba8', margin: '3px 0 0', fontSize: '.84rem' }}>{subtitle}</p>}
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.4rem', color: 'var(--text)', margin: 0 }}>{title}</h1>
+          {subtitle && <p style={{ color: 'var(--text-3)', margin: '3px 0 0', fontSize: '.84rem' }}>{subtitle}</p>}
         </div>
       </div>
     </div>
@@ -34,7 +34,7 @@ export function Card({ children, style = {} }) {
 
 export function SectionTitle({ children }) {
   return (
-    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', color: '#0f1a2e', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', color: 'var(--text)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
       {children}
     </div>
   );
@@ -47,7 +47,7 @@ export function AnswerBox({ value, onChange, placeholder = 'Type your answer her
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem', color: '#0f1a2e', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color .15s' }}
+      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem', color: 'var(--text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color .15s' }}
       onFocus={e => e.target.style.borderColor = '#531697'}
       onBlur={e => e.target.style.borderColor = '#d0d7e8'}
     />
@@ -74,19 +74,19 @@ export function FeedbackPanel({ sampleAnswer, keywords = [], userAnswer = '' }) 
               <div style={{ fontWeight: 800, fontSize: '.82rem', color: score >= 70 ? '#166534' : score >= 40 ? '#92400e' : '#991b1b' }}>
                 Keyword Coverage: {score}% ({matchedKW.length}/{keywords.length} keywords found)
               </div>
-              {matchedKW.length > 0 && <div style={{ fontSize: '.75rem', color: '#7a8ba8', marginTop: 3 }}>✅ {matchedKW.join(', ')}</div>}
+              {matchedKW.length > 0 && <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 3 }}>✅ {matchedKW.join(', ')}</div>}
             </div>
           )}
-          <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.12)', fontSize: '.83rem', color: '#3d4e6b', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.12)', fontSize: '.83rem', color: 'var(--text-2)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
             <div style={{ fontWeight: 800, color: '#531697', marginBottom: 6, fontSize: '.78rem' }}>📝 SAMPLE ANSWER</div>
             {sampleAnswer}
           </div>
           {keywords.length > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#7a8ba8', marginBottom: 6 }}>KEY POINTS TO COVER</div>
+              <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 6 }}>KEY POINTS TO COVER</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {keywords.map(kw => (
-                  <span key={kw} style={{ padding: '3px 9px', borderRadius: 999, fontSize: '.72rem', fontWeight: 700, background: matchedKW.includes(kw) ? 'rgba(71,211,114,0.1)' : '#f0f3fa', color: matchedKW.includes(kw) ? '#166534' : '#7a8ba8', border: `1px solid ${matchedKW.includes(kw) ? 'rgba(71,211,114,0.3)' : '#e8edf5'}` }}>
+                  <span key={kw} style={{ padding: '3px 9px', borderRadius: 999, fontSize: '.72rem', fontWeight: 700, background: matchedKW.includes(kw) ? 'rgba(71,211,114,0.1)' : '#f0f3fa', color: matchedKW.includes(kw) ? '#166534' : 'var(--text-3)', border: `1px solid ${matchedKW.includes(kw) ? 'rgba(71,211,114,0.3)' : '#e8edf5'}` }}>
                     {matchedKW.includes(kw) ? '✅ ' : ''}{kw}
                   </span>
                 ))}
@@ -106,7 +106,7 @@ export function QuestionCard({ num, total, question, children }) {
         <div style={{ width: 32, height: 32, borderRadius: '50%', background: GRAD, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.78rem', fontWeight: 800, flexShrink: 0 }}>
           {num}
         </div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '.92rem', color: '#0f1a2e', flex: 1, lineHeight: 1.5, paddingTop: 6 }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '.92rem', color: 'var(--text)', flex: 1, lineHeight: 1.5, paddingTop: 6 }}>
           {question}
         </div>
         {total && <span style={{ fontSize: '.68rem', color: '#b0bec9', flexShrink: 0, paddingTop: 8 }}>{num}/{total}</span>}

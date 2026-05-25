@@ -100,12 +100,12 @@ export default function HRRoundPage() {
       <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
         <div style={{ display:'flex', gap:16, padding:'10px 16px', background:'#fff', borderRadius:10, border:'1px solid #e8edf5' }}>
           {[['Answered', answered, '#531697'], ['Total', HR_QUESTIONS.length, '#13a1a5'], ['Progress', `${Math.round((answered/HR_QUESTIONS.length)*100)}%`, '#47d372']].map(([l,v,c])=>(
-            <div key={l}><span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:c }}>{v}</span><span style={{ fontSize:'.68rem', color:'#7a8ba8', marginLeft:4 }}>{l}</span></div>
+            <div key={l}><span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:c }}>{v}</span><span style={{ fontSize:'.68rem', color:'var(--text-3)', marginLeft:4 }}>{l}</span></div>
           ))}
         </div>
         <div style={{ flex:1 }}/>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'8px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#531697':'#d0d7e8'}`, background:showRes?'rgba(83,22,151,0.07)':'#fff', color:showRes?'#531697':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>
+          style={{ padding:'8px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#531697':'#d0d7e8'}`, background:showRes?'rgba(83,22,151,0.07)':'#fff', color:showRes?'#531697':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -121,7 +121,7 @@ export default function HRRoundPage() {
                 onMouseOver={e=>{e.currentTarget.style.borderColor='#7c3aed';e.currentTarget.style.background='rgba(124,58,237,0.04)';}}
                 onMouseOut={e=>{e.currentTarget.style.borderColor='#e8edf5';e.currentTarget.style.background='#fff';}}>
                 <span style={{ fontSize:'.62rem', fontWeight:800, padding:'2px 6px', borderRadius:5, background:r.color+'18', color:r.color, whiteSpace:'nowrap', flexShrink:0 }}>{r.tag}</span>
-                <span style={{ fontSize:'.8rem', color:'#0f1a2e', fontWeight:600, flex:1 }}>{r.name}</span>
+                <span style={{ fontSize:'.8rem', color:'var(--text)', fontWeight:600, flex:1 }}>{r.name}</span>
                 <span style={{ color:'#b0bec9', fontSize:'.75rem' }}>↗</span>
               </a>
             ))}
@@ -133,7 +133,7 @@ export default function HRRoundPage() {
       <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:16 }}>
         {CATEGORIES.map(cat=>(
           <button key={cat} onClick={()=>setFilter(cat)}
-            style={{ padding:'5px 12px', borderRadius:999, border:`1.5px solid ${filterCat===cat?'#7c3aed':'#d0d7e8'}`, background:filterCat===cat?'rgba(124,58,237,0.08)':'#fff', color:filterCat===cat?'#7c3aed':'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.74rem' }}>
+            style={{ padding:'5px 12px', borderRadius:999, border:`1.5px solid ${filterCat===cat?'#7c3aed':'#d0d7e8'}`, background:filterCat===cat?'rgba(124,58,237,0.08)':'#fff', color:filterCat===cat?'#7c3aed':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.74rem' }}>
             {cat}
           </button>
         ))}

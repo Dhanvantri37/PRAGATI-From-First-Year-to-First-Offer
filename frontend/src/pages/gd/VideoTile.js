@@ -1,6 +1,61 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
+
+// ── Animated AI Face Component for GD ───────────────────────────────────────
+function AIFaceTile({ participant, isActiveSpeaker, size }) {
+  const [blink, setBlink] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBlink(true);
+      setTimeout(() => setBlink(false), 150);
+    }, 3500 + Math.random() * 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const [mouthHeight, setMouthHeight] = useState(2);
+  useEffect(() => {
+    if (!isActiveSpeaker) {
+      setMouthHeight(2);
+      return;
+    }
+    const interval = setInterval(() => {
+      setMouthHeight(Math.random() * 8 + 3);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [isActiveSpeaker]);
+
+  const isPriya = participant?.name?.includes('Priya');
+  const isVikram = participant?.name?.includes('Vikram');
+  
+  let eyeLeft = 56.35, eyeRight = 66.21, eyeTop = 36.23;
+  let mouthLeft = 50.00, mouthTop = 62.00;
+  let skinTone = '#dfb495';
+  let lipColor = '#a65c56';
+
+  if (isPriya) {
+    eyeLeft = 45.31; eyeRight = 54.30; eyeTop = 32.62;
+    skinTone = '#eec2a3'; lipColor = '#c86a62'; mouthTop = 59.00;
+  } else if (isVikram) {
+    eyeLeft = 44.04; eyeRight = 53.61; eyeTop = 30.38;
+    skinTone = '#cca080'; lipColor = '#8c463c'; mouthTop = 60.00;
+  }
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      <img src={participant?.avatarUrl || '/arjun_sharma.png'} alt="AI Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* Eyes */}
+      <div style={{ position: 'absolute', left: `${eyeLeft}%`, top: `${eyeTop}%`, width: '4%', height: blink ? '2%' : '0%', background: skinTone, borderRadius: '50%', transform: 'translate(-50%,-50%)', transition: 'height 0.1s' }} />
+      <div style={{ position: 'absolute', left: `${eyeRight}%`, top: `${eyeTop}%`, width: '4%', height: blink ? '2%' : '0%', background: skinTone, borderRadius: '50%', transform: 'translate(-50%,-50%)', transition: 'height 0.1s' }} />
+      {/* Mouth */}
+      {isActiveSpeaker && (
+        <div style={{ position: 'absolute', left: `${mouthLeft}%`, top: `${mouthTop}%`, width: '12%', height: `${mouthHeight}%`, background: '#47121b', border: `2px solid ${lipColor}`, borderRadius: '50%', transform: 'translate(-50%,-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+           <div style={{ width: '70%', height: '10%', background: '#fff', position: 'absolute', top: '2px' }} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * A single participant video tile — Google Meet style.
@@ -66,8 +121,11 @@ export default function VideoTile({ stream, participant, isActiveSpeaker, isLoca
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: participant?.isAI ? '1.8rem' : (size === 'large' ? '2rem' : '1.3rem'),
             fontFamily: "'Syne',sans-serif", fontWeight: 800, color: '#fff',
+            overflow: 'hidden'
           }}>
-            {participant?.isAI ? '🤖' : initial}
+            {participant?.isAI ? (
+               participant?.avatarUrl ? <AIFaceTile participant={participant} isActiveSpeaker={isActiveSpeaker} size={size} /> : '🤖'
+            ) : initial}
           </div>
           {size === 'large' && (
             <div style={{ color: '#9ab0c8', fontSize: '.8rem', fontWeight: 700 }}>

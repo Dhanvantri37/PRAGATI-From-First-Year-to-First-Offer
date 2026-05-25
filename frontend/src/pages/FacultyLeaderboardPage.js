@@ -11,8 +11,8 @@ const MEDALS = ['🥇','🥈','🥉'];
 
 function DeptChart({ students, dm = false }) {
   const cardBrd = dm ? '#2d3a52' : '#f0f3fa';
-  const txt = dm ? '#e2e8f0' : '#0f1a2e';
-  const muted = dm ? '#64748b' : '#7a8ba8';
+  const txt = dm ? '#e2e8f0' : 'var(--text)';
+  const muted = dm ? '#64748b' : 'var(--text-3)';
   const depts = {};
   students.forEach(s => {
     if (!s.department) return;
@@ -70,8 +70,8 @@ export default function FacultyLeaderboardPage() {
   const cardBg  = dm ? '#1a2235' : '#fff';
   const pageBg  = dm ? '#0f1623' : 'transparent';
   const cardBrd = dm ? '#2d3a52' : '#e8edf5';
-  const txt     = dm ? '#e2e8f0' : '#0f1a2e';
-  const sub     = dm ? '#94a3b8' : '#7a8ba8';
+  const txt     = dm ? '#e2e8f0' : 'var(--text)';
+  const sub     = dm ? '#94a3b8' : 'var(--text-3)';
   const muted   = dm ? '#64748b' : '#b0bec9';
   const secBg   = dm ? '#111827' : '#f8f9fc';
   const inpBrd  = dm ? '#334155' : '#d0d7e8';

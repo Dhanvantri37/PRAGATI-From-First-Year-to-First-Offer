@@ -119,7 +119,7 @@ router.post('/rooms', authenticate, async (req, res) => {
         maxParticipants: room.maxParticipants,
         durationSeconds: room.durationSeconds,
         createdBy: req.user.name,
-        message: `🎤 New GD session created by ${req.user.name}! Join with code: ${room.roomCode}`,
+        message: `${req.user.name} has started a Group Discussion session. If anyone wants to join, please join within 2 minutes.`,
       });
     }
 

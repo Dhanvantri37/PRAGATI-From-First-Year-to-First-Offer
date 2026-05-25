@@ -22,7 +22,7 @@ function ResumeDropzone({ file, onFile }) {
     }}>
       <input {...getInputProps()} />
       <div style={{ fontSize:'2rem', marginBottom:8 }}>{file ? '✅' : '📄'}</div>
-      <div style={{ fontSize:'.9rem', fontWeight:700, color: file ? '#2ea854' : '#7a8ba8' }}>
+      <div style={{ fontSize:'.9rem', fontWeight:700, color: file ? '#2ea854' : 'var(--text-3)' }}>
         {file ? file.name : 'Drop your Resume here'}
       </div>
       <div style={{ fontSize:'.75rem', color:'#b0bec9', marginTop:4 }}>
@@ -52,11 +52,11 @@ export default function RegisterPage() {
   const inp = (field, extra = {}) => ({
     width:'100%', padding:'10px 14px', borderRadius:9,
     border: `1.5px solid ${(field && !form[field]?.toString().trim()) ? '#ef4444' : '#d0d7e8'}`,
-    fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', color:'#0f1a2e',
+    fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', color:'var(--text)',
     background:'#fafbff', outline:'none', boxSizing:'border-box',
     ...extra,
   });
-  const lbl = { display:'block', fontSize:'.78rem', fontWeight:700, color:'#3d4e6b', marginBottom:5, fontFamily:"'Syne',sans-serif" };
+  const lbl = { display:'block', fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', marginBottom:5, fontFamily:"'Syne',sans-serif" };
   const req = { color:'#ef4444', marginLeft:3 };
 
   function validateStep1() {
@@ -133,7 +133,7 @@ export default function RegisterPage() {
         {/* Logo */}
         <div style={{ textAlign:'center', marginBottom:24 }}>
           <a href="/"><img src="/logo.png" alt="PRAGATI" style={{ height:56, objectFit:'contain', filter:'drop-shadow(0 4px 14px rgba(83,22,151,0.18))' }} /></a>
-          <p style={{ fontSize:'.83rem', color:'#7a8ba8', marginTop:6, fontFamily:"'Nunito',sans-serif" }}>Create your account — it takes 60 seconds</p>
+          <p style={{ fontSize:'.83rem', color:'var(--text-3)', marginTop:6, fontFamily:"'Nunito',sans-serif" }}>Create your account — it takes 60 seconds</p>
         </div>
 
         <div style={{
@@ -161,7 +161,7 @@ export default function RegisterPage() {
             {/* ─── STEP 1: Account Info ─────────────────────────────── */}
             {step === 1 && (
               <>
-                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.3rem', marginBottom:20, color:'#0f1a2e' }}>
+                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.3rem', marginBottom:20, color:'var(--text)' }}>
                   Create your account
                 </h2>
 
@@ -315,10 +315,10 @@ export default function RegisterPage() {
             {/* ─── STEP 2: Upload Resume ────────────────────────────── */}
             {step === 2 && form.role === 'student' && (
               <>
-                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.25rem', marginBottom:8, color:'#0f1a2e' }}>
+                <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.25rem', marginBottom:8, color:'var(--text)' }}>
                   Upload Your Resume
                 </h2>
-                <p style={{ fontSize:'.83rem', color:'#7a8ba8', marginBottom:18, lineHeight:1.6 }}>
+                <p style={{ fontSize:'.83rem', color:'var(--text-3)', marginBottom:18, lineHeight:1.6 }}>
                   Your resume powers <strong style={{ color:'#531697' }}>SkillPath AI</strong> — we extract your skills to personalise your experience.
                 </p>
                 <ResumeDropzone file={resume} onFile={setResume} />
@@ -338,7 +338,7 @@ export default function RegisterPage() {
             {/* Buttons */}
             <div style={{ display:'flex', gap:10, marginTop:20 }}>
               {step === 2 && (
-                <button type="button" onClick={() => setStep(1)} style={{ flex:1, padding:'12px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'#3d4e6b', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
+                <button type="button" onClick={() => setStep(1)} style={{ flex:1, padding:'12px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'var(--text-2)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
                   ← Back
                 </button>
               )}
@@ -361,7 +361,7 @@ export default function RegisterPage() {
             </div>
           </form>
 
-          <p style={{ textAlign:'center', marginTop:16, fontSize:'.82rem', color:'#7a8ba8', fontFamily:"'Nunito',sans-serif" }}>
+          <p style={{ textAlign:'center', marginTop:16, fontSize:'.82rem', color:'var(--text-3)', fontFamily:"'Nunito',sans-serif" }}>
             Already have an account? <a href="/login" style={{ color:'#531697', fontWeight:700 }}>Sign In</a>
           </p>
         </div>

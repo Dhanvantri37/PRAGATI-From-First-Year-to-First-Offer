@@ -5,13 +5,13 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization:`Bearer ${localStorage.getItem('pragati_token')}` });
 
 const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.875rem', outline:'none', background:'#fafbff' };
-const Lbl = ({ children, req }) => <label style={{ display:'block', fontSize:'.75rem', fontWeight:700, color:'#3d4e6b', marginBottom:4, fontFamily:"'Syne',sans-serif" }}>{children} {req&&<span style={{ color:'#ef4444' }}>*</span>}</label>;
+const Lbl = ({ children, req }) => <label style={{ display:'block', fontSize:'.75rem', fontWeight:700, color:'var(--text-2)', marginBottom:4, fontFamily:"'Syne',sans-serif" }}>{children} {req&&<span style={{ color:'#ef4444' }}>*</span>}</label>;
 const Msg = ({ msg }) => msg ? <div style={{ padding:'10px 14px', borderRadius:8, fontSize:'.82rem', fontWeight:600, margin:'10px 0', background:msg.startsWith('✅')?'#dcfce7':'#fee2e2', color:msg.startsWith('✅')?'#166534':'#991b1b' }}>{msg}</div> : null;
 
 function Section({ title, children }) {
   return (
     <div style={{ background:'#fff', border:'1px solid #e8edf5', borderRadius:16, padding:'22px 24px', marginBottom:20, boxShadow:'0 2px 8px rgba(4,44,93,0.05)' }}>
-      <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:16, color:'#0f1a2e' }}>{title}</h3>
+      <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:16, color:'var(--text)' }}>{title}</h3>
       {children}
     </div>
   );
@@ -84,7 +84,7 @@ function BulkAptitudeUpload({ onAdded }) {
   }
   return (
     <form onSubmit={submit}>
-      <div style={{ marginBottom:10, fontSize:'.82rem', color:'#7a8ba8', lineHeight:1.6 }}>Required fields: <code style={{ background:'#f0f3fa', padding:'1px 6px', borderRadius:4 }}>topic, difficulty, question, options, answer, explanation</code></div>
+      <div style={{ marginBottom:10, fontSize:'.82rem', color:'var(--text-3)', lineHeight:1.6 }}>Required fields: <code style={{ background:'#f0f3fa', padding:'1px 6px', borderRadius:4 }}>topic, difficulty, question, options, answer, explanation</code></div>
       <div style={{ marginBottom:12 }}><Lbl>Sample format:</Lbl><pre style={{ background:'#0f172a', borderRadius:8, padding:'10px 12px', fontSize:'.74rem', overflowX:'auto', color:'#e2e8f0', fontFamily:'monospace' }}>{sample}</pre></div>
       <Lbl>Paste JSON Array:</Lbl>
       <textarea style={{ ...inp, height:160, resize:'vertical', fontFamily:'monospace', fontSize:'.8rem', background:'#0f172a', color:'#e2e8f0' }} value={text} onChange={e=>setText(e.target.value)} placeholder={sample} required/>
@@ -108,12 +108,12 @@ function PendingNotes({ onRefresh }) {
     onRefresh();
   }
   if (loading) return <div style={{ color:'#b0bec9' }}>Loading…</div>;
-  if (!notes.length) return <div style={{ color:'#7a8ba8', fontSize:'.875rem' }}>✅ No pending notes!</div>;
+  if (!notes.length) return <div style={{ color:'var(--text-3)', fontSize:'.875rem' }}>✅ No pending notes!</div>;
   return notes.map(n=>(
     <div key={n._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:10, border:'1px solid #e8edf5', marginBottom:8, background:'#fafbff' }}>
       <div style={{ flex:1 }}>
-        <div style={{ fontWeight:700, fontSize:'.88rem', color:'#0f1a2e' }}>{n.title}</div>
-        <div style={{ fontSize:'.73rem', color:'#7a8ba8' }}>{n.subject} · {n.department} · Year {n.year} · by {n.uploadedBy?.name}</div>
+        <div style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)' }}>{n.title}</div>
+        <div style={{ fontSize:'.73rem', color:'var(--text-3)' }}>{n.subject} · {n.department} · Year {n.year} · by {n.uploadedBy?.name}</div>
       </div>
       <button onClick={()=>act(n._id,'approve')} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#dcfce7', color:'#166534', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>✅ Approve</button>
       <button onClick={()=>act(n._id,'reject')} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#fee2e2', color:'#991b1b', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>❌ Reject</button>
@@ -146,7 +146,7 @@ function UsersTable() {
       {/* Section toggle */}
       <div style={{ display:'flex', gap:8, marginBottom:16 }}>
         {[['students',`🎓 Students (${users.filter(u=>u.role==='student').length})`],['faculty',`👨‍🏫 Faculty (${users.filter(u=>u.role==='faculty').length})`],['admins',`⚙️ Admins (${users.filter(u=>u.role==='admin').length})`]].map(([s,l])=>(
-          <button key={s} onClick={()=>setSection(s)} style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${section===s?'#531697':'#d0d7e8'}`, background:section===s?'rgba(83,22,151,0.08)':'transparent', color:section===s?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}>
+          <button key={s} onClick={()=>setSection(s)} style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${section===s?'#531697':'#d0d7e8'}`, background:section===s?'rgba(83,22,151,0.08)':'transparent', color:section===s?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}>
             {l}
           </button>
         ))}
@@ -171,18 +171,18 @@ function UsersTable() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
             <thead><tr style={{ borderBottom:'2px solid #e8edf5' }}>
-              {['Name','Email','Roll','Year','Dept','Level','Streak','ATS'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'#3d4e6b', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
+              {['Name','Email','Roll','Year','Dept','Level','Streak','ATS'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {students.map(u=>(
                 <tr key={u._id} style={{ borderBottom:'1px solid #f0f3fa' }}>
-                  <td style={{ padding:'8px 10px', fontWeight:700, color:'#0f1a2e' }}>{u.name}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8', fontSize:'.75rem' }}>{u.email}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8' }}>{u.rollNumber||'—'}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8' }}>Y{u.year||'—'}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8' }}>{u.department}</td>
+                  <td style={{ padding:'8px 10px', fontWeight:700, color:'var(--text)' }}>{u.name}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)', fontSize:'.75rem' }}>{u.email}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.rollNumber||'—'}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>Y{u.year||'—'}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.department}</td>
                   <td style={{ padding:'8px 10px' }}><span style={{ padding:'2px 7px', borderRadius:999, background:`${lc[u.skillLevel]||'#531697'}15`, color:lc[u.skillLevel]||'#531697', fontWeight:700, fontSize:'.7rem' }}>{u.skillLevel||'Beginner'}</span></td>
-                  <td style={{ padding:'8px 10px', color:'#3d4e6b' }}>🔥{u.streak||0}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-2)' }}>🔥{u.streak||0}</td>
                   <td style={{ padding:'8px 10px', fontWeight:800, color:'#531697' }}>{u.atsScore||'—'}</td>
                 </tr>
               ))}
@@ -197,14 +197,14 @@ function UsersTable() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
             <thead><tr style={{ borderBottom:'2px solid #e8edf5' }}>
-              {['Name','Email','Department','Joined','Role'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'#3d4e6b', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
+              {['Name','Email','Department','Joined','Role'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {faculty.map(u=>(
                 <tr key={u._id} style={{ borderBottom:'1px solid #f0f3fa' }}>
                   <td style={{ padding:'8px 10px', fontWeight:700, color:'#042c5d' }}>{u.name}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8', fontSize:'.75rem' }}>{u.email}</td>
-                  <td style={{ padding:'8px 10px', color:'#7a8ba8' }}>{u.department}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)', fontSize:'.75rem' }}>{u.email}</td>
+                  <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.department}</td>
                   <td style={{ padding:'8px 10px', color:'#b0bec9', fontSize:'.72rem' }}>{u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—'}</td>
                   <td style={{ padding:'8px 10px' }}><span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(4,44,93,0.08)', color:'#042c5d', fontWeight:700, fontSize:'.7rem' }}>Faculty</span></td>
                 </tr>
@@ -221,7 +221,7 @@ function UsersTable() {
           {admins.map(u=>(
             <div key={u._id} style={{ padding:'10px 16px', borderRadius:10, background:'rgba(83,22,151,0.06)', border:'1px solid rgba(83,22,151,0.12)' }}>
               <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name}</div>
-              <div style={{ fontSize:'.72rem', color:'#7a8ba8' }}>{u.email}</div>
+              <div style={{ fontSize:'.72rem', color:'var(--text-3)' }}>{u.email}</div>
             </div>
           ))}
           {!admins.length&&<div style={{ color:'#b0bec9', fontSize:'.875rem' }}>No admins found</div>}
@@ -274,13 +274,13 @@ function ManageDrives({ onRefresh }) {
     loadDrives();
   }
 
-  const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', outline:'none', boxSizing:'border-box', color:'#0f1a2e' } };
-  const LBL = ({ children }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:'#7a8ba8', marginBottom:4 }}>{children}</label>;
+  const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', outline:'none', boxSizing:'border-box', color:'var(--text)' } };
+  const LBL = ({ children }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:'var(--text-3)', marginBottom:4 }}>{children}</label>;
 
   return (
     <div>
       <div style={{ background:'rgba(83,22,151,0.04)', border:'1px solid rgba(83,22,151,0.12)', borderRadius:12, padding:20, marginBottom:24 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:16 }}>➕ Add New Placement Drive</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:16 }}>➕ Add New Placement Drive</div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div><LBL>Company Name *</LBL><input {...INP} value={form.companyName} onChange={e=>setForm(f=>({...f,companyName:e.target.value}))} placeholder="e.g. TCS, Infosys"/></div>
           <div><LBL>Role</LBL><input {...INP} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} placeholder="e.g. Software Engineer"/></div>
@@ -306,14 +306,14 @@ function ManageDrives({ onRefresh }) {
         </div>
       </div>
 
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'#0f1a2e', marginBottom:12 }}>All Placement Drives ({drives.length})</div>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', marginBottom:12 }}>All Placement Drives ({drives.length})</div>
       {loading ? <div style={{ color:'#b0bec9' }}>Loading…</div> :
         drives.length === 0 ? <div style={{ color:'#b0bec9', fontSize:'.85rem' }}>No drives created yet.</div> :
         drives.map(d => (
           <div key={d._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:10, border:'1px solid #e8edf5', background:'#fafbff', marginBottom:8 }}>
             <div style={{ flex:1 }}>
-              <div style={{ fontWeight:800, fontSize:'.88rem', color:'#0f1a2e' }}>{d.companyName} {d.role && <span style={{ color:'#7a8ba8', fontWeight:600 }}>— {d.role}</span>}</div>
-              <div style={{ fontSize:'.72rem', color:'#7a8ba8', marginTop:2 }}>
+              <div style={{ fontWeight:800, fontSize:'.88rem', color:'var(--text)' }}>{d.companyName} {d.role && <span style={{ color:'var(--text-3)', fontWeight:600 }}>— {d.role}</span>}</div>
+              <div style={{ fontSize:'.72rem', color:'var(--text-3)', marginTop:2 }}>
                 📅 {new Date(d.driveDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
                 {d.ctc && ` · 💰 ${d.ctc}`}
                 {` · 👥 ${d.applicants?.length || 0} applicants`}
@@ -335,12 +335,12 @@ export default function AdminPage() {
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ marginBottom:22 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.6rem', color:'#0f1a2e' }}>⚙️ Admin Panel</h1>
-        <p style={{ color:'#7a8ba8', marginTop:4 }}>Manage notes, companies, aptitude questions, users, and placement drives.</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.6rem', color:'var(--text)' }}>⚙️ Admin Panel</h1>
+        <p style={{ color:'var(--text-3)', marginTop:4 }}>Manage notes, companies, aptitude questions, users, and placement drives.</p>
       </div>
       <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'1px solid #e8edf5', flexWrap:'wrap' }}>
         {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'10px 18px', borderRadius:'10px 10px 0 0', border:'none', borderBottom:tab===t.id?'2px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,0.06)':'transparent', color:tab===t.id?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'10px 18px', borderRadius:'10px 10px 0 0', border:'none', borderBottom:tab===t.id?'2px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,0.06)':'transparent', color:tab===t.id?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
             {t.label}
           </button>
         ))}

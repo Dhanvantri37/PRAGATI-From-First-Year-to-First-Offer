@@ -46,7 +46,7 @@ function AIChat() {
             {m.role==='ai' && <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.85rem', flexShrink:0, marginRight:8, alignSelf:'flex-end' }}>🤖</div>}
             <div style={{ maxWidth:'75%', padding:'12px 16px', borderRadius: m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px',
               background: m.role==='user'?'linear-gradient(135deg,#531697,#13a1a5)':'#f8f9fc',
-              color: m.role==='user'?'#fff':'#0f1a2e',
+              color: m.role==='user'?'#fff':'var(--text)',
               border: m.role==='ai'?'1px solid #e8edf5':'none',
               fontSize:'.85rem', lineHeight:1.6, whiteSpace:'pre-wrap' }}>
               {m.text}
@@ -56,7 +56,7 @@ function AIChat() {
         {loading && (
           <div style={{ display:'flex', justifyContent:'flex-start', gap:8 }}>
             <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.85rem' }}>🤖</div>
-            <div style={{ padding:'12px 16px', borderRadius:'16px 16px 16px 4px', background:'#f8f9fc', border:'1px solid #e8edf5' }}>
+            <div style={{ padding:'12px 16px', borderRadius:'16px 16px 16px 4px', background:'var(--surface)', border:'1px solid #e8edf5' }}>
               <div style={{ display:'flex', gap:4 }}>
                 {[0,1,2].map(i => <div key={i} style={{ width:7, height:7, borderRadius:'50%', background:'#531697', animation:`_dot .9s ${i*0.2}s ease-in-out infinite` }} />)}
               </div>
@@ -71,7 +71,7 @@ function AIChat() {
           placeholder={isFaculty ? "Ask me to generate questions, explain concepts, draft announcements…" : "Ask anything — DSA, aptitude, company prep, career advice…"}
           style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.875rem', outline:'none' }} />
         <button onClick={send} disabled={!input.trim()||loading}
-          style={{ padding:'10px 18px', borderRadius:10, border:'none', background:input.trim()&&!loading?'linear-gradient(135deg,#531697,#13a1a5)':'#d0d7e8', color:'#fff', fontWeight:800, cursor:input.trim()&&!loading?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif" }}>
+          style={{ padding:'10px 18px', borderRadius:10, border:'none', background:input.trim()&&!loading?'linear-gradient(135deg,#531697,#13a1a5)':'#d0d7e8', color:'var(--surface)', fontWeight:800, cursor:input.trim()&&!loading?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif" }}>
           Send
         </button>
       </div>
@@ -145,7 +145,7 @@ function FacultyInbox() {
     <div style={{ display:'grid', gridTemplateColumns:'230px 1fr', gap:12, height:520 }}>
       {/* Conversation list */}
       <div style={{ overflowY:'auto', borderRight:'1px solid #e8edf5', paddingRight:10 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.78rem', color:'#3d4e6b', marginBottom:8 }}>📥 STUDENT MESSAGES</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.78rem', color:'var(--text-2)', marginBottom:8 }}>📥 STUDENT MESSAGES</div>
         {loading && <div style={{ color:'#b0bec9', fontSize:'.8rem' }}>Loading…</div>}
         {!loading && conversations.length === 0 && (
           <div style={{ color:'#b0bec9', fontSize:'.78rem', lineHeight:1.6, padding:'8px 0' }}>No student messages yet. Students can reach you via the "Chat with Faculty" tab.</div>
@@ -155,18 +155,18 @@ function FacultyInbox() {
           const lastMsg = c.lastMessage;
           return (
             <div key={c.studentId} onClick={()=>setSelected(c)}
-              style={{ padding:'10px 11px', borderRadius:10, marginBottom:6, cursor:'pointer', background:isActive?'rgba(83,22,151,0.09)':'#fafbff', border:isActive?'1.5px solid rgba(83,22,151,.28)':'1px solid #f0f3fa', transition:'all .15s' }}>
+              style={{ padding:'10px 11px', borderRadius:10, marginBottom:6, cursor:'pointer', background:isActive?'rgba(83,22,151,0.09)':'var(--surface)', border:isActive?'1.5px solid rgba(83,22,151,.28)':'1px solid #f0f3fa', transition:'all .15s' }}>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#042c5d,#531697)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.8rem', color:'#fff', fontWeight:800, flexShrink:0 }}>
+                <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,#042c5d,#531697)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.8rem', color:'var(--surface)', fontWeight:800, flexShrink:0 }}>
                   {c.studentName?.[0]?.toUpperCase()||'S'}
                 </div>
                 <div style={{ minWidth:0 }}>
-                  <div style={{ fontWeight:700, fontSize:'.78rem', color:'#0f1a2e', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.studentName}</div>
+                  <div style={{ fontWeight:700, fontSize:'.78rem', color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.studentName}</div>
                   <div style={{ fontSize:'.62rem', color:'#b0bec9' }}>{c.studentDept}</div>
                 </div>
-                {c.unread > 0 && <div style={{ marginLeft:'auto', minWidth:18, height:18, borderRadius:999, background:'#531697', color:'#fff', fontSize:'.62rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 4px', flexShrink:0 }}>{c.unread}</div>}
+                {c.unread > 0 && <div style={{ marginLeft:'auto', minWidth:18, height:18, borderRadius:999, background:'#531697', color:'var(--surface)', fontSize:'.62rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 4px', flexShrink:0 }}>{c.unread}</div>}
               </div>
-              {lastMsg && <div style={{ fontSize:'.67rem', color:'#94a3b8', marginTop:5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{lastMsg}</div>}
+              {lastMsg && <div style={{ fontSize:'.67rem', color:'var(--text-3)', marginTop:5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{lastMsg}</div>}
             </div>
           );
         })}
@@ -176,9 +176,9 @@ function FacultyInbox() {
       {selected ? (
         <div style={{ display:'flex', flexDirection:'column' }}>
           <div style={{ paddingBottom:8, borderBottom:'1px solid #e8edf5', marginBottom:8, display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={()=>setSelected(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'#7a8ba8', fontSize:'1rem', padding:0 }}>←</button>
+            <button onClick={()=>setSelected(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-3)', fontSize:'1rem', padding:0 }}>←</button>
             <div>
-              <div style={{ fontWeight:800, fontSize:'.87rem', color:'#0f1a2e' }}>{selected.studentName}</div>
+              <div style={{ fontWeight:800, fontSize:'.87rem', color:'var(--text)' }}>{selected.studentName}</div>
               <div style={{ fontSize:'.68rem', color:'#b0bec9' }}>{selected.studentDept} · auto-refreshing every 5s</div>
             </div>
           </div>
@@ -189,7 +189,7 @@ function FacultyInbox() {
               return (
                 <div key={i} style={{ display:'flex', justifyContent:isMe?'flex-end':'flex-start' }}>
                   {!isMe && <div style={{ width:26, height:26, borderRadius:'50%', background:'linear-gradient(135deg,#042c5d,#531697)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.7rem', color:'#fff', fontWeight:800, marginRight:6, flexShrink:0, alignSelf:'flex-end' }}>{selected.studentName?.[0]?.toUpperCase()}</div>}
-                  <div style={{ maxWidth:'72%', padding:'9px 14px', borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px', background:isMe?'linear-gradient(135deg,#531697,#13a1a5)':'#f8f9fc', color:isMe?'#fff':'#0f1a2e', fontSize:'.83rem', lineHeight:1.55, border:isMe?'none':'1px solid #e8edf5' }}>
+                  <div style={{ maxWidth:'72%', padding:'9px 14px', borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px', background:isMe?'linear-gradient(135deg,#531697,#13a1a5)':'#f8f9fc', color:isMe?'#fff':'var(--text)', fontSize:'.83rem', lineHeight:1.55, border:isMe?'none':'1px solid #e8edf5' }}>
                     {m.text}
                     <div style={{ fontSize:'.6rem', opacity:.6, marginTop:3 }}>{new Date(m.createdAt).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
                   </div>
@@ -272,7 +272,7 @@ function FacultyChat() {
     <div style={{ display:'grid', gridTemplateColumns:'220px 1fr', gap:12, height:500 }}>
       {/* Faculty list */}
       <div style={{ overflowY:'auto', borderRight:'1px solid #e8edf5', paddingRight:10 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.78rem', color:'#3d4e6b', marginBottom:8 }}>SELECT FACULTY</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.78rem', color:'var(--text-2)', marginBottom:8 }}>SELECT FACULTY</div>
         {faculty.length===0 && <div style={{ color:'#b0bec9', fontSize:'.8rem' }}>No faculty found</div>}
         {faculty.map(f => (
           <div key={f._id} onClick={()=>setSelected(f)}
@@ -280,7 +280,7 @@ function FacultyChat() {
             <div style={{ width:30, height:30, borderRadius:'50%', background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.8rem', color:'#fff', fontWeight:800, marginBottom:5 }}>
               {f.name?.[0]?.toUpperCase()||'F'}
             </div>
-            <div style={{ fontWeight:700, fontSize:'.78rem', color:'#0f1a2e' }}>{f.name}</div>
+            <div style={{ fontWeight:700, fontSize:'.78rem', color:'var(--text)' }}>{f.name}</div>
             <div style={{ fontSize:'.65rem', color:'#b0bec9' }}>{f.department}</div>
           </div>
         ))}
@@ -290,7 +290,7 @@ function FacultyChat() {
       {selected ? (
         <div style={{ display:'flex', flexDirection:'column' }}>
           <div style={{ paddingBottom:8, borderBottom:'1px solid #e8edf5', marginBottom:8 }}>
-            <div style={{ fontWeight:800, fontSize:'.87rem', color:'#0f1a2e' }}>Chat with {selected.name}</div>
+            <div style={{ fontWeight:800, fontSize:'.87rem', color:'var(--text)' }}>Chat with {selected.name}</div>
             <div style={{ fontSize:'.7rem', color:'#b0bec9' }}>{selected.department}</div>
           </div>
           <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, paddingBottom:8 }}>
@@ -301,7 +301,7 @@ function FacultyChat() {
                 <div key={i} style={{ display:'flex', justifyContent:isMe?'flex-end':'flex-start' }}>
                   <div style={{ maxWidth:'75%', padding:'9px 14px', borderRadius:isMe?'14px 14px 4px 14px':'14px 14px 14px 4px',
                     background:isMe?'linear-gradient(135deg,#531697,#13a1a5)':'#f8f9fc',
-                    color:isMe?'#fff':'#0f1a2e', fontSize:'.83rem', lineHeight:1.55,
+                    color:isMe?'#fff':'var(--text)', fontSize:'.83rem', lineHeight:1.55,
                     border:isMe?'none':'1px solid #e8edf5' }}>
                     {m.text}
                   </div>
@@ -345,8 +345,8 @@ function ThreadCard({ disc, onOpen }) {
         {disc.isResolved && <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(71,211,114,0.1)', color:'#166534', fontSize:'.7rem', fontWeight:700 }}>✅ Resolved</span>}
         <span style={{ marginLeft:'auto', fontSize:'.7rem', color:'#b0bec9' }}>{new Date(disc.createdAt).toLocaleDateString('en-IN',{ day:'numeric', month:'short' })}</span>
       </div>
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'#0f1a2e', marginBottom:4 }}>{disc.title}</div>
-      <div style={{ fontSize:'.75rem', color:'#7a8ba8' }}>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', marginBottom:4 }}>{disc.title}</div>
+      <div style={{ fontSize:'.75rem', color:'var(--text-3)' }}>
         by {disc.createdBy?.name||'Anonymous'} · {disc.replies?.length||0} {disc.replies?.length===1?'reply':'replies'}
         {disc.tags?.length>0 && ' · ' + disc.tags.slice(0,2).join(', ')}
       </div>
@@ -366,10 +366,10 @@ function ThreadDetail({ disc, user, onBack, onReply, onResolve }) {
   }
   return (
     <div>
-      <button onClick={onBack} style={{ marginBottom:14, padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Back</button>
+      <button onClick={onBack} style={{ marginBottom:14, padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Back</button>
       <div className="card" style={{ padding:'20px 22px', marginBottom:14 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'#0f1a2e', marginBottom:8 }}>{disc.title}</div>
-        {disc.approach && <div style={{ fontSize:'.85rem', color:'#3d4e6b', lineHeight:1.7, marginBottom:10 }}>{disc.approach}</div>}
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:8 }}>{disc.title}</div>
+        {disc.approach && <div style={{ fontSize:'.85rem', color:'var(--text-2)', lineHeight:1.7, marginBottom:10 }}>{disc.approach}</div>}
         {disc.problemLink && <a href={disc.problemLink} target="_blank" rel="noreferrer" style={{ fontSize:'.78rem', color:'#531697', fontWeight:700 }}>🔗 View Problem</a>}
         <div style={{ marginTop:10, fontSize:'.73rem', color:'#b0bec9' }}>Posted by {disc.createdBy?.name} · {new Date(disc.createdAt).toLocaleString('en-IN')}</div>
         {!disc.isResolved && user?.role !== 'student' && (
@@ -378,17 +378,17 @@ function ThreadDetail({ disc, user, onBack, onReply, onResolve }) {
       </div>
 
       <div style={{ marginBottom:14 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', marginBottom:10, color:'#3d4e6b' }}>REPLIES ({disc.replies?.length||0})</div>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', marginBottom:10, color:'var(--text-2)' }}>REPLIES ({disc.replies?.length||0})</div>
         {(disc.replies||[]).map((r,i) => (
           <div key={i} style={{ padding:'12px 14px', borderRadius:10, background:r.isAccepted?'rgba(71,211,114,0.06)':'#fafbff', border:`1px solid ${r.isAccepted?'rgba(71,211,114,0.25)':'#e8edf5'}`, marginBottom:8 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-              <span style={{ fontSize:'.78rem', fontWeight:700, color:'#3d4e6b' }}>
+              <span style={{ fontSize:'.78rem', fontWeight:700, color:'var(--text-2)' }}>
                 {r.author?.name||'Anonymous'}
                 {r.isAccepted && <span style={{ marginLeft:8, color:'#166634' }}>✓ Accepted</span>}
               </span>
               <span style={{ fontSize:'.7rem', color:'#b0bec9' }}>{new Date(r.createdAt).toLocaleDateString('en-IN',{ day:'numeric', month:'short' })}</span>
             </div>
-            <div style={{ fontSize:'.85rem', color:'#0f1a2e', lineHeight:1.65 }}>{r.content}</div>
+            <div style={{ fontSize:'.85rem', color:'var(--text)', lineHeight:1.65 }}>{r.content}</div>
           </div>
         ))}
         {(!disc.replies||!disc.replies.length) && <div style={{ fontSize:'.82rem', color:'#b0bec9', padding:'12px 0' }}>No replies yet — be the first to answer!</div>}
@@ -427,10 +427,10 @@ function CreateThread({ onCreated, onCancel, isFaculty }) {
     finally { setLoading(false); }
   }
   const inp = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.875rem', outline:'none', background:'#fafbff' } };
-  const lbl = { style:{ display:'block', fontSize:'.75rem', fontWeight:700, color:'#3d4e6b', marginBottom:4, fontFamily:"'Syne',sans-serif" } };
+  const lbl = { style:{ display:'block', fontSize:'.75rem', fontWeight:700, color:'var(--text-2)', marginBottom:4, fontFamily:"'Syne',sans-serif" } };
   return (
     <form onSubmit={submit} className="card" style={{ padding:'20px 22px', marginBottom:16 }}>
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:14, color:'#0f1a2e' }}>📝 Post a Question</div>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:14, color:'var(--text)' }}>📝 Post a Question</div>
       <div style={{ display:'grid', gap:12 }}>
         <div><label {...lbl}>Title / Question *</label><input {...inp} value={form.title} onChange={set('title')} placeholder="What is your question?" required /></div>
         {!isFaculty && (
@@ -450,7 +450,7 @@ function CreateThread({ onCreated, onCancel, isFaculty }) {
         )}
       </div>
       <div style={{ display:'flex', gap:8, marginTop:14 }}>
-        <button type="button" onClick={onCancel} style={{ padding:'10px 18px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>Cancel</button>
+        <button type="button" onClick={onCancel} style={{ padding:'10px 18px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>Cancel</button>
         <button type="submit" disabled={loading} style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
           {loading?'Posting…':'Post Question'}
         </button>
@@ -504,14 +504,14 @@ export default function DiscussionsPage() {
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ marginBottom:18 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'#0f1a2e' }}>💬 Discussions</h1>
-        <p style={{ color:'#7a8ba8', marginTop:3 }}>Ask faculty, discuss with peers, or chat with PRAGATI AI instantly</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)' }}>💬 Discussions</h1>
+        <p style={{ color:'var(--text-3)', marginTop:3 }}>Ask faculty, discuss with peers, or chat with PRAGATI AI instantly</p>
       </div>
 
       <div style={{ display:'flex', gap:5, marginBottom:16, borderBottom:'1px solid #e8edf5' }}>
         {TABS.map(t => (
           <button key={t.id} onClick={()=>{setTab(t.id); setSelected(null); setCreating(false);}}
-            style={{ padding:'8px 18px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===t.id?'2px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,.06)':'transparent', color:tab===t.id?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
+            style={{ padding:'8px 18px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===t.id?'2px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,.06)':'transparent', color:tab===t.id?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
             {t.label}
           </button>
         ))}
@@ -520,7 +520,7 @@ export default function DiscussionsPage() {
       {tab === 'ai' && (
         <div className="card" style={{ padding:'20px 22px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e' }}>🤖 PRAGATI AI Assistant</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)' }}>🤖 PRAGATI AI Assistant</div>
             <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(83,22,151,0.08)', color:'#531697', fontSize:'.68rem', fontWeight:700 }}>Powered by Gemini 2.0 Flash</span>
           </div>
           <AIChat />
@@ -529,14 +529,14 @@ export default function DiscussionsPage() {
 
       {tab === 'chat' && (
         <div className="card" style={{ padding:'20px 22px' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:14 }}>👨‍🏫 Direct Chat with Faculty</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:14 }}>👨‍🏫 Direct Chat with Faculty</div>
           <FacultyChat />
         </div>
       )}
 
       {tab === 'inbox' && (
         <div className="card" style={{ padding:'20px 22px' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:14 }}>📥 Student Message Inbox</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:14 }}>📥 Student Message Inbox</div>
           <FacultyInbox />
         </div>
       )}
@@ -555,7 +555,7 @@ export default function DiscussionsPage() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <div style={{ display:'flex', gap:6 }}>
                   {[['all','All'],['student-faculty','Ask Faculty'],['student-student','Peer']].map(([k,l])=>(
-                    <button key={k} onClick={()=>setFilter(k)} style={{ padding:'5px 12px', borderRadius:999, border:`1px solid ${filter===k?'#531697':'#d0d7e8'}`, background:filter===k?'rgba(83,22,151,.08)':'transparent', color:filter===k?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>{l}</button>
+                    <button key={k} onClick={()=>setFilter(k)} style={{ padding:'5px 12px', borderRadius:999, border:`1px solid ${filter===k?'#531697':'#d0d7e8'}`, background:filter===k?'rgba(83,22,151,.08)':'transparent', color:filter===k?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>{l}</button>
                   ))}
                 </div>
                 <button onClick={()=>setCreating(true)} style={{ padding:'8px 16px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
@@ -579,7 +579,7 @@ export default function DiscussionsPage() {
       {/* Opportunities from Unstop & Devfolio */}
       {tab === 'forum' && !selected && !creating && (
         <div style={{ marginTop:20 }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.88rem', marginBottom:12, color:'#0f1a2e' }}>🌐 Opportunities — Hackathons & Internships</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.88rem', marginBottom:12, color:'var(--text)' }}>🌐 Opportunities — Hackathons & Internships</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
             {[
               { name:'Unstop', emoji:'🏆', desc:'Hackathons, competitions, and internships for students', url:'https://unstop.com/competitions?superType=competitions', color:'#531697' },
@@ -594,7 +594,7 @@ export default function DiscussionsPage() {
                 <div style={{ fontSize:'1.4rem', flexShrink:0 }}>{op.emoji}</div>
                 <div>
                   <div style={{ fontWeight:800, fontSize:'.85rem', color:op.color, fontFamily:"'Syne',sans-serif" }}>{op.name}</div>
-                  <div style={{ fontSize:'.75rem', color:'#7a8ba8', marginTop:3, lineHeight:1.5 }}>{op.desc}</div>
+                  <div style={{ fontSize:'.75rem', color:'var(--text-3)', marginTop:3, lineHeight:1.5 }}>{op.desc}</div>
                   <div style={{ fontSize:'.7rem', color:op.color, marginTop:4, fontWeight:700 }}>Visit →</div>
                 </div>
               </a>

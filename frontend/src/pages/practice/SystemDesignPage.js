@@ -75,7 +75,7 @@ export default function SystemDesignPage() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           {SECTIONS.map(s => (
             <button key={s} onClick={() => setOpenSection(s)}
-              style={{ padding: '7px 16px', borderRadius: 9, border: `1.5px solid ${openSection === s ? '#531697' : '#d0d7e8'}`, background: openSection === s ? 'linear-gradient(135deg,#531697,#13a1a5)' : '#fff', color: openSection === s ? '#fff' : '#7a8ba8', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem' }}>
+              style={{ padding: '7px 16px', borderRadius: 9, border: `1.5px solid ${openSection === s ? '#531697' : '#d0d7e8'}`, background: openSection === s ? 'linear-gradient(135deg,#531697,#13a1a5)' : '#fff', color: openSection === s ? '#fff' : 'var(--text-3)', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem' }}>
               {s}
             </button>
           ))}
@@ -86,7 +86,7 @@ export default function SystemDesignPage() {
             <Card>
               <SectionTitle>✅ Functional Requirements</SectionTitle>
               {design.sections.Requirements.functional.map((r, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: '.83rem', color: '#3d4e6b', lineHeight: 1.5 }}>
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: '.83rem', color: 'var(--text-2)', lineHeight: 1.5 }}>
                   <span style={{ color: '#531697', fontWeight: 800 }}>{i + 1}.</span> {r}
                 </div>
               ))}
@@ -94,7 +94,7 @@ export default function SystemDesignPage() {
             <Card>
               <SectionTitle>⚡ Non-Functional Requirements</SectionTitle>
               {design.sections.Requirements.nonFunctional.map((r, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: '.83rem', color: '#3d4e6b', lineHeight: 1.5 }}>
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, fontSize: '.83rem', color: 'var(--text-2)', lineHeight: 1.5 }}>
                   <span style={{ color: '#13a1a5', fontWeight: 800 }}>{i + 1}.</span> {r}
                 </div>
               ))}
@@ -108,9 +108,9 @@ export default function SystemDesignPage() {
               <Card key={i} style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '.72rem', fontWeight: 800, flexShrink: 0 }}>C{i + 1}</div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.85rem', color: '#0f1a2e' }}>{c.name}</div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.85rem', color: 'var(--text)' }}>{c.name}</div>
                 </div>
-                <div style={{ fontSize: '.78rem', color: '#7a8ba8', lineHeight: 1.5 }}>{c.desc}</div>
+                <div style={{ fontSize: '.78rem', color: 'var(--text-3)', lineHeight: 1.5 }}>{c.desc}</div>
               </Card>
             ))}
           </div>
@@ -119,7 +119,7 @@ export default function SystemDesignPage() {
         {openSection === 'Flow' && (
           <Card>
             <SectionTitle>🔄 System Flow</SectionTitle>
-            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.85rem', color: '#3d4e6b', lineHeight: 2, whiteSpace: 'pre-wrap' }}>
+            <div style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.1)', fontSize: '.85rem', color: 'var(--text-2)', lineHeight: 2, whiteSpace: 'pre-wrap' }}>
               {design.sections.Flow}
             </div>
           </Card>
@@ -128,7 +128,7 @@ export default function SystemDesignPage() {
         {openSection === 'Diagram' && (
           <Card>
             <SectionTitle>🗺️ Architecture Diagram (Text-based)</SectionTitle>
-            <div style={{ padding: '16px', borderRadius: 10, background: '#0f1a2e', color: '#47d372', fontSize: '.82rem', fontFamily: 'monospace', lineHeight: 2, whiteSpace: 'pre-wrap', overflowX: 'auto' }}>
+            <div style={{ padding: '16px', borderRadius: 10, background: 'var(--text)', color: '#47d372', fontSize: '.82rem', fontFamily: 'monospace', lineHeight: 2, whiteSpace: 'pre-wrap', overflowX: 'auto' }}>
               {design.sections.Diagram}
             </div>
             <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 9, background: 'rgba(19,161,165,0.06)', border: '1px solid rgba(19,161,165,0.15)', fontSize: '.78rem', color: '#0d7a7e' }}>
@@ -145,7 +145,7 @@ export default function SystemDesignPage() {
       <RoundHeader icon="🟤" title="System Design Practice" subtitle="Beginner-friendly design problems with architecture diagrams and flow explanations" />
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#78350f':'#d0d7e8'}`, background:showRes?'rgba(120,53,15,0.07)':'#fff', color:showRes?'#78350f':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#78350f':'#d0d7e8'}`, background:showRes?'rgba(120,53,15,0.07)':'#fff', color:showRes?'#78350f':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -166,7 +166,7 @@ export default function SystemDesignPage() {
         {DESIGNS.map(d => (
           <Card key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#0f1a2e', marginBottom: 6 }}>{d.title}</div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)', marginBottom: 6 }}>{d.title}</div>
               <span style={{ padding: '2px 8px', borderRadius: 999, background: d.difficulty === 'Easy' ? 'rgba(71,211,114,0.1)' : 'rgba(245,158,11,0.1)', color: d.difficulty === 'Easy' ? '#166534' : '#92400e', fontSize: '.68rem', fontWeight: 700 }}>{d.difficulty}</span>
             </div>
             <button onClick={() => setSelected(d.id)}

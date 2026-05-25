@@ -11,65 +11,100 @@ export function getNaturalVoice(accent = 'indian', gender = 'female') {
   const isMale = gender.toLowerCase() === 'male';
   const targetAcc = accent || 'indian';
 
-  // Order languages by priority based on selected accent
-  let targetLangs = [];
-  if (targetAcc === 'indian') {
-    targetLangs = ['en-IN', 'en-GB', 'en-US'];
-  } else if (targetAcc === 'foreign') {
-    targetLangs = ['en-US', 'en-GB', 'en-IN'];
-  } else {
-    targetLangs = ['en-US', 'en-GB', 'en-IN', 'en'];
-  }
-
   // Name tokens to detect gendered voices
-  const femaleNames = ['neerja', 'aria', 'heera', 'raveena', 'sonia', 'zira', 'samantha', 'karen', 'hazel', 'female'];
-  const maleNames = ['prabhat', 'guy', 'ravi', 'ryan', 'david', 'troy', 'andrew', 'google us english male', 'google uk english male', 'male'];
+  const femaleNames = ['neerja', 'aria', 'heera', 'raveena', 'sonia', 'zira', 'samantha', 'karen', 'hazel', 'female', 'priya', 'shreya', 'ziya', 'prerna', 'pallavi', 'heera'];
+  const maleNames = ['prabhat', 'guy', 'ravi', 'ryan', 'david', 'troy', 'andrew', 'male', 'arjun', 'vikram', 'anuj', 'karan', 'madhur', 'dilip'];
 
-  // Step 1: Filter by target languages
-  let filtered = [];
-  for (const lang of targetLangs) {
-    const matched = voices.filter(v => v.lang.toLowerCase().replace('_', '-').startsWith(lang.toLowerCase()));
-    if (matched.length > 0) {
-      filtered = matched;
-      break;
+  // Quality markers for natural/neural voices
+  const naturalMarkers = ['natural', 'online', 'google', 'siri', 'neural', 'wavenet', 'neural2', 'aurora'];
+
+  let bestVoice = null;
+  let maxScore = -9999;
+
+  for (const voice of voices) {
+    const vName = (voice.name || '').toLowerCase();
+    const vLang = (voice.lang || '').toLowerCase().replace('_', '-');
+    let score = 0;
+
+    // 1. Neural/Natural quality priority
+    const isNatural = naturalMarkers.some(m => vName.includes(m));
+    if (isNatural) {
+      score += 100;
     }
-  }
-  if (filtered.length === 0) {
-    filtered = voices.filter(v => v.lang.toLowerCase().startsWith('en'));
-  }
-  if (filtered.length === 0) {
-    filtered = voices;
-  }
 
-  // Step 2: Sort matching voices to prioritize "Natural", "Online", "Neural", "Google", "Siri"
-  const sorted = [...filtered].sort((a, b) => {
-    const aName = a.name.toLowerCase();
-    const bName = b.name.toLowerCase();
+    // 2. Language/Accent scoring
+    if (targetAcc === 'indian') {
+      if (vLang.startsWith('en-in') || vLang.startsWith('hi-in')) {
+        score += 50;
+      } else if (vLang.startsWith('en-gb')) {
+        score += 25;
+      } else if (vLang.startsWith('en-us') || vLang.startsWith('en-ca')) {
+        score += 15;
+      } else if (vLang.startsWith('en')) {
+        score += 10;
+      } else {
+        score -= 50; // Deprioritize non-English
+      }
+    } else if (targetAcc === 'foreign') {
+      if (vLang.startsWith('en-us')) {
+        score += 50;
+      } else if (vLang.startsWith('en-gb')) {
+        score += 40;
+      } else if (vLang.startsWith('en-in') || vLang.startsWith('hi-in')) {
+        score += 15;
+      } else if (vLang.startsWith('en')) {
+        score += 10;
+      } else {
+        score -= 50;
+      }
+    } else { // Default or general English
+      if (vLang.startsWith('en-in') || vLang.startsWith('hi-in')) {
+        score += 50; // Still default to Indian accent
+      } else if (vLang.startsWith('en-us')) {
+        score += 40;
+      } else if (vLang.startsWith('en-gb')) {
+        score += 30;
+      } else if (vLang.startsWith('en')) {
+        score += 20;
+      } else {
+        score -= 50;
+      }
+    }
 
-    const aIsNatural = aName.includes('natural') || aName.includes('online') || aName.includes('google') || aName.includes('siri') || aName.includes('neural');
-    const bIsNatural = bName.includes('natural') || bName.includes('online') || bName.includes('google') || bName.includes('siri') || bName.includes('neural');
+    // 3. Gender matching
+    let genderMatch = false;
+    let genderMismatch = false;
 
-    let aMatchesGender = false;
-    let bMatchesGender = false;
     if (isMale) {
-      aMatchesGender = maleNames.some(n => aName.includes(n)) && !femaleNames.some(n => aName.includes(n));
-      bMatchesGender = maleNames.some(n => bName.includes(n)) && !femaleNames.some(n => bName.includes(n));
+      if (maleNames.some(m => vName.includes(m)) && !femaleNames.some(f => vName.includes(f))) {
+        genderMatch = true;
+      } else if (femaleNames.some(f => vName.includes(f))) {
+        genderMismatch = true;
+      }
     } else {
-      aMatchesGender = femaleNames.some(n => aName.includes(n)) && !maleNames.some(n => aName.includes(n));
-      bMatchesGender = femaleNames.some(n => bName.includes(n)) && !maleNames.some(n => bName.includes(n));
+      if (femaleNames.some(f => vName.includes(f)) && !maleNames.some(m => vName.includes(m))) {
+        genderMatch = true;
+      } else if (maleNames.some(m => vName.includes(m))) {
+        genderMismatch = true;
+      }
     }
 
-    if (aIsNatural && aMatchesGender && !(bIsNatural && bMatchesGender)) return -1;
-    if (bIsNatural && bMatchesGender && !(aIsNatural && aMatchesGender)) return 1;
+    if (genderMatch) {
+      score += 40;
+    } else if (genderMismatch) {
+      score -= 30;
+    }
 
-    if (aIsNatural && !bIsNatural) return -1;
-    if (bIsNatural && !aIsNatural) return 1;
+    // 4. Prefer local service slightly if scores are tied (for offline reliability)
+    if (voice.localService) {
+      score += 2;
+    }
 
-    if (aMatchesGender && !bMatchesGender) return -1;
-    if (bMatchesGender && !aMatchesGender) return 1;
+    if (score > maxScore) {
+      maxScore = score;
+      bestVoice = voice;
+    }
+  }
 
-    return 0;
-  });
-
-  return sorted[0] || null;
+  return bestVoice || voices[0];
 }

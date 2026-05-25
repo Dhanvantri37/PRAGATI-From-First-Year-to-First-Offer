@@ -51,11 +51,11 @@ function PlatformPopup({ onSelect }) {
   const today = new Date().toDateString();
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(4,44,93,0.6)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-      <div style={{ background:'#fff', borderRadius:20, padding:'28px', maxWidth:520, width:'100%', boxShadow:'0 24px 80px rgba(4,44,93,0.3)' }}>
+      <div style={{ background:'var(--surface)', borderRadius:20, padding:'28px', maxWidth:520, width:'100%', boxShadow:'0 24px 80px rgba(4,44,93,0.3)' }}>
         <div style={{ textAlign:'center', marginBottom:22 }}>
           <div style={{ fontSize:'2rem', marginBottom:8 }}>💻</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', color:'#0f1a2e' }}>Where do you want to practice today?</div>
-          <div style={{ fontSize:'.78rem', color:'#7a8ba8', marginTop:4 }}>{today} · Choose your platform for today's session</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', color:'var(--text)' }}>Where do you want to practice today?</div>
+          <div style={{ fontSize:'.78rem', color:'var(--text-3)', marginTop:4 }}>{today} · Choose your platform for today's session</div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
           {PLATFORMS.map(p => (
@@ -65,13 +65,13 @@ function PlatformPopup({ onSelect }) {
               onMouseOut={e=>{e.currentTarget.style.borderColor=`${p.color}30`; e.currentTarget.style.background=`${p.color}06`;}}>
               <div style={{ fontSize:'1.4rem', marginBottom:4 }}>{p.emoji}</div>
               <div style={{ fontWeight:800, fontSize:'.88rem', color:p.color }}>{p.name}</div>
-              <div style={{ fontSize:'.7rem', color:'#7a8ba8', marginTop:2 }}>{p.desc}</div>
+              <div style={{ fontSize:'.7rem', color:'var(--text-3)', marginTop:2 }}>{p.desc}</div>
               <div style={{ fontSize:'.65rem', color:p.color, marginTop:3, fontWeight:700 }}>{p.tagline}</div>
             </button>
           ))}
         </div>
         <button onClick={() => onSelect(null)}
-          style={{ width:'100%', marginTop:14, padding:'9px', borderRadius:10, border:'1px solid #e8edf5', background:'transparent', color:'#7a8ba8', fontWeight:600, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
+          style={{ width:'100%', marginTop:14, padding:'9px', borderRadius:10, border:'1px solid #e8edf5', background:'transparent', color:'var(--text-3)', fontWeight:600, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
           Skip — Show all problems
         </button>
       </div>
@@ -441,13 +441,13 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
   }
 
   return (
-    <div style={{ background:'#fff', border:`1.5px solid ${isSolved?'#47d372':'#e8edf5'}`, borderRadius:16, padding:'22px 24px', boxShadow:isSolved?'0 4px 16px rgba(71,211,114,0.1)':'0 2px 8px rgba(4,44,93,0.05)' }}>
+    <div style={{ background:'var(--surface)', border:`1.5px solid ${isSolved?'#47d372':'#e8edf5'}`, borderRadius:16, padding:'22px 24px', boxShadow:isSolved?'0 4px 16px rgba(71,211,114,0.1)':'0 2px 8px rgba(4,44,93,0.05)' }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
         <div style={{ flex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             {isSolved && <span>✅</span>}
             {isShuffled && !isSolved && <span title="Shuffled">🔀</span>}
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', color:'#0f1a2e' }}>{problem.title}</h3>
+            <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', color:'var(--text)' }}>{problem.title}</h3>
           </div>
           <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
             <span style={{ ...diff, padding:'3px 10px', borderRadius:999, fontSize:'.72rem', fontWeight:700, border:`1px solid ${diff.border}` }}>{problem.difficulty}</span>
@@ -506,7 +506,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
       )}
 
       {isSolved && (
-        <div style={{ marginTop:10, fontSize:'.75rem', color:'#7a8ba8', display:'flex', gap:12 }}>
+        <div style={{ marginTop:10, fontSize:'.75rem', color:'var(--text-3)', display:'flex', gap:12 }}>
           <span>✅ Solved {new Date(userProblem.solvedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
           {userProblem.selfRating && <span>{'⭐'.repeat(userProblem.selfRating)}</span>}
         </div>
@@ -517,11 +517,11 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
 
           {/* Language */}
           <div style={{ marginBottom:12 }}>
-            <label style={{ fontSize:'.75rem', fontWeight:800, color:'#3d4e6b', fontFamily:"'Syne',sans-serif", display:'block', marginBottom:5 }}>Language</label>
+            <label style={{ fontSize:'.75rem', fontWeight:800, color:'var(--text-2)', fontFamily:"'Syne',sans-serif", display:'block', marginBottom:5 }}>Language</label>
             <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
               {LANGUAGES.map(l => (
                 <button key={l} type="button" onClick={()=>setLang(l)}
-                  style={{ padding:'4px 12px', borderRadius:999, border:`1.5px solid ${lang===l?'#531697':'#d0d7e8'}`, background:lang===l?'rgba(83,22,151,0.08)':'transparent', color:lang===l?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.72rem', fontFamily:"'Nunito',sans-serif" }}>
+                  style={{ padding:'4px 12px', borderRadius:999, border:`1.5px solid ${lang===l?'#531697':'#d0d7e8'}`, background:lang===l?'rgba(83,22,151,0.08)':'transparent', color:lang===l?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.72rem', fontFamily:"'Nunito',sans-serif" }}>
                   {l}
                 </button>
               ))}
@@ -570,7 +570,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
             {/* Approach notes */}
             <div style={{ marginBottom:14 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                <label style={{ fontSize:'.78rem', fontWeight:700, color:'#3d4e6b', fontFamily:"'Syne',sans-serif" }}>Approach Notes <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
+                <label style={{ fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', fontFamily:"'Syne',sans-serif" }}>Approach Notes <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
                 <VoiceButton onResult={v=>setNotes(p=>p+' '+v)} />
               </div>
               <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2}
@@ -580,7 +580,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
 
             {/* Self rating */}
             <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', fontSize:'.78rem', fontWeight:700, color:'#3d4e6b', marginBottom:8, fontFamily:"'Syne',sans-serif" }}>How did you do? <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
+              <label style={{ display:'block', fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', marginBottom:8, fontFamily:"'Syne',sans-serif" }}>How did you do? <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
               <div style={{ display:'flex', gap:7 }}>
                 {[1,2,3,4,5].map(r => (
                   <button key={r} onClick={()=>setRating(r)} type="button"
@@ -627,7 +627,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
               {submitMode === 'error_found' && (
                 <div style={{ background:'rgba(239,68,68,0.04)', border:'1.5px solid rgba(239,68,68,0.2)', borderRadius:12, padding:'14px 16px' }}>
                   <div style={{ fontWeight:800, fontSize:'.88rem', color:'#ef4444', marginBottom:6 }}>❌ AI found errors in your code</div>
-                  <div style={{ fontSize:'.8rem', color:'#7a8ba8', marginBottom:12, lineHeight:1.65 }}>
+                  <div style={{ fontSize:'.8rem', color:'var(--text-3)', marginBottom:12, lineHeight:1.65 }}>
                     The debug report above shows the issues. We recommend fixing them before submitting.
                   </div>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
@@ -660,7 +660,7 @@ function HistoryCard({ item }) {
       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
         <span>✅</span>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:'.86rem', color:'#0f1a2e' }}>{item.problemId?.title}</div>
+          <div style={{ fontWeight:700, fontSize:'.86rem', color:'var(--text)' }}>{item.problemId?.title}</div>
           <div style={{ fontSize:'.72rem', color:'#b0bec9', marginTop:1 }}>
             {new Date(item.solvedAt||item.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})} · {item.problemId?.topic}
             {item.selfRating && ` · ${'⭐'.repeat(item.selfRating)}`}
@@ -677,7 +677,7 @@ function HistoryCard({ item }) {
         <pre style={{ marginTop:8, background:'#0f172a', borderRadius:8, padding:'10px 12px', overflow:'auto', color:'#e2e8f0', fontSize:'.78rem', fontFamily:'JetBrains Mono, monospace', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{item.solutionCode}</pre>
       )}
       {show && item.approachNotes && (
-        <div style={{ marginTop:6, padding:'8px 12px', background:'rgba(83,22,151,0.05)', borderRadius:8, fontSize:'.78rem', color:'#7a8ba8' }}>{item.approachNotes}</div>
+        <div style={{ marginTop:6, padding:'8px 12px', background:'rgba(83,22,151,0.05)', borderRadius:8, fontSize:'.78rem', color:'var(--text-3)' }}>{item.approachNotes}</div>
       )}
     </div>
   );
@@ -733,12 +733,12 @@ function AllProblemsTab() {
           style={{ padding:'7px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', flex:1, minWidth:160, outline:'none' }} />
         {[['Category',PROB_CATS,cat,setCat],['Difficulty',['All','Easy','Medium','Hard'],diff,setDiff],['Source',PROB_SRCS,src,setSrc]].map(([label,opts,val,setter])=>(
           <select key={label} value={val} onChange={e=>setter(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, color:'#3d4e6b', background:'#fff', cursor:'pointer' }}>
+            style={{ padding:'7px 10px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', background:'var(--surface)', cursor:'pointer' }}>
             {opts.map(o=><option key={o} value={o}>{o}</option>)}
           </select>
         ))}
       </div>
-      <div style={{ fontSize:'.73rem', color:'#7a8ba8', marginBottom:10 }}>{filtered.length} problems</div>
+      <div style={{ fontSize:'.73rem', color:'var(--text-3)', marginBottom:10 }}>{filtered.length} problems</div>
 
       {loading && <div style={{ textAlign:'center', padding:30, color:'#b0bec9' }}>Loading…</div>}
 
@@ -747,10 +747,10 @@ function AllProblemsTab() {
         const sc = SRC_COLOR[p.source] || '#531697';
         const isOpen = expanded === p._id;
         return (
-          <div key={p._id} style={{ background:'#fff', border:'1.5px solid #e8edf5', borderRadius:12, marginBottom:10, overflow:'hidden' }}>
+          <div key={p._id} style={{ background:'var(--surface)', border:'1.5px solid #e8edf5', borderRadius:12, marginBottom:10, overflow:'hidden' }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px' }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:'.88rem', color:'#0f1a2e', marginBottom:5 }}>{p.title}</div>
+                <div style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)', marginBottom:5 }}>{p.title}</div>
                 <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
                   {p.topic && <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.68rem', fontWeight:700 }}>{p.topic}</span>}
                   <span style={{ padding:'2px 8px', borderRadius:999, background:dc.bg, color:dc.color, border:`1px solid ${dc.border}`, fontSize:'.68rem', fontWeight:700 }}>{p.difficulty}</span>
@@ -777,11 +777,11 @@ function AllProblemsTab() {
 
             {/* Inline code editor + debug panel */}
             {isOpen && (
-              <div style={{ padding:'14px 16px', borderTop:'1px solid #f0f3fa', background:'#fafbff' }}>
+              <div style={{ padding:'14px 16px', borderTop:'1px solid #f0f3fa', background:'var(--surface)' }}>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
                   {LANGUAGES.map(l=>(
                     <button key={l} type="button" onClick={()=>setLang(prev=>({...prev,[p._id]:l}))}
-                      style={{ padding:'3px 10px', borderRadius:999, border:`1.5px solid ${(lang[p._id]||'javascript')===l?'#531697':'#d0d7e8'}`, background:(lang[p._id]||'javascript')===l?'rgba(83,22,151,0.08)':'transparent', color:(lang[p._id]||'javascript')===l?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>
+                      style={{ padding:'3px 10px', borderRadius:999, border:`1.5px solid ${(lang[p._id]||'javascript')===l?'#531697':'#d0d7e8'}`, background:(lang[p._id]||'javascript')===l?'rgba(83,22,151,0.08)':'transparent', color:(lang[p._id]||'javascript')===l?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>
                       {l}
                     </button>
                   ))}
@@ -882,8 +882,8 @@ export default function ProblemsPage() {
       {showPlatformPopup && <PlatformPopup onSelect={handlePlatformSelect} />}
 
       <div style={{ marginBottom:18 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'#0f1a2e' }}>💻 Coding Practice</h1>
-        <p style={{ color:'#7a8ba8', marginTop:3 }}>Daily problem · Category-wise list · 🤖 AI Debugging Agent · Platform links</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)' }}>💻 Coding Practice</h1>
+        <p style={{ color:'var(--text-3)', marginTop:3 }}>Daily problem · Category-wise list · 🤖 AI Debugging Agent · Platform links</p>
       </div>
 
       {/* Today's platform banner */}
@@ -893,7 +893,7 @@ export default function ProblemsPage() {
             <span style={{ fontSize:'1.2rem' }}>{selectedPlatform.emoji}</span>
             <div>
               <div style={{ fontWeight:800, fontSize:'.85rem', color:selectedPlatform.color }}>Today's Platform: {selectedPlatform.name}</div>
-              <div style={{ fontSize:'.7rem', color:'#7a8ba8' }}>{selectedPlatform.desc}</div>
+              <div style={{ fontSize:'.7rem', color:'var(--text-3)' }}>{selectedPlatform.desc}</div>
             </div>
           </div>
           <div style={{ display:'flex', gap:8 }}>
@@ -904,7 +904,7 @@ export default function ProblemsPage() {
               </a>
             )}
             <button onClick={() => setShowPlatformPopup(true)}
-              style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:600, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>
+              style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:600, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>
               Change
             </button>
           </div>
@@ -931,7 +931,7 @@ export default function ProblemsPage() {
       {/* Tabs */}
       <div style={{ display:'flex', gap:5, marginBottom:16, borderBottom:'1px solid #e8edf5' }}>
         {[['today',"📅 Today's Problem"],['all','📋 All Problems'],['history',`📜 History (${history.length})`]].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{ padding:'8px 16px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===k?'2px solid #531697':'2px solid transparent', background:tab===k?'rgba(83,22,151,.06)':'transparent', color:tab===k?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.83rem', fontFamily:"'Nunito',sans-serif" }}>
+          <button key={k} onClick={()=>setTab(k)} style={{ padding:'8px 16px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===k?'2px solid #531697':'2px solid transparent', background:tab===k?'rgba(83,22,151,.06)':'transparent', color:tab===k?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.83rem', fontFamily:"'Nunito',sans-serif" }}>
             {l}
           </button>
         ))}

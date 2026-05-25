@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getNaturalVoice } from '../utils/voiceHelper';
+import { io } from 'socket.io-client';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -11,13 +12,13 @@ const NAV_STUDENT = [
   { to:'/dashboard/notes',         icon:'📚', label:'Notes' },
   { to:'/dashboard/problems',      icon:'💻', label:'Daily Practice' },
   { to:'/dashboard/aptitude',      icon:'🎯', label:'Aptitude' },
-  { to:'/dashboard/interview-prep',icon:'🏅', label:'Interview Prep' },
-  { to:'/dashboard/ai-interview',  icon:'🤖', label:'AI Interviewer', badge:'NEW' },
+  { to:'/dashboard/interview-prep',icon:'🏅', label:'Placement Prep Hub' },
+  { to:'/dashboard/ai-interview',  icon:'🤖', label:'AI Interviewer'},
   { to:'/dashboard/companies',     icon:'🏢', label:'Companies' },
   { to:'/dashboard/drives',        icon:'🗓️', label:'Placement Drives' },
   { to:'/dashboard/skillpath',     icon:'🧠', label:'SkillPath AI' },
   { to:'/dashboard/gd',            icon:'🎤', label:'Group Discussion' },
-  { to:'/dashboard/discussions',   icon:'💬', label:'Discussions' },
+  { to:'/dashboard/discussions',   icon:'💬', label:'Doubt Resolution' },
 ];
 const NAV_FACULTY = [
   { to:'/dashboard',                  icon:'🏠', label:'Dashboard' },
@@ -57,6 +58,45 @@ export default function DashboardLayout() {
 
   const [open, setOpen]             = useState(true);
   const [darkMode, setDarkMode]     = useState(() => localStorage.getItem('pragati_dark') === '1');
+
+  // Sync dark mode class with document body
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Group Discussion real-time broadcast toast notifications
+  const [gdNotifications, setGdNotifications] = useState([]);
+  const gdNotifTimers = useRef({});
+  const gdSocketRef = useRef(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('pragati_token');
+    const base = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', '');
+    const socket = io(base, { auth: { token }, transports: ['websocket'], reconnection: true });
+    gdSocketRef.current = socket;
+
+    socket.on('gd-room-created', (data) => {
+      const isCurrentlyInGDRoom = /\/dashboard\/gd\/.+/.test(window.location.pathname);
+      if (isCurrentlyInGDRoom) return;
+
+      const id = Date.now();
+      setGdNotifications(n => [...n.slice(-2), { id, ...data }]);
+      gdNotifTimers.current[id] = setTimeout(() => {
+        setGdNotifications(n => n.filter(x => x.id !== id));
+        delete gdNotifTimers.current[id];
+      }, 12000);
+    });
+
+    return () => {
+      socket.disconnect();
+      Object.values(gdNotifTimers.current).forEach(clearTimeout);
+    };
+  }, [user]);
   const [showNotif, setShowNotif]   = useState(false);
   const [notifCount, setNotifCount] = useState(0);
   const [notifList, setNotifList]   = useState([]);
@@ -496,8 +536,8 @@ export default function DashboardLayout() {
   const headerBrd  = dm ? '#1e2d42' : '#e8edf5';
   const dropBg     = dm ? '#1a2235' : '#fff';
   const dropBrd    = dm ? '#2d3a52' : '#e8edf5';
-  const txt        = dm ? '#e2e8f0' : '#0f1a2e';
-  const sub        = dm ? '#94a3b8' : '#7a8ba8';
+  const txt        = dm ? '#e2e8f0' : 'var(--text)';
+  const sub        = dm ? '#94a3b8' : 'var(--text-3)';
   const hover      = dm ? '#2d3748' : '#f8f9fc';
   const inpBg      = dm ? '#2d3748' : '#fafbff';
   const inpBrd     = dm ? '#334155' : '#d0d7e8';
@@ -654,7 +694,7 @@ export default function DashboardLayout() {
                 background: n.badge && !open
                   ? 'linear-gradient(135deg,rgba(83,22,151,0.15),rgba(19,161,165,0.15))'
                   : isActive ? (dm?'rgba(83,22,151,0.2)':'linear-gradient(135deg,rgba(83,22,151,0.08),rgba(19,161,165,0.08))') : 'transparent',
-                color: isActive ? '#531697' : (dm?'#94a3b8':'#3d4e6b'),
+                color: isActive ? '#531697' : (dm?'#94a3b8':'var(--text-2)'),
                 borderLeft: isActive ? '3px solid #531697' : n.badge ? '3px solid #13a1a5' : '3px solid transparent',
               })}>
               <span style={{ fontSize:'1rem', flexShrink:0 }}>{n.icon}</span>
@@ -680,7 +720,7 @@ export default function DashboardLayout() {
         {/* Header — hidden on GD room so the call gets full screen */}
         {!isGDRoom && (
           <header className="pragati-header" style={{ height:58, background:headerBg, borderBottom:`1px solid ${headerBrd}`, display:'flex', alignItems:'center', padding:'0 24px', gap:12, position:'sticky', top:0, zIndex:10, boxShadow:'0 2px 8px rgba(4,44,93,0.05)', flexShrink:0 }}>
-            <button onClick={()=>setOpen(o=>!o)} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:dm?'#94a3b8':'#7a8ba8', padding:4, borderRadius:6 }}>☰</button>
+            <button onClick={()=>setOpen(o=>!o)} style={{ background:'none', border:'none', fontSize:'1.2rem', cursor:'pointer', color:dm?'#94a3b8':'var(--text-3)', padding:4, borderRadius:6 }}>☰</button>
             <div style={{ flex:1 }} />
 
             {/* Bell */}
@@ -694,7 +734,7 @@ export default function DashboardLayout() {
               {showNotif&&(
                 <div style={{ position:'absolute', top:44, right:0, width:320, background:dm?'#1e2a3b':'#fff', border:`1px solid ${headerBrd}`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', zIndex:200, overflow:'hidden' }}>
                   <div style={{ padding:'12px 16px', borderBottom:`1px solid ${headerBrd}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontWeight:800, fontSize:'.88rem', color:dm?'#e2e8f0':'#0f1a2e', fontFamily:"'Syne',sans-serif" }}>🔔 Notifications</span>
+                    <span style={{ fontWeight:800, fontSize:'.88rem', color:dm?'#e2e8f0':'var(--text)', fontFamily:"'Syne',sans-serif" }}>🔔 Notifications</span>
                     <button onClick={()=>{ markAllRead(); setShowNotif(false); }}
                       style={{ fontSize:'.65rem', color:'#531697', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>✓ Mark all read</button>
                   </div>
@@ -718,8 +758,8 @@ export default function DashboardLayout() {
                         onMouseOut={e => e.currentTarget.style.background = dm ? 'rgba(83,22,151,0.08)' : 'rgba(83,22,151,0.04)'}
                       >
                         <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:700, fontSize:'.8rem', color:dm?'#e2e8f0':'#0f1a2e', marginBottom:2 }}>{a.title}</div>
-                          <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5 }}>{a.message}</div>
+                          <div style={{ fontWeight:700, fontSize:'.8rem', color:dm?'#e2e8f0':'var(--text)', marginBottom:2 }}>{a.title}</div>
+                          <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'var(--text-3)', lineHeight:1.5 }}>{a.message}</div>
                           <div style={{ fontSize:'.65rem', color:dm?'#64748b':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
                         </div>
                         {/* ✕ dismisses single notification */}
@@ -861,7 +901,7 @@ export default function DashboardLayout() {
           GD Room/Report: zero padding, full height, no maxWidth constraint
           Everything else: normal dashboard padding + maxWidth
         */}
-        <main className="pragati-main-content" style={{
+        <main className={`pragati-main-content ${isGDRoom ? 'gd-room' : ''}`} style={{
           flex: 1,
           ...(isGDRoom
             ? { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }
@@ -972,7 +1012,7 @@ export default function DashboardLayout() {
                     background: m.role==='user'
                       ? 'linear-gradient(135deg,#531697,#13a1a5)'
                       : (dm ? '#1a2235' : '#f0f3fa'),
-                    color: m.role==='user' ? '#fff' : (dm ? '#e2e8f0' : '#0f1a2e'),
+                    color: m.role==='user' ? '#fff' : (dm ? '#e2e8f0' : 'var(--text)'),
                     border: m.role==='ai' ? (dm ? '1px solid #2d3a52' : '1px solid #e8edf5') : 'none',
                     whiteSpace:'pre-wrap', fontFamily:"'Nunito',sans-serif",
                   }}>
@@ -993,7 +1033,7 @@ export default function DashboardLayout() {
                   onKeyDown={e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendPragati(); } }}
                   placeholder={pragatiMicOn ? '🔴 Listening…' : 'Ask anything or say "Take me to…"'}
                   disabled={pragatiLoading}
-                  style={{ flex:1, padding:'9px 13px', borderRadius:10, border: dm ? '1.5px solid #2d3a52' : `1.5px solid ${pragatiMicOn?'#ef4444':'#d0d7e8'}`, fontFamily:"'Nunito',sans-serif", fontSize:'.84rem', outline:'none', background: dm ? '#1a2235' : '#f8f9fc', color: dm ? '#e2e8f0' : '#0f1a2e', transition:'border-color .2s' }}
+                  style={{ flex:1, padding:'9px 13px', borderRadius:10, border: dm ? '1.5px solid #2d3a52' : `1.5px solid ${pragatiMicOn?'#ef4444':'#d0d7e8'}`, fontFamily:"'Nunito',sans-serif", fontSize:'.84rem', outline:'none', background: dm ? '#1a2235' : '#f8f9fc', color: dm ? '#e2e8f0' : 'var(--text)', transition:'border-color .2s' }}
                 />
                 {/* Mic button — only shown when voice is enabled */}
                 {pragatiVoice && (window.SpeechRecognition||window.webkitSpeechRecognition) && (
@@ -1028,6 +1068,75 @@ export default function DashboardLayout() {
       {/* ── Mobile Bottom Navigation ── */}
       <MobileBottomNav role={user?.role} dm={dm} />
 
+      {/* Real-time Group Discussion Toast Notifications */}
+      <div style={{
+        position: 'fixed',
+        top: 20,
+        right: 20,
+        zIndex: 10000,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        pointerEvents: 'none'
+      }}>
+        {gdNotifications.map(n => (
+          <div key={n.id} style={{
+            background: dm ? '#1e293b' : '#ffffff',
+            borderRadius: 14,
+            padding: '16px 20px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+            border: dm ? '1.5px solid rgba(255,255,255,0.08)' : '1.5px solid rgba(83,22,151,0.12)',
+            maxWidth: 340,
+            pointerEvents: 'auto',
+            animation: 'gdToastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            fontFamily: "'Nunito', sans-serif"
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontWeight: 800, fontSize: '.88rem', color: '#13a1a5', display: 'flex', alignItems: 'center', gap: 6 }}>
+                🎤 Live GD Session
+              </span>
+              <button
+                onClick={() => setGdNotifications(x => x.filter(i => i.id !== n.id))}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ fontSize: '.82rem', color: dm ? '#cbd5e1' : '#334155', lineHeight: 1.4, marginBottom: 12 }}>
+              {n.message}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  setGdNotifications(x => x.filter(i => i.id !== n.id));
+                  nav(`/dashboard/gd/${n.roomCode}`);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: 'linear-gradient(135deg,#531697,#13a1a5)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  fontSize: '.78rem',
+                  fontFamily: "'Nunito', sans-serif",
+                  boxShadow: '0 4px 12px rgba(19, 161, 165, 0.25)'
+                }}
+              >
+                Join Discussion →
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes gdToastSlideIn {
+          from { transform: translateX(50px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
     </>
     </div>
   );
@@ -1059,7 +1168,7 @@ function MobileBottomNav({ role, dm }) {
           display:'flex', flexDirection:'column', alignItems:'center',
           gap:2, padding:'6px 0', borderRadius:10, textDecoration:'none',
           fontSize:'.58rem', fontWeight:700,
-          color: isActive ? '#531697' : dm ? '#7a8ba8' : '#7a8ba8',
+          color: isActive ? '#531697' : dm ? 'var(--text-3)' : 'var(--text-3)',
           background: isActive ? (dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)') : 'transparent',
           flex:1, maxWidth:72,
         })}>

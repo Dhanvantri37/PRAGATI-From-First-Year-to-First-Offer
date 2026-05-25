@@ -32,7 +32,7 @@ export default function PracticeRoundPage() {
     return (
       <div style={{ textAlign: 'center', padding: 60, fontFamily: "'Nunito',sans-serif" }}>
         <div style={{ fontSize: '3rem', marginBottom: 12 }}>🚫</div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.2rem', color: '#0f1a2e', marginBottom: 8 }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.2rem', color: 'var(--text)', marginBottom: 8 }}>
           Round type "{roundType}" not found
         </div>
         <button onClick={() => nav(-1)}

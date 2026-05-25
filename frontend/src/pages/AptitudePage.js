@@ -202,8 +202,8 @@ const TOPIC_LABELS = {
 };
 
 // ── Shared styles ────────────────────────────────────────────────────────────
-const SEL_S = { padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', color:'#3d4e6b', background:'#fff', cursor:'pointer', width:'100%' };
-const LBL   = { display:'block', fontSize:'.75rem', fontWeight:800, color:'#3d4e6b', marginBottom:5, fontFamily:"'Syne',sans-serif" };
+const SEL_S = { padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', color:'var(--text-2)', background:'var(--surface)', cursor:'pointer', width:'100%' };
+const LBL   = { display:'block', fontSize:'.75rem', fontWeight:800, color:'var(--text-2)', marginBottom:5, fontFamily:"'Syne',sans-serif" };
 
 // ── Subtopic Info Card ───────────────────────────────────────────────────────
 function SubtopicInfoCard({ subtopic }) {
@@ -212,7 +212,7 @@ function SubtopicInfoCard({ subtopic }) {
   return (
     <div style={{ padding:'14px 16px', background:'rgba(83,22,151,0.04)', border:'1px solid rgba(83,22,151,0.12)', borderRadius:12, marginBottom:14 }}>
       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.8rem', color:'#531697', marginBottom:6 }}>📖 Theory: {subtopic}</div>
-      <div style={{ fontSize:'.82rem', color:'#3d4e6b', lineHeight:1.7, marginBottom:10 }}>{m.theory}</div>
+      <div style={{ fontSize:'.82rem', color:'var(--text-2)', lineHeight:1.7, marginBottom:10 }}>{m.theory}</div>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
         <a href={m.gfg} target="_blank" rel="noreferrer" style={{ padding:'5px 12px', borderRadius:8, background:'rgba(46,168,84,0.08)', border:'1px solid rgba(46,168,84,0.2)', color:'#2ea854', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>🟢 Practice on GeeksforGeeks →</a>
         <a href={m.indiabix} target="_blank" rel="noreferrer" style={{ padding:'5px 12px', borderRadius:8, background:'rgba(19,161,165,0.08)', border:'1px solid rgba(19,161,165,0.2)', color:'#13a1a5', fontSize:'.75rem', fontWeight:700, textDecoration:'none' }}>📘 Practice on IndiaBix →</a>
@@ -285,7 +285,7 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
   return (
     <div style={{ maxWidth:680, margin:'0 auto' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-        <div style={{ fontSize:'.8rem', fontWeight:700, color:'#7a8ba8' }}>{mode==='practice'?'📖 Practice':'🧪 Quiz'} · Q{idx+1}/{total}</div>
+        <div style={{ fontSize:'.8rem', fontWeight:700, color:'var(--text-3)' }}>{mode==='practice'?'📖 Practice':'🧪 Quiz'} · Q{idx+1}/{total}</div>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
           <div style={{ height:6, width:160, background:'#f0f3fa', borderRadius:999 }}>
             <div style={{ height:'100%', width:`${((idx+1)/total)*100}%`, background:GRAD, borderRadius:999, transition:'width .3s' }} />
@@ -304,11 +304,11 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
           ))}
         </div>
 
-        <div style={{ fontWeight:700, fontSize:'.97rem', color:'#0f1a2e', lineHeight:1.7, marginBottom:20, whiteSpace:'pre-wrap' }}>{q.question}</div>
+        <div style={{ fontWeight:700, fontSize:'.97rem', color:'var(--text)', lineHeight:1.7, marginBottom:20, whiteSpace:'pre-wrap' }}>{q.question}</div>
 
         <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:16 }}>
           {(q.options||[]).map((opt,i) => {
-            let bg='#fafbff', brd='#d0d7e8', col='#3d4e6b';
+            let bg='#fafbff', brd='#d0d7e8', col='var(--text-2)';
             if (revealed) { if (opt===q.answer){bg='rgba(71,211,114,0.1)';brd='#47d372';col='#166534';} else if(opt===sel){bg='rgba(239,68,68,0.08)';brd='#ef4444';col='#991b1b';} }
             else if (sel===opt) { bg='rgba(83,22,151,0.08)';brd='#531697';col='#531697'; }
             return (
@@ -326,7 +326,7 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
         {expired&&!revealed&&<div style={{ padding:'9px 12px', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, fontSize:'.82rem', color:'#991b1b', fontWeight:600, marginBottom:12 }}>⏱️ Time's up!</div>}
 
         {revealed&&q.explanation&&(
-          <div style={{ padding:'12px 14px', background:'rgba(83,22,151,0.05)', borderRadius:10, border:'1px solid rgba(83,22,151,0.1)', fontSize:'.82rem', color:'#3d4e6b', lineHeight:1.7, marginBottom:12 }}>
+          <div style={{ padding:'12px 14px', background:'rgba(83,22,151,0.05)', borderRadius:10, border:'1px solid rgba(83,22,151,0.1)', fontSize:'.82rem', color:'var(--text-2)', lineHeight:1.7, marginBottom:12 }}>
             <strong style={{ color:'#531697' }}>💡 Explanation:</strong> {q.explanation}
           </div>
         )}
@@ -341,15 +341,15 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
         <div style={{ display:'flex', gap:8 }}>
           {!revealed&&(
             <button onClick={()=>{if(sel||expired)setRev(true);}} disabled={!sel&&!expired}
-              style={{ flex:1, padding:'11px', borderRadius:10, border:'none', background:(sel||expired)?GRAD:'#d0d7e8', color:'#fff', fontWeight:800, cursor:(sel||expired)?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif" }}>
+              style={{ flex:1, padding:'11px', borderRadius:10, border:'none', background:(sel||expired)?GRAD:'#d0d7e8', color:'var(--surface)', fontWeight:800, cursor:(sel||expired)?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif" }}>
               {sel?'✓ Check Answer':'Select an answer'}
             </button>
           )}
           {!revealed&&mode==='practice'&&(
-            <button onClick={()=>setRev(true)} style={{ padding:'11px 16px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>Skip</button>
+            <button onClick={()=>setRev(true)} style={{ padding:'11px 16px', borderRadius:10, border:'1.5px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>Skip</button>
           )}
           {revealed&&(
-            <button onClick={next} style={{ flex:1, padding:'11px', borderRadius:10, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
+            <button onClick={next} style={{ flex:1, padding:'11px', borderRadius:10, border:'none', background:GRAD, color:'var(--surface)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
               {idx<total-1?'Next Question →':'🏁 Finish'}
             </button>
           )}
@@ -371,24 +371,24 @@ function Results({ answers, title, mode, onRestart }) {
       <div className="card" style={{ padding:'28px 24px', textAlign:'center', marginBottom:14 }}>
         <div style={{ fontSize:'2.5rem', marginBottom:8 }}>{score>=70?'🏆':score>=45?'👍':'📚'}</div>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'2.8rem', color:col, lineHeight:1 }}>{score}%</div>
-        <div style={{ fontWeight:700, color:'#3d4e6b', marginBottom:12, marginTop:4 }}>{correct} / {answers.length} correct · {mode==='practice'?'Practice':'Quiz'} — {title}</div>
+        <div style={{ fontWeight:700, color:'var(--text-2)', marginBottom:12, marginTop:4 }}>{correct} / {answers.length} correct · {mode==='practice'?'Practice':'Quiz'} — {title}</div>
         <div style={{ height:8, background:'#f0f3fa', borderRadius:999, marginBottom:16 }}>
           <div style={{ height:'100%', width:`${score}%`, background:`linear-gradient(90deg,${col},#13a1a5)`, borderRadius:999, transition:'width 1s' }} />
         </div>
-        <div style={{ fontSize:'.83rem', color:'#7a8ba8', marginBottom:20 }}>
+        <div style={{ fontSize:'.83rem', color:'var(--text-3)', marginBottom:20 }}>
           {score>=70?'Excellent! Strong grip on this topic 💪':score>=45?'Good effort! Review explanations 📖':'Keep practicing — consistency is key! 🔥'}
         </div>
-        <button onClick={onRestart} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>← Back to Topics</button>
+        <button onClick={onRestart} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:GRAD, color:'var(--surface)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>← Back to Topics</button>
       </div>
 
       {weak.length>0&&(
         <div className="card" style={{ padding:'16px 20px' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.88rem', color:'#0f1a2e', marginBottom:10 }}>📌 Subtopics to Revise</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.88rem', color:'var(--text)', marginBottom:10 }}>📌 Subtopics to Revise</div>
           {weak.map(sub=>{
             const m=SUBTOPIC_META[sub]||{};
             return (
               <div key={sub} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'rgba(239,68,68,0.04)', borderRadius:8, marginBottom:6 }}>
-                <span style={{ fontWeight:700, fontSize:'.82rem', color:'#3d4e6b' }}>{sub}</span>
+                <span style={{ fontWeight:700, fontSize:'.82rem', color:'var(--text-2)' }}>{sub}</span>
                 <div style={{ display:'flex', gap:6 }}>
                   {m.gfg&&<a href={m.gfg} target="_blank" rel="noreferrer" style={{ padding:'3px 8px', borderRadius:6, background:'rgba(46,168,84,0.1)', color:'#2ea854', fontSize:'.7rem', fontWeight:700, textDecoration:'none' }}>GFG →</a>}
                   {m.indiabix&&<a href={m.indiabix} target="_blank" rel="noreferrer" style={{ padding:'3px 8px', borderRadius:6, background:'rgba(19,161,165,0.1)', color:'#13a1a5', fontSize:'.7rem', fontWeight:700, textDecoration:'none' }}>IndiaBix →</a>}
@@ -414,7 +414,7 @@ function FlashcardStack({ subtopic, onStart }) {
     {
       type: 'Definition',
       icon: '📘',
-      color: '#531697',
+      color: 'var(--text)',
       bgColor: 'rgba(83,22,151,0.05)',
       brdColor: 'rgba(83,22,151,0.15)',
       content: meta.theory,
@@ -434,7 +434,7 @@ function FlashcardStack({ subtopic, onStart }) {
     {
       type: 'Practice Links',
       icon: '🔗',
-      color: '#13a1a5',
+      color: 'var(--text-3)',
       bgColor: 'rgba(19,161,165,0.05)',
       brdColor: 'rgba(19,161,165,0.15)',
       content: null, // special card with buttons
@@ -454,7 +454,7 @@ function FlashcardStack({ subtopic, onStart }) {
   return (
     <div style={{ marginBottom:20 }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12 }}>
-        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:'#0f1a2e' }}>
+        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:'var(--text)' }}>
           📖 Theory: {subtopic}
         </div>
         <span style={{ marginLeft:'auto', fontSize:'.72rem', color:'#b0bec9', fontWeight:600 }}>Card {idx+1} of {cards.length}</span>
@@ -469,10 +469,10 @@ function FlashcardStack({ subtopic, onStart }) {
           <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.8rem', color:card.color, letterSpacing:'.04em' }}>{card.type.toUpperCase()}</span>
         </div>
         {card.content !== null ? (
-          <div style={{ fontSize:'.85rem', color:'#3d4e6b', lineHeight:1.75 }}>{card.content}</div>
+          <div style={{ fontSize:'.85rem', color:'var(--text-2)', lineHeight:1.75 }}>{card.content}</div>
         ) : (
           <div>
-            <div style={{ fontSize:'.83rem', color:'#3d4e6b', marginBottom:12 }}>Practice this exact topic on trusted platforms with high-quality questions:</div>
+            <div style={{ fontSize:'.83rem', color:'var(--text-2)', marginBottom:12 }}>Practice this exact topic on trusted platforms with high-quality questions:</div>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <a href={meta.gfg} target="_blank" rel="noreferrer" style={{ padding:'8px 16px', borderRadius:9, background:'rgba(46,168,84,0.1)', border:'1.5px solid rgba(46,168,84,0.25)', color:'#2ea854', fontSize:'.82rem', fontWeight:800, textDecoration:'none', display:'flex', alignItems:'center', gap:6 }}>
                 <span style={{ fontSize:'1.1rem' }}>🟢</span> Practice on GeeksforGeeks →
@@ -549,7 +549,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
             <div key={l} style={{ textAlign:'center', padding:'8px', background:'rgba(83,22,151,0.04)', borderRadius:10 }}>
               <div style={{ fontSize:'1.2rem' }}>{ic}</div>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', color:'#531697' }}>{v}</div>
-              <div style={{ fontSize:'.68rem', color:'#7a8ba8', fontWeight:700 }}>{l}</div>
+              <div style={{ fontSize:'.68rem', color:'var(--text-3)', fontWeight:700 }}>{l}</div>
             </div>
           ))}
         </div>
@@ -574,7 +574,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
               placeholder="🔍 Search topic (e.g. Time and Work, Blood Relations…)"
               style={{ width:'100%', padding:'11px 16px', borderRadius:10, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.88rem', outline:'none', boxSizing:'border-box' }} />
             {searchResults.length > 0 && (
-              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', borderRadius:10, boxShadow:'0 8px 30px rgba(4,44,93,0.12)', border:'1px solid #e8edf5', zIndex:20, maxHeight:240, overflowY:'auto', marginTop:4 }}>
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'var(--surface)', borderRadius:10, boxShadow:'0 8px 30px rgba(4,44,93,0.12)', border:'1px solid #e8edf5', zIndex:20, maxHeight:240, overflowY:'auto', marginTop:4 }}>
                 {searchResults.map(({ cat, sub }) => {
                   const pct = subtopicPct(sub);
                   return (
@@ -582,7 +582,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
                       onMouseOver={e=>e.currentTarget.style.background='rgba(83,22,151,0.05)'} onMouseOut={e=>e.currentTarget.style.background='transparent'}>
                       <span style={{ fontSize:'.8rem' }}>{ICONS[cat]||'❓'}</span>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:700, fontSize:'.82rem', color:'#0f1a2e' }}>{sub}</div>
+                        <div style={{ fontWeight:700, fontSize:'.82rem', color:'var(--text)' }}>{sub}</div>
                         <div style={{ fontSize:'.65rem', color:'#b0bec9' }}>{cat}</div>
                       </div>
                       {pct !== null && <span style={{ fontSize:'.68rem', fontWeight:700, color: pct>=70?'#47d372':pct>=45?'#f59e0b':'#ef4444' }}>{pct}%</span>}
@@ -596,7 +596,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
           {/* Flashcard view */}
           {showFlashcards && selSubtopic ? (
             <div className="card" style={{ padding:'20px 22px' }}>
-              <button onClick={()=>{setShowFC(false);}} style={{ marginBottom:14, padding:'5px 12px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Back to Topics</button>
+              <button onClick={()=>{setShowFC(false);}} style={{ marginBottom:14, padding:'5px 12px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Back to Topics</button>
               <FlashcardStack subtopic={selSubtopic} onStart={()=>{ if(!selCategory){alert('Please select a category first.');return;} onStartPractice({topic:selCategory, subtopic:selSubtopic, shuffle:false}); }} />
             </div>
           ) : (
@@ -616,7 +616,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
                         {ICONS[cat]||'❓'}
                       </div>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.92rem', color:'#0f1a2e' }}>{TOPIC_LABELS[cat]||cat}</div>
+                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.92rem', color:'var(--text)' }}>{TOPIC_LABELS[cat]||cat}</div>
                         <div style={{ fontSize:'.68rem', color:'#b0bec9', marginTop:2 }}>{subs.length} subtopics · {qCount} questions</div>
                       </div>
                       {catPct !== null && (
@@ -640,7 +640,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
                                 style={{ padding:'10px 12px', borderRadius:10, border:'1.5px solid rgba(19,161,165,0.18)', background:'rgba(19,161,165,0.04)', cursor:'pointer', transition:'all .15s' }}
                                 onMouseOver={e=>{e.currentTarget.style.borderColor='#13a1a5';e.currentTarget.style.background='rgba(19,161,165,0.09)';}}
                                 onMouseOut={e=>{e.currentTarget.style.borderColor='rgba(19,161,165,0.18)';e.currentTarget.style.background='rgba(19,161,165,0.04)';}}>
-                                <div style={{ fontWeight:700, fontSize:'.8rem', color:'#0f1a2e', marginBottom:5 }}>{sub}</div>
+                                <div style={{ fontWeight:700, fontSize:'.8rem', color:'var(--text)', marginBottom:5 }}>{sub}</div>
                                 {/* Progress bar */}
                                 <div style={{ height:4, background:'#e8f5f5', borderRadius:999, marginBottom:6 }}>
                                   <div style={{ height:'100%', width:`${pct || 0}%`, background:pct>=70?'#47d372':pct>=45?'#f59e0b':'#13a1a5', borderRadius:999, transition:'width .8s' }} />
@@ -674,14 +674,14 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
       {/* ── QUIZ MODE ─────────────────────────────────────────────────────── */}
       {mode === 'quiz' && (
         <div className="card" style={{ padding:'20px 22px' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:6 }}>🧪 Quiz Mode</div>
-          <p style={{ fontSize:'.82rem', color:'#7a8ba8', marginBottom:16, lineHeight:1.6 }}>Select topics, set difficulty, and get a timed auto-generated quiz.</p>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:6 }}>🧪 Quiz Mode</div>
+          <p style={{ fontSize:'.82rem', color:'var(--text-3)', marginBottom:16, lineHeight:1.6 }}>Select topics, set difficulty, and get a timed auto-generated quiz.</p>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(170px,1fr))', gap:8, marginBottom:14 }}>
             {(topicsData.topics||Object.keys(TOPIC_SUBTOPICS)).map(t=>{
               const chosen = quizTopics.includes(t);
               return (
                 <button key={t} onClick={()=>toggleQT(t)}
-                  style={{ padding:'10px 14px', borderRadius:10, border:`1.5px solid ${chosen?'#531697':'#d0d7e8'}`, background:chosen?'rgba(83,22,151,0.08)':'#fafbff', color:chosen?'#531697':'#3d4e6b', fontWeight:700, cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', transition:'all .15s' }}>
+                  style={{ padding:'10px 14px', borderRadius:10, border:`1.5px solid ${chosen?'#531697':'#d0d7e8'}`, background:chosen?'rgba(83,22,151,0.08)':'#fafbff', color:chosen?'#531697':'var(--text-2)', fontWeight:700, cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', transition:'all .15s' }}>
                   <div style={{ fontSize:'1.2rem', marginBottom:3 }}>{ICONS[t]||'❓'}</div>
                   <div>{t}</div>
                   <div style={{ fontSize:'.68rem', color:chosen?'#531697':'#b0bec9', marginTop:2 }}>{topicsData.questionCounts?.[t]||0} Qs</div>
@@ -691,7 +691,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14 }}>
             <div>
-              <label style={{ display:'block', fontSize:'.75rem', fontWeight:800, color:'#3d4e6b', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>Difficulty</label>
+              <label style={{ display:'block', fontSize:'.75rem', fontWeight:800, color:'var(--text-2)', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>Difficulty</label>
               <select style={SEL_S} value={quizDiff} onChange={e=>setQDiff(e.target.value)}>
                 <option value="All">All Levels</option>
                 <option value="Easy">Easy</option>
@@ -700,7 +700,7 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
               </select>
             </div>
             <div>
-              <label style={{ display:'block', fontSize:'.75rem', fontWeight:800, color:'#3d4e6b', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>Number of Questions</label>
+              <label style={{ display:'block', fontSize:'.75rem', fontWeight:800, color:'var(--text-2)', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>Number of Questions</label>
               <select style={SEL_S} value={quizCount} onChange={e=>setQCount(Number(e.target.value))}>
                 {[10,15,20,25,30].map(n=><option key={n} value={n}>{n} Questions</option>)}
               </select>
@@ -755,7 +755,7 @@ function BrowseTab({ topicsData }) {
   async function toggleBM(id){const d=await fetch(`${API}/aptitude/bookmark/${id}`,{method:'POST',headers:tk()}).then(r=>r.json());setBookmarks(b=>d.bookmarked?[...b,id]:b.filter(i=>i!==id));}
   const setF=(k,v)=>{setFilters(f=>({...f,[k]:v,...(k==='topic'?{subtopic:'All'}:{})}));setPage(1);};
   const subtopics=filters.topic!=='All'?(TOPIC_SUBTOPICS[filters.topic]||topicsData.subtopicMap?.[filters.topic]||[]).filter(Boolean):[];
-  const SS={padding:'7px 10px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem',fontWeight:700,color:'#3d4e6b',background:'#fff',cursor:'pointer'};
+  const SS={padding:'7px 10px',borderRadius:8,border:'1.5px solid #d0d7e8',fontFamily:"'Nunito',sans-serif",fontSize:'.78rem',fontWeight:700,color:'var(--text-2)',background:'var(--surface)',cursor:'pointer'};
 
   return (
     <div>
@@ -819,7 +819,7 @@ function BrowseTab({ topicsData }) {
                     <span key={c} style={{ padding:'2px 8px', borderRadius:999, background:'rgba(4,44,93,0.06)', color:'#042c5d', fontSize:'.67rem', fontWeight:700 }}>🏢 {c}</span>
                   ))}
                 </div>
-                <div style={{ fontWeight:600, fontSize:'.87rem', color:'#0f1a2e', lineHeight:1.65 }}>{q.question}</div>
+                <div style={{ fontWeight:600, fontSize:'.87rem', color:'var(--text)', lineHeight:1.65 }}>{q.question}</div>
               </div>
               <div style={{ display:'flex', gap:5, flexShrink:0 }}>
                 {/* GFG link - falls back to main topic page if subtopic link fails */}
@@ -842,11 +842,11 @@ function BrowseTab({ topicsData }) {
             {isOpen&&(
               <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #f0f3fa' }}>
                 {fisherYates(q.options||[]).map((opt,i)=>(
-                  <div key={i} style={{ padding:'6px 10px', borderRadius:7, marginBottom:4, fontSize:'.83rem', background:opt===q.answer?'rgba(71,211,114,0.09)':'transparent', color:opt===q.answer?'#166534':'#3d4e6b', fontWeight:opt===q.answer?700:400 }}>
+                  <div key={i} style={{ padding:'6px 10px', borderRadius:7, marginBottom:4, fontSize:'.83rem', background:opt===q.answer?'rgba(71,211,114,0.09)':'transparent', color:opt===q.answer?'#166534':'var(--text-2)', fontWeight:opt===q.answer?700:400 }}>
                     {opt===q.answer?'✅':'○'} {opt}
                   </div>
                 ))}
-                {q.explanation&&<div style={{ marginTop:8, padding:'10px 12px', background:'rgba(83,22,151,0.05)', borderRadius:8, fontSize:'.8rem', color:'#3d4e6b', lineHeight:1.65 }}><strong style={{ color:'#531697' }}>💡</strong> {q.explanation}</div>}
+                {q.explanation&&<div style={{ marginTop:8, padding:'10px 12px', background:'rgba(83,22,151,0.05)', borderRadius:8, fontSize:'.8rem', color:'var(--text-2)', lineHeight:1.65 }}><strong style={{ color:'#531697' }}>💡</strong> {q.explanation}</div>}
                 {qMeta.gfg&&(
                   <div style={{ marginTop:8, display:'flex', gap:6 }}>
                     <SafeLink href={qMeta.gfg} fallback={TOPIC_FALLBACK_GFG[q.topic]||'https://www.geeksforgeeks.org/aptitude-questions-and-answers/'} style={{ padding:'4px 9px', borderRadius:6, background:'rgba(46,168,84,0.08)', color:'#2ea854', fontSize:'.72rem', fontWeight:700, textDecoration:'none' }}>🟢 More on GFG →</SafeLink>
@@ -862,7 +862,7 @@ function BrowseTab({ topicsData }) {
       {pages>1&&(
         <div style={{ display:'flex', justifyContent:'center', gap:6, marginTop:16 }}>
           <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1} style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#531697', fontWeight:700, cursor:page===1?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>← Prev</button>
-          <span style={{ padding:'6px 14px', fontSize:'.78rem', fontWeight:700, color:'#7a8ba8' }}>Page {page} of {pages}</span>
+          <span style={{ padding:'6px 14px', fontSize:'.78rem', fontWeight:700, color:'var(--text-3)' }}>Page {page} of {pages}</span>
           <button onClick={()=>setPage(p=>Math.min(pages,p+1))} disabled={page===pages} style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#531697', fontWeight:700, cursor:page===pages?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>Next →</button>
         </div>
       )}
@@ -889,8 +889,8 @@ function BookmarksTab() {
                 {q.subtopic&&<span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(19,161,165,0.07)', color:'#13a1a5', fontSize:'.67rem', fontWeight:700 }}>📌 {q.subtopic}</span>}
                 <span style={{ padding:'2px 8px', borderRadius:999, background:`${DC[q.difficulty]}15`, color:DC[q.difficulty], fontSize:'.67rem', fontWeight:700 }}>{q.difficulty}</span>
               </div>
-              <div style={{ fontWeight:600, fontSize:'.87rem', color:'#0f1a2e', lineHeight:1.65 }}>{q.question}</div>
-              {q.explanation&&<div style={{ marginTop:6, fontSize:'.78rem', color:'#7a8ba8', lineHeight:1.55 }}>💡 {q.explanation}</div>}
+              <div style={{ fontWeight:600, fontSize:'.87rem', color:'var(--text)', lineHeight:1.65 }}>{q.question}</div>
+              {q.explanation&&<div style={{ marginTop:6, fontSize:'.78rem', color:'var(--text-3)', lineHeight:1.55 }}>💡 {q.explanation}</div>}
               {m.gfg&&<div style={{ marginTop:8, display:'flex', gap:6 }}><a href={m.gfg} target="_blank" rel="noreferrer" style={{ padding:'3px 8px', borderRadius:6, background:'rgba(46,168,84,0.08)', color:'#2ea854', fontSize:'.7rem', fontWeight:700, textDecoration:'none' }}>🟢 GFG →</a><a href={m.indiabix} target="_blank" rel="noreferrer" style={{ padding:'3px 8px', borderRadius:6, background:'rgba(19,161,165,0.08)', color:'#13a1a5', fontSize:'.7rem', fontWeight:700, textDecoration:'none' }}>📘 IndiaBix →</a></div>}
             </div>
             <button onClick={()=>remove(q._id)} style={{ padding:'5px 10px', borderRadius:8, border:'none', background:'rgba(239,68,68,0.08)', color:'#ef4444', cursor:'pointer', fontSize:'.78rem', fontWeight:700, flexShrink:0 }}>Remove</button>
@@ -906,14 +906,14 @@ function StatsBar({ stats, totalAttempted, totalCorrect, accuracy }) {
   if (!stats?.length) return null;
   return (
     <div className="card" style={{ padding:'14px 18px', marginBottom:14 }}>
-      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', marginBottom:8, color:'#0f1a2e' }}>📊 Your Progress</div>
+      <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', marginBottom:8, color:'var(--text)' }}>📊 Your Progress</div>
       {stats.map(s=>{
         // API returns accuracy as 0-100 (already a percentage), NOT 0-1 decimal
         const pct = Math.min(100, Math.max(0, Math.round(s.accuracy||0)));
         const col = pct>=70?'#47d372':pct>=45?'#f59e0b':'#ef4444';
         return (
           <div key={s.topic} style={{ marginBottom:8 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.72rem', fontWeight:700, color:'#3d4e6b', marginBottom:3 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.72rem', fontWeight:700, color:'var(--text-2)', marginBottom:3 }}>
               <span>{ICONS[s.topic]||''} {TOPIC_LABELS[s.topic]||s.topic}</span>
               <span style={{ color:col }}>{pct}% ({s.correct}/{s.total})</span>
             </div>
@@ -1006,16 +1006,16 @@ export default function AptitudePage() {
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ marginBottom:18 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'#0f1a2e' }}>🎯 Aptitude Practice</h1>
-        <p style={{ color:'#7a8ba8', marginTop:3 }}>Practice Mode · Quiz Mode · Subtopic dropdowns · Theory summaries · GFG & IndiaBix links</p>
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)' }}>🎯 Aptitude Practice</h1>
+        <p style={{ color:'var(--text-3)', marginTop:3 }}>Practice Mode · Quiz Mode · Subtopic dropdowns · Theory summaries · GFG & IndiaBix links</p>
       </div>
 
       {/* ── Active session ── */}
       {mode==='session'&&!quizDone&&questions.length>0&&(
         <div>
           <div style={{ marginBottom:14, display:'flex', alignItems:'center', gap:10 }}>
-            <button onClick={reset} style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Exit</button>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:'#0f1a2e', fontSize:'.9rem' }}>{sessionMode==='practice'?'📖':'🧪'} {sessionTitle}</span>
+            <button onClick={reset} style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>← Exit</button>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, color:'var(--text)', fontSize:'.9rem' }}>{sessionMode==='practice'?'📖':'🧪'} {sessionTitle}</span>
           </div>
           <QuizQuestion q={questions[qIdx]} idx={qIdx} total={questions.length} mode={sessionMode} onAnswer={handleAnswer} onFinish={handleFinish} />
         </div>
@@ -1028,7 +1028,7 @@ export default function AptitudePage() {
           <div style={{ display:'flex', gap:0, marginBottom:18, borderBottom:'1px solid #e8edf5' }}>
             {TABS.map(t=>(
               <button key={t.id} onClick={()=>setTab(t.id)}
-                style={{ padding:'9px 18px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===t.id?'2.5px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,.06)':'transparent', color:tab===t.id?'#531697':'#7a8ba8', fontWeight:700, cursor:'pointer', fontSize:'.83rem', fontFamily:"'Nunito',sans-serif" }}>
+                style={{ padding:'9px 18px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===t.id?'2.5px solid #531697':'2px solid transparent', background:tab===t.id?'rgba(83,22,151,.06)':'transparent', color:tab===t.id?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.83rem', fontFamily:"'Nunito',sans-serif" }}>
                 {t.label}
               </button>
             ))}

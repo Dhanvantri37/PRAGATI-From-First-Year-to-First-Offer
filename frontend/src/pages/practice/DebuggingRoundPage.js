@@ -157,7 +157,7 @@ export default function DebuggingRoundPage() {
       <RoundHeader icon="🐞" title="Debugging Round Practice" subtitle="Find bugs in code snippets and understand why they occur" />
       <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:14 }}>
         <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#16a34a':'#d0d7e8'}`, background:showRes?'rgba(22,163,74,0.06)':'#fff', color:showRes?'#16a34a':'#7a8ba8', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
+          style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#16a34a':'#d0d7e8'}`, background:showRes?'rgba(22,163,74,0.06)':'#fff', color:showRes?'#16a34a':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>
           📚 {showRes?'Hide':'Resources'}
         </button>
       </div>
@@ -184,9 +184,9 @@ export default function DebuggingRoundPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '.78rem', flexShrink: 0 }}>#{pi+1}</div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', color: '#0f1a2e' }}>{p.title}</div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', color: 'var(--text)' }}>{p.title}</div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                    <span style={{ padding: '1px 6px', borderRadius: 999, background: '#f0f3fa', color: '#7a8ba8', fontSize: '.65rem', fontWeight: 700 }}>{p.lang}</span>
+                    <span style={{ padding: '1px 6px', borderRadius: 999, background: '#f0f3fa', color: 'var(--text-3)', fontSize: '.65rem', fontWeight: 700 }}>{p.lang}</span>
                     <span style={{ padding: '1px 6px', borderRadius: 999, background: ds.bg, color: ds.color, fontSize: '.65rem', fontWeight: 700 }}>{p.difficulty}</span>
                   </div>
                 </div>
@@ -196,18 +196,18 @@ export default function DebuggingRoundPage() {
               {/* Buggy code */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: '.68rem', fontWeight: 800, color: '#b0bec9', marginBottom: 4 }}>🐛 BUGGY CODE</div>
-                <pre style={{ padding: '14px 16px', borderRadius: 10, background: '#0f1a2e', color: '#ef4444', fontSize: '.78rem', fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>
+                <pre style={{ padding: '14px 16px', borderRadius: 10, background: 'var(--text)', color: '#ef4444', fontSize: '.78rem', fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>
                   {p.buggy}
                 </pre>
               </div>
 
               {/* Options */}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#7a8ba8', marginBottom: 8 }}>WHAT IS THE BUG?</div>
+                <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 8 }}>WHAT IS THE BUG?</div>
                 {p.options.map((opt, i) => {
                   const isPicked = selected[p.id] === i;
                   const isRight = i === p.correct;
-                  let bg = '#fafbff', border = '#d0d7e8', color = '#3d4e6b';
+                  let bg = '#fafbff', border = '#d0d7e8', color = 'var(--text-2)';
                   if (isSubmitted) {
                     if (isRight) { bg = 'rgba(71,211,114,0.08)'; border = '#47d372'; color = '#166534'; }
                     else if (isPicked) { bg = 'rgba(239,68,68,0.07)'; border = '#ef4444'; color = '#991b1b'; }
@@ -234,13 +234,13 @@ export default function DebuggingRoundPage() {
                   <div style={{ padding: '8px 12px', borderRadius: 8, background: isCorrect ? 'rgba(71,211,114,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${isCorrect ? 'rgba(71,211,114,0.3)' : 'rgba(239,68,68,0.3)'}`, color: isCorrect ? '#166534' : '#991b1b', fontSize: '.82rem', fontWeight: 700, marginBottom: 10 }}>
                     {isCorrect ? '✅ Correct!' : `❌ Incorrect. The bug is: ${p.options[p.correct]}`}
                   </div>
-                  <div style={{ fontSize: '.8rem', color: '#7a8ba8', lineHeight: 1.6, marginBottom: 10 }}>{p.explanation}</div>
+                  <div style={{ fontSize: '.8rem', color: 'var(--text-3)', lineHeight: 1.6, marginBottom: 10 }}>{p.explanation}</div>
                   <button onClick={() => setShowFix(f => ({ ...f, [p.id]: !f[p.id] }))}
                     style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: showFix[p.id] ? '#f0f3fa' : 'linear-gradient(135deg,#531697,#13a1a5)', color: showFix[p.id] ? '#531697' : '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>
                     {showFix[p.id] ? '🙈 Hide Fix' : '🔧 Show Fixed Code'}
                   </button>
                   {showFix[p.id] && (
-                    <pre style={{ marginTop: 10, padding: '14px 16px', borderRadius: 10, background: '#0f1a2e', color: '#47d372', fontSize: '.78rem', fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                    <pre style={{ marginTop: 10, padding: '14px 16px', borderRadius: 10, background: 'var(--text)', color: '#47d372', fontSize: '.78rem', fontFamily: 'monospace', overflowX: 'auto', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                       {p.fixed}
                     </pre>
                   )}

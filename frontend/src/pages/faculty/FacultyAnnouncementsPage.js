@@ -70,8 +70,8 @@ export default function FacultyAnnouncementsPage() {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:10 }}>
         <div>
-          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'#0f1a2e', margin:0 }}>📢 Announcements</h1>
-          <p style={{ color:'#7a8ba8', marginTop:4, fontSize:'.85rem' }}>Create and manage announcements visible to all students</p>
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)', margin:0 }}>📢 Announcements</h1>
+          <p style={{ color:'var(--text-3)', marginTop:4, fontSize:'.85rem' }}>Create and manage announcements visible to all students</p>
         </div>
         <button onClick={()=>setShowForm(s=>!s)}
           style={{ padding:'10px 20px', borderRadius:10, border:'none', background:showForm?'#f0f3fa':GRAD, color:showForm?'#531697':'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem' }}>
@@ -89,17 +89,17 @@ export default function FacultyAnnouncementsPage() {
       {/* Create form */}
       {showForm && (
         <div style={{ background:'#fff', borderRadius:16, border:'1.5px solid rgba(83,22,151,0.2)', padding:'22px 24px', marginBottom:22, boxShadow:'0 4px 20px rgba(83,22,151,0.1)' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'#0f1a2e', marginBottom:18 }}>📝 Create Announcement</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:18 }}>📝 Create Announcement</div>
           <form onSubmit={send}>
             <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'#7a8ba8', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>TITLE *</label>
+              <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'var(--text-3)', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>TITLE *</label>
               <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} required
                 placeholder="e.g. TCS Drive Registration Open — Last date: 15 May"
                 style={{ width:'100%', padding:'10px 14px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.88rem', outline:'none', boxSizing:'border-box' }}
                 onFocus={e=>e.target.style.borderColor='#531697'} onBlur={e=>e.target.style.borderColor='#d0d7e8'}/>
             </div>
             <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'#7a8ba8', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>MESSAGE *</label>
+              <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'var(--text-3)', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>MESSAGE *</label>
               <textarea value={form.message} onChange={e=>setForm(f=>({...f,message:e.target.value}))} required rows={4}
                 placeholder="Write the full announcement message here…"
                 style={{ width:'100%', padding:'10px 14px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.88rem', resize:'vertical', outline:'none', boxSizing:'border-box' }}
@@ -112,9 +112,9 @@ export default function FacultyAnnouncementsPage() {
                 { label:'TARGET BRANCH', key:'targetDept', opts:[['all','All Branches'],['CSE','CSE'],['IT','IT'],['ECE','ECE'],['MECH','MECH'],['CIVIL','CIVIL']] },
               ].map(({ label, key, opts }) => (
                 <div key={key}>
-                  <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'#7a8ba8', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>{label}</label>
+                  <label style={{ display:'block', fontSize:'.72rem', fontWeight:800, color:'var(--text-3)', marginBottom:5, fontFamily:"'Syne',sans-serif" }}>{label}</label>
                   <select value={form[key]} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}
-                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', background:'#fff', color:'#3d4e6b', boxSizing:'border-box' }}>
+                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', background:'#fff', color:'var(--text-2)', boxSizing:'border-box' }}>
                     {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
@@ -141,8 +141,8 @@ export default function FacultyAnnouncementsPage() {
       ) : announcements.length === 0 ? (
         <div style={{ textAlign:'center', padding:'50px 20px', background:'#fff', borderRadius:14, border:'1px solid #e8edf5' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:10 }}>📢</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'#0f1a2e', marginBottom:4 }}>No announcements yet</div>
-          <div style={{ color:'#7a8ba8', fontSize:'.83rem' }}>Click "+ New Announcement" to create your first announcement</div>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:4 }}>No announcements yet</div>
+          <div style={{ color:'var(--text-3)', fontSize:'.83rem' }}>Click "+ New Announcement" to create your first announcement</div>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -165,8 +165,8 @@ export default function FacultyAnnouncementsPage() {
                       {ann.targetFilter?.year && <span style={{ padding:'2px 7px', borderRadius:999, background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.65rem', fontWeight:700 }}>Year {ann.targetFilter.year}</span>}
                       {ann.targetFilter?.department && <span style={{ padding:'2px 7px', borderRadius:999, background:'rgba(19,161,165,0.07)', color:'#0d7a7e', fontSize:'.65rem', fontWeight:700 }}>{ann.targetFilter.department}</span>}
                     </div>
-                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'#0f1a2e', marginBottom:6 }}>{ann.title}</div>
-                    <div style={{ fontSize:'.82rem', color:'#3d4e6b', lineHeight:1.7, marginBottom:8 }}>{ann.message}</div>
+                    <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', marginBottom:6 }}>{ann.title}</div>
+                    <div style={{ fontSize:'.82rem', color:'var(--text-2)', lineHeight:1.7, marginBottom:8 }}>{ann.message}</div>
                     <div style={{ fontSize:'.68rem', color:'#b0bec9' }}>
                       By {ann.createdBy?.name || 'Faculty'} · {timeAgo}
                     </div>

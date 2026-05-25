@@ -22,7 +22,7 @@ import VideoTile                    from './VideoTile';
 const API  = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk   = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
-const DARK = '#0f1a2e';
+const DARK = 'var(--text)';
 
 const FILLER_WORDS = ['um','uh','like','you know','basically','actually','literally','so yeah','right','okay so'];
 function countFillers(text) {
@@ -349,6 +349,9 @@ export default function GDRoomPage() {
         speakStartRef.current = Date.now();
         setMyStats(s => ({ ...s, wordCount: s.wordCount + words, fillerWords: s.fillerWords + filler, speakingTime: s.speakingTime + secs }));
         emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: filler, speakingTime: secs } });
+        // Show own speech in transcript immediately (don't wait for server round-trip)
+        setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
+        setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
         emit('active-speaker', { roomCode: code, userId: user._id, speaking: true });
         setTimeout(() => emit('active-speaker', { roomCode: code, userId: user._id, speaking: false }), 2500);
       }
@@ -454,7 +457,7 @@ export default function GDRoomPage() {
     <div style={{ maxWidth:480, margin:'80px auto', textAlign:'center', fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ fontSize:'3rem', marginBottom:16 }}>🔒</div>
       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.3rem', color:DARK, marginBottom:8 }}>Session Locked</div>
-      <div style={{ color:'#7a8ba8', marginBottom:24, lineHeight:1.6 }}>{lockedMsg || 'Group Discussion has already started.'}</div>
+      <div style={{ color:'var(--text-3)', marginBottom:24, lineHeight:1.6 }}>{lockedMsg || 'Group Discussion has already started.'}</div>
       <button onClick={() => nav('/dashboard/gd')} style={{ padding:'11px 28px', borderRadius:10, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>← Back to Lobby</button>
     </div>
   );
@@ -464,14 +467,14 @@ export default function GDRoomPage() {
     <div style={{ maxWidth:540, margin:'60px auto', textAlign:'center', fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ fontSize:'3rem', marginBottom:14 }}>🎉</div>
       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.4rem', color:DARK, marginBottom:8 }}>Session Complete!</div>
-      <div style={{ color:'#7a8ba8', marginBottom:20 }}>Your AI evaluation report is ready.</div>
+      <div style={{ color:'var(--text-3)', marginBottom:20 }}>Your AI evaluation report is ready.</div>
       <button
         onClick={() => nav(`/dashboard/gd/report/${code}/${user._id}`, { state: { evalData, topic, myStats } })}
         style={{ padding:'12px 32px', borderRadius:12, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'1rem' }}>
         📊 View My Report →
       </button>
       <div style={{ marginTop:12 }}>
-        <button onClick={() => nav('/dashboard/gd')} style={{ padding:'9px 20px', borderRadius:10, border:'1px solid #d0d7e8', background:'transparent', color:'#7a8ba8', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>Back to Lobby</button>
+        <button onClick={() => nav('/dashboard/gd')} style={{ padding:'9px 20px', borderRadius:10, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>Back to Lobby</button>
       </div>
     </div>
   );
@@ -546,11 +549,13 @@ export default function GDRoomPage() {
           <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:'8px 8px 0' }}>
             <div style={{
               display: 'grid',
-              gap: 6,
+              gap: 12,
               width: '100%',
               height: '100%',
-              gridTemplateColumns: totalTiles <= 2 ? '1fr 1fr' : totalTiles <= 4 ? '1fr 1fr' : 'repeat(3,1fr)',
-              gridTemplateRows:    totalTiles <= 2 ? '1fr' : '1fr 1fr',
+              gridTemplateColumns: totalTiles === 1 ? '1fr' : totalTiles <= 4 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+              gridTemplateRows: totalTiles <= 2 ? '1fr' : totalTiles <= 6 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+              padding: 12,
+              boxSizing: 'border-box'
             }}>
               {/* Local tile */}
               <VideoTile
@@ -559,6 +564,7 @@ export default function GDRoomPage() {
                 isActiveSpeaker={activeSpeaker === user?._id}
                 isLocal
                 size={totalTiles <= 2 ? 'large' : 'small'}
+                style={{ aspectRatio: 'auto', width: '100%', height: '100%' }}
               />
 
               {/* Remote tiles — match socketId from socketUserMap */}
@@ -572,6 +578,7 @@ export default function GDRoomPage() {
                     participant={p}
                     isActiveSpeaker={activeSpeaker === p.userId}
                     size={totalTiles <= 2 ? 'large' : 'small'}
+                    style={{ aspectRatio: 'auto', width: '100%', height: '100%' }}
                   />
                 );
               })}
@@ -759,7 +766,7 @@ function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
                 placeholder="Type a message…"
                 onChange={e => { chatInputRef.current = e.target.value; }}
                 onKeyDown={e => { if (e.key === 'Enter') onSendChat(); }}
-                style={{ flex:1, padding:'7px 10px', borderRadius:7, border:'1px solid #2a3a5a', background:'#0f1a2e', color:'#fff', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', outline:'none' }}
+                style={{ flex:1, padding:'7px 10px', borderRadius:7, border:'1px solid #2a3a5a', background:'var(--text)', color:'#fff', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', outline:'none' }}
               />
               <button onClick={onSendChat} style={{ padding:'7px 12px', borderRadius:7, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.82rem' }}>→</button>
             </div>
@@ -799,7 +806,7 @@ function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
               ['🔔','Interruptions', myStats.interruptions,      '#ef4444'],
             ].map(([ic, label, value, color]) => (
               <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid #1e2e4a' }}>
-                <span style={{ fontSize:'.75rem', color:'#7a8ba8' }}>{ic} {label}</span>
+                <span style={{ fontSize:'.75rem', color:'var(--text-3)' }}>{ic} {label}</span>
                 <span style={{ fontWeight:800, color, fontSize:'.9rem' }}>{value}</span>
               </div>
             ))}
