@@ -98,16 +98,13 @@ export default function HRRoundPage() {
 
       {/* Stats + Resources bar */}
       <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:16, padding:'10px 16px', background:'#fff', borderRadius:10, border:'1px solid #e8edf5' }}>
+        <div style={{ display:'flex', gap:16, padding:'10px 16px', background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)' }}>
           {[['Answered', answered, '#531697'], ['Total', HR_QUESTIONS.length, '#13a1a5'], ['Progress', `${Math.round((answered/HR_QUESTIONS.length)*100)}%`, '#47d372']].map(([l,v,c])=>(
             <div key={l}><span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:c }}>{v}</span><span style={{ fontSize:'.68rem', color:'var(--text-3)', marginLeft:4 }}>{l}</span></div>
           ))}
         </div>
         <div style={{ flex:1 }}/>
-        <button onClick={()=>setShowRes(r=>!r)}
-          style={{ padding:'8px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#531697':'#d0d7e8'}`, background:showRes?'rgba(83,22,151,0.07)':'#fff', color:showRes?'#531697':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>
-          📚 {showRes?'Hide':'Resources'}
-        </button>
+          style={{ padding:'8px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#531697':'var(--border)'}`, background:showRes?'rgba(83,22,151,0.07)':'var(--surface)', color:showRes?'#531697':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>
       </div>
 
       {/* Resources panel */}
@@ -117,9 +114,9 @@ export default function HRRoundPage() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:8 }}>
             {resources.map((r,i)=>(
               <a key={i} href={r.url} target="_blank" rel="noreferrer"
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, background:'#fff', border:'1px solid #e8edf5', textDecoration:'none', transition:'all .15s' }}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, background:'var(--surface-2)', border:'1px solid var(--border)', textDecoration:'none', transition:'all .15s' }}
                 onMouseOver={e=>{e.currentTarget.style.borderColor='#7c3aed';e.currentTarget.style.background='rgba(124,58,237,0.04)';}}
-                onMouseOut={e=>{e.currentTarget.style.borderColor='#e8edf5';e.currentTarget.style.background='#fff';}}>
+                onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--surface-2)';}}>
                 <span style={{ fontSize:'.62rem', fontWeight:800, padding:'2px 6px', borderRadius:5, background:r.color+'18', color:r.color, whiteSpace:'nowrap', flexShrink:0 }}>{r.tag}</span>
                 <span style={{ fontSize:'.8rem', color:'var(--text)', fontWeight:600, flex:1 }}>{r.name}</span>
                 <span style={{ color:'#b0bec9', fontSize:'.75rem' }}>↗</span>
@@ -133,7 +130,7 @@ export default function HRRoundPage() {
       <div style={{ display:'flex', gap:7, flexWrap:'wrap', marginBottom:16 }}>
         {CATEGORIES.map(cat=>(
           <button key={cat} onClick={()=>setFilter(cat)}
-            style={{ padding:'5px 12px', borderRadius:999, border:`1.5px solid ${filterCat===cat?'#7c3aed':'#d0d7e8'}`, background:filterCat===cat?'rgba(124,58,237,0.08)':'#fff', color:filterCat===cat?'#7c3aed':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.74rem' }}>
+            style={{ padding:'5px 12px', borderRadius:999, border:`1.5px solid ${filterCat===cat?'#7c3aed':'var(--border)'}`, background:filterCat===cat?'rgba(124,58,237,0.08)':'var(--surface)', color:filterCat===cat?'#7c3aed':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.74rem' }}>
             {cat}
           </button>
         ))}

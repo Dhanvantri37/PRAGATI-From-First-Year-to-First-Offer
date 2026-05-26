@@ -10,7 +10,7 @@ const Msg = ({ msg }) => msg ? <div style={{ padding:'10px 14px', borderRadius:8
 
 function Section({ title, children }) {
   return (
-    <div style={{ background:'#fff', border:'1px solid #e8edf5', borderRadius:16, padding:'22px 24px', marginBottom:20, boxShadow:'0 2px 8px rgba(4,44,93,0.05)' }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius:16, padding:'22px 24px', marginBottom:20, boxShadow:'0 2px 8px rgba(4,44,93,0.05)' }}>
       <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:16, color:'var(--text)' }}>{title}</h3>
       {children}
     </div>
@@ -110,7 +110,7 @@ function PendingNotes({ onRefresh }) {
   if (loading) return <div style={{ color:'#b0bec9' }}>Loading…</div>;
   if (!notes.length) return <div style={{ color:'var(--text-3)', fontSize:'.875rem' }}>✅ No pending notes!</div>;
   return notes.map(n=>(
-    <div key={n._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:10, border:'1px solid #e8edf5', marginBottom:8, background:'#fafbff' }}>
+    <div key={n._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:10, border: '1px solid var(--border)', marginBottom:8, background:'#fafbff' }}>
       <div style={{ flex:1 }}>
         <div style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)' }}>{n.title}</div>
         <div style={{ fontSize:'.73rem', color:'var(--text-3)' }}>{n.subject} · {n.department} · Year {n.year} · by {n.uploadedBy?.name}</div>
@@ -146,7 +146,7 @@ function UsersTable() {
       {/* Section toggle */}
       <div style={{ display:'flex', gap:8, marginBottom:16 }}>
         {[['students',`🎓 Students (${users.filter(u=>u.role==='student').length})`],['faculty',`👨‍🏫 Faculty (${users.filter(u=>u.role==='faculty').length})`],['admins',`⚙️ Admins (${users.filter(u=>u.role==='admin').length})`]].map(([s,l])=>(
-          <button key={s} onClick={()=>setSection(s)} style={{ padding:'7px 16px', borderRadius:9, border:`1.5px solid ${section===s?'#531697':'#d0d7e8'}`, background:section===s?'rgba(83,22,151,0.08)':'transparent', color:section===s?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}>
+          <button key={s} onClick={()=>setSection(s)} style={{ padding:'7px 16px', borderRadius:9, border: `1.5px solid ${section===s?'#531697':'var(--border)'}`, background:section===s?'rgba(83,22,151,0.08)':'transparent', color:section===s?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}>
             {l}
           </button>
         ))}
@@ -274,7 +274,7 @@ function ManageDrives({ onRefresh }) {
     loadDrives();
   }
 
-  const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', outline:'none', boxSizing:'border-box', color:'var(--text)' } };
+  const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border: '1.5px solid var(--border)', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', outline:'none', boxSizing:'border-box', color:'var(--text)' } };
   const LBL = ({ children }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:'var(--text-3)', marginBottom:4 }}>{children}</label>;
 
   return (

@@ -12,7 +12,7 @@ function FileDropzone({ file, onFile }) {
   const onDrop = useCallback(acc => { if (acc[0]) onFile(acc[0]); }, [onFile]);
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, multiple: false });
   return (
-    <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? '#13a1a5' : file ? '#47d372' : '#d0d7e8'}`, borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(71,211,114,0.04)' : '#fafbff', transition: 'all .2s' }}>
+    <div {...getRootProps()} style={{ border: `2px dashed ${isDragActive ? '#13a1a5' : file ? '#47d372' : 'var(--border)'}`, borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', background: file ? 'rgba(71,211,114,0.04)' : 'var(--surface-2)', transition: 'all .2s' }}>
       <input {...getInputProps()} />
       <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{file ? '✅' : '📁'}</div>
       <div style={{ fontSize: '.8rem', fontWeight: 700, color: file ? '#2ea854' : 'var(--text-3)' }}>{file ? file.name : 'Drop file here or click to browse'}</div>
@@ -55,11 +55,11 @@ function UploadForm({ user, onUploaded }) {
     finally { setLoading(false); }
   }
 
-  const INP = { style: { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.875rem', outline: 'none', background: '#fafbff' } };
+  const INP = { style: { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.875rem', outline: 'none', background: 'var(--surface-2)', color: 'var(--text)' } };
   const LBL = ({ children, req }) => <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 700, color: 'var(--text-2)', marginBottom: 4, fontFamily: "'Syne',sans-serif" }}>{children}{req && <span style={{ color: '#ef4444' }}> *</span>}</label>;
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8edf5', borderRadius: 16, padding: '22px 22px', marginBottom: 20, boxShadow: '0 2px 8px rgba(4,44,93,0.05)' }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px', marginBottom: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
       <h3 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', marginBottom: 16, color: 'var(--text)' }}>
         📤 {user?.role === 'admin' ? 'Upload Notes on Behalf of Faculty' : 'Upload Notes'}
       </h3>
@@ -317,41 +317,41 @@ export default function NotesPage() {
       {activeTab === 'browse' && (
         <>
           {/* ── Filter bar ── */}
-          <div style={{ background: '#fff', border: '1px solid #e8edf5', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: '0 0 auto' }}>
               <div style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--text-3)', marginBottom: 4 }}>FILTER BY</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {/* Faculty */}
                 <select value={filters.facultyName} onChange={setF('facultyName')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
                   <option value="">👤 All Faculty</option>
                   {filterOptions.faculties.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
 
                 {/* Subject */}
                 <select value={filters.subject} onChange={setF('subject')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
                   <option value="">📖 All Subjects</option>
                   {filterOptions.subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
 
                 {/* Topic */}
                 <select value={filters.topic} onChange={setF('topic')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">🏷️ All Topics</option>
                   {filterOptions.topics.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
 
                 {/* Department */}
                 <select value={filters.department} onChange={setF('department')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <option value="">🏛️ All Depts</option>
                   {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
 
                 {/* Year */}
                 <select value={filters.year} onChange={setF('year')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : '#fff', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer' }}>
                   <option value="">📅 All Years</option>
                   {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
                 </select>

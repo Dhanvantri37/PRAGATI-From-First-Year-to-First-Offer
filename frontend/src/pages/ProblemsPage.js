@@ -442,7 +442,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
 
   return (
     <div style={{ background:'var(--surface)', border:`1.5px solid ${isSolved?'#47d372':'#e8edf5'}`, borderRadius:16, padding:'22px 24px', boxShadow:isSolved?'0 4px 16px rgba(71,211,114,0.1)':'0 2px 8px rgba(4,44,93,0.05)' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
         <div style={{ flex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             {isSolved && <span>✅</span>}
@@ -463,7 +463,7 @@ function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffl
           )}
           {!isSolved && !userProblem?.shuffled && (
             <button onClick={onShuffle} disabled={shuffling}
-              style={{ padding:'8px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', background:'rgba(245,158,11,0.06)', color:'#92400e', fontWeight:700, cursor:shuffling?'not-allowed':'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
+              style={{ padding:'8px 12px', borderRadius:9, border:'1.5px solid var(--border)', background:'rgba(245,158,11,0.06)', color:'#92400e', fontWeight:700, cursor:shuffling?'not-allowed':'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
               {shuffling?'…':'🔀 Easier'}
             </button>
           )}

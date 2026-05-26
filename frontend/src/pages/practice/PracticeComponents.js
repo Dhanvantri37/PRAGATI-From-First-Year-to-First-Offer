@@ -26,7 +26,7 @@ export function RoundHeader({ icon, title, subtitle, onBack }) {
 
 export function Card({ children, style = {} }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e8edf5', padding: '18px 20px', boxShadow: '0 2px 12px rgba(4,44,93,0.05)', ...style }}>
+    <div style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', padding: '18px 20px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', ...style }}>
       {children}
     </div>
   );
@@ -47,9 +47,9 @@ export function AnswerBox({ value, onChange, placeholder = 'Type your answer her
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem', color: 'var(--text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color .15s' }}
+      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--surface-2)', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem', color: 'var(--text)', resize: 'vertical', outline: 'none', lineHeight: 1.6, boxSizing: 'border-box', transition: 'border-color .15s' }}
       onFocus={e => e.target.style.borderColor = '#531697'}
-      onBlur={e => e.target.style.borderColor = '#d0d7e8'}
+      onBlur={e => e.target.style.borderColor = 'var(--border)'}
     />
   );
 }
@@ -64,7 +64,7 @@ export function FeedbackPanel({ sampleAnswer, keywords = [], userAnswer = '' }) 
   return (
     <div>
       <button onClick={() => setShow(s => !s)}
-        style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: show ? '#f0f3fa' : GRAD, color: show ? '#531697' : '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.85rem', transition: 'all .15s' }}>
+        style={{ padding: '9px 20px', borderRadius: 9, border: 'none', background: show ? 'var(--surface-2)' : GRAD, color: show ? '#531697' : '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.85rem', transition: 'all .15s' }}>
         {show ? '🙈 Hide Sample Answer' : '💡 Show Sample Answer & Feedback'}
       </button>
       {show && (
@@ -86,7 +86,7 @@ export function FeedbackPanel({ sampleAnswer, keywords = [], userAnswer = '' }) 
               <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 6 }}>KEY POINTS TO COVER</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {keywords.map(kw => (
-                  <span key={kw} style={{ padding: '3px 9px', borderRadius: 999, fontSize: '.72rem', fontWeight: 700, background: matchedKW.includes(kw) ? 'rgba(71,211,114,0.1)' : '#f0f3fa', color: matchedKW.includes(kw) ? '#166534' : 'var(--text-3)', border: `1px solid ${matchedKW.includes(kw) ? 'rgba(71,211,114,0.3)' : '#e8edf5'}` }}>
+                  <span key={kw} style={{ padding: '3px 9px', borderRadius: 999, fontSize: '.72rem', fontWeight: 700, background: matchedKW.includes(kw) ? 'rgba(71,211,114,0.1)' : 'var(--surface-2)', color: matchedKW.includes(kw) ? '#166534' : 'var(--text-3)', border: `1px solid ${matchedKW.includes(kw) ? 'rgba(71,211,114,0.3)' : 'var(--border)'}` }}>
                     {matchedKW.includes(kw) ? '✅ ' : ''}{kw}
                   </span>
                 ))}
@@ -128,7 +128,7 @@ export function Timer({ seconds, onDone }) {
   const m = Math.floor(left / 60), s = left % 60;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ flex: 1, height: 6, background: '#e8edf5', borderRadius: 999, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 999, overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${pct}%`, background: col, borderRadius: 999, transition: 'width 1s linear, background .5s' }} />
       </div>
       <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.85rem', color: col, minWidth: 40 }}>
