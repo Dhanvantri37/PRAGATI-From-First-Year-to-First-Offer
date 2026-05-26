@@ -653,7 +653,11 @@ export default function DashboardLayout() {
     <div style={{ display:'flex', minHeight:'100vh', background:pageBg, fontFamily:"'Nunito',sans-serif" }}>
       <style>{`
         @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-        ${dm?`.card{background:#1a2235!important;border-color:#2d3a52!important;}body{background:#0f1623;color:#e2e8f0;}`:``}
+        ${dm?`
+          :root { --text: #f1f5f9; --text-2: #cbd5e1; --text-3: #94a3b8; --surface: #1a2235; --surface-2: #2d3748; }
+          .card{background:#1a2235!important;border-color:#2d3a52!important;}
+          body{background:#0f1623;color:#e2e8f0;}
+        `:``}
       `}</style>
 
       {showEditProfile   && <EditProfileModal />}
@@ -1145,32 +1149,19 @@ export default function DashboardLayout() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────────
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
-  const studentLinks = [
-    { to:'/dashboard',               icon:'🏠', label:'Home' },
-    { to:'/dashboard/aptitude',      icon:'🎯', label:'Aptitude' },
-    { to:'/dashboard/ai-interview',  icon:'🤖', label:'Interview' },
-    { to:'/dashboard/gd',            icon:'🎤', label:'GD' },
-    { to:'/dashboard/skillpath',     icon:'🧠', label:'Skills' },
-  ];
-  const facultyLinks = [
-    { to:'/dashboard',               icon:'🏠', label:'Home' },
-    { to:'/dashboard/students',      icon:'👥', label:'Students' },
-    { to:'/dashboard/announcements', icon:'📢', label:'Announce' },
-    { to:'/dashboard/drives',        icon:'🗓️', label:'Drives' },
-    { to:'/dashboard/gd',            icon:'🎤', label:'GD' },
-  ];
-  const links = role === 'faculty' ? facultyLinks : studentLinks;
+  // Bottom nav uses the same items as sidebar now
+  const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
   return (
     <nav className={`pragati-bottom-nav${dm ? ' dark' : ''}`}>
       {links.map(l => (
         <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'} style={({ isActive }) => ({
           display:'flex', flexDirection:'column', alignItems:'center',
-          gap:2, padding:'6px 0', borderRadius:10, textDecoration:'none',
+          gap:2, padding:'6px 8px', borderRadius:10, textDecoration:'none',
           fontSize:'.58rem', fontWeight:700,
           color: isActive ? '#531697' : dm ? 'var(--text-3)' : 'var(--text-3)',
           background: isActive ? (dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)') : 'transparent',
-          flex:1, maxWidth:72,
+          flex:'1 1 auto', minWidth:60, maxWidth:85,
         })}>
           <span style={{ fontSize:'1.25rem', lineHeight:1 }}>{l.icon}</span>
           {l.label}

@@ -521,7 +521,7 @@ function registerGDSocket(io, GDRoom) {
         // Cooldown: only one AI reply per 15 seconds to avoid flooding
         const now = Date.now();
         const lastReply = aiReplyCooldown[roomCode] || 0;
-        const cooldownMs = 15000;
+        const cooldownMs = 30000;
 
         if (now - lastReply > cooldownMs) {
           const aiParticipants = room.participants.filter(p => p.isAI && !p.name.includes('Moderator'));
@@ -680,7 +680,7 @@ function resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTi
         }
       } catch (err) { console.error('[moderatorSilenceReply]', err.message); }
     }
-  }, 12000); // 12 seconds of silence triggers an AI or Moderator
+  }, 30000); // 30 seconds of silence triggers an AI or Moderator
 }
 
 // ── LOCK & START ───────────────────────────────────────────────────────────

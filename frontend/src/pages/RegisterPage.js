@@ -129,6 +129,11 @@ export default function RegisterPage() {
       <div style={{ position:'fixed', top:'-10%', right:'-5%', width:420, height:420, borderRadius:'60% 40% 70% 30%/50% 60% 40% 50%', background:GRAD, opacity:.07, pointerEvents:'none' }} />
       <div style={{ position:'fixed', bottom:'-10%', left:'-5%', width:360, height:360, borderRadius:'40% 60% 30% 70%/60% 40% 60% 40%', background:'linear-gradient(135deg,#042c5d,#47d372)', opacity:.06, pointerEvents:'none' }} />
 
+      <style>{`
+        @media (max-width: 600px) {
+          .register-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <div style={{ width:'100%', maxWidth:500, position:'relative', zIndex:1 }}>
         {/* Logo */}
         <div style={{ textAlign:'center', marginBottom:24 }}>
@@ -165,7 +170,7 @@ export default function RegisterPage() {
                   Create your account
                 </h2>
 
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                <div className="register-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
 
                   {/* Full Name */}
                   <div style={{ gridColumn:'1/-1' }}>

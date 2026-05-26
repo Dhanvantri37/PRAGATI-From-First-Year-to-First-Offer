@@ -695,7 +695,7 @@ html { scroll-behavior: smooth; }
   /* Main content fills full width with side padding */
   .pragati-main-content {
     margin-left: 0 !important;
-    padding: 16px 16px 76px !important; /* space for bottom nav */
+    padding: 16px 16px 120px !important; /* space for bottom nav wrap */
   }
   .pragati-main-content.gd-room {
     padding: 0 !important;
@@ -710,6 +710,9 @@ html { scroll-behavior: smooth; }
   }
   .pragati-header-darkmode {
     display: flex !important; /* keep theme toggle visible on mobile */
+  }
+  .hide-on-mobile {
+    display: none !important;
   }
 }
 
@@ -739,7 +742,7 @@ html { scroll-behavior: smooth; }
 /* ── Small phones — even tighter spacing ─────────────────────────── */
 @media (max-width: 380px) {
   .pragati-bottom-nav {
-    height: 56px;
+    height: auto;
   }
   .pragati-bottom-nav a {
     padding: 4px 6px;
@@ -762,13 +765,14 @@ html { scroll-behavior: smooth; }
     display: flex;
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: 62px;
+    height: auto;
+    flex-wrap: wrap;
     background: #fff;
     border-top: 1px solid #e8edf5;
     z-index: 999;
-    justify-content: space-around;
+    justify-content: center;
     align-items: center;
-    padding: 0 4px;
+    padding: 4px 4px 8px;
     box-shadow: 0 -4px 20px rgba(83,22,151,0.08);
   }
   .pragati-bottom-nav.dark {
@@ -780,7 +784,7 @@ html { scroll-behavior: smooth; }
     gap: 2px; padding: 6px 10px; border-radius: 10px;
     text-decoration: none; font-size: .62rem; font-weight: 700;
     color: #7a8ba8; transition: color .15s, background .15s;
-    flex: 1; max-width: 72px;
+    min-width: 65px;
   }
   .pragati-bottom-nav a.active {
     color: #531697; background: rgba(83,22,151,0.08);

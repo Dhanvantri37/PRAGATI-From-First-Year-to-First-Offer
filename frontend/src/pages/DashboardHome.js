@@ -931,14 +931,15 @@ function StudentDash() {
                 {myProblems} problems solved total
               </div>
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:24, alignItems:'start' }}>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:24, alignItems:'start' }}>
               {/* Heatmap */}
-              <div>
+              <div style={{ flex: '1 1 auto', minWidth: 280, maxWidth: '100%', overflowX: 'hidden' }}>
                 <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:10 }}>📅 Monthly Activity</div>
                 <ActivityHeatmap
                   submissions={submissions}
                   currentStreak={streak}
                   maxStreak={user?.maxStreak || streak}
+                  compact={true}
                 />
               </div>
               {/* Donut */}

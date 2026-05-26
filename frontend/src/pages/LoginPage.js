@@ -147,7 +147,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right info panel ── */}
-      <div style={{ width: 420, flexShrink: 0, background: 'linear-gradient(160deg,#042c5d,#531697,#13a1a5)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 44px', color: '#fff', overflow: 'hidden', position: 'relative' }}>
+      <div className="hide-on-mobile" style={{ width: 420, flexShrink: 0, background: 'linear-gradient(160deg,#042c5d,#531697,#13a1a5)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 44px', color: '#fff', overflow: 'hidden', position: 'relative' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 30% 80%,rgba(71,211,114,0.1),transparent 50%),radial-gradient(circle at 80% 20%,rgba(19,161,165,0.15),transparent 40%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 36, background: 'rgba(255,255,255,0.12)', padding: '8px 16px', borderRadius: 12 }}>
@@ -173,7 +173,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <style>{`@keyframes _lspin{to{transform:rotate(360deg)}} @media(max-width:768px){div[style*="width:420"]{display:none}}`}</style>
+      <style>{`@keyframes _lspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
