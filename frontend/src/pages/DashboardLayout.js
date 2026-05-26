@@ -1149,11 +1149,18 @@ export default function DashboardLayout() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────────
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
-  // Bottom nav uses the same items as sidebar now
+  const [expanded, setExpanded] = useState(false);
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
+  // Collapse after navigation
+  useEffect(() => {
+    setExpanded(false);
+  }, [location]);
+
+  const toggleExpand = () => setExpanded(prev => !prev);
+
   return (
-    <nav className={`pragati-bottom-nav${dm ? ' dark' : ''}`}>
+    <nav className={`pragati-bottom-nav${dm ? ' dark' : ''}${expanded ? ' expanded' : ' collapsed'}`}>
       {links.map(l => (
         <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'} style={({ isActive }) => ({
           display:'flex', flexDirection:'column', alignItems:'center',
@@ -1167,6 +1174,11 @@ function MobileBottomNav({ role, dm }) {
           {l.label}
         </NavLink>
       ))}
+      <button className="bottom-nav-toggle" onClick={toggleExpand} aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}>
+        {expanded ? '▲' : '▼'}
+      </button>
     </nav>
   );
+}
+
 }
