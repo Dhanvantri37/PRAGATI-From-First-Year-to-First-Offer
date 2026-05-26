@@ -65,6 +65,13 @@
   --font-display: 'Syne', sans-serif;
   --font-body:    'Nunito', sans-serif;
   --font-mono:    'JetBrains Mono', monospace;
+
+  /* ── Heatmap variables ── */
+  --heatmap-empty: #f0f3fa;
+  --heatmap-level1: #e2d0f0;
+  --heatmap-level2: #b57bed;
+  --heatmap-level3: #7c3aed;
+  --heatmap-level4: #531697;
 }
 
 body.dark {
@@ -82,6 +89,16 @@ body.dark {
   --shadow-sm:     0 2px 4px rgba(0,0,0,0.3);
   --shadow:        0 8px 24px rgba(0,0,0,0.4);
   --shadow-lg:     0 16px 32px rgba(0,0,0,0.5);
+
+  /* ── Redefined brands for dark mode readability ── */
+  --purple:        #a78bfa;
+
+  /* ── Heatmap variables dark mode ── */
+  --heatmap-empty: #1a2235;
+  --heatmap-level1: #2e1d4d;
+  --heatmap-level2: #4f2680;
+  --heatmap-level3: #7030b3;
+  --heatmap-level4: #9d4edd;
   
   background-color: #0f1623 !important;
   color: #f1f5f9 !important;
@@ -987,4 +1004,328 @@ body.dark [style*="color: rgb(26, 34, 53)"] {
 /* Override display titles using 'Syne' font */
 body.dark [style*="Syne"] {
   color: var(--text) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PRAGATI Dark Mode & Modal Polish Overrides
+   ══════════════════════════════════════════════════════════════ */
+
+/* Modal backdrop & bottom sheet system */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 44, 93, 0.65) !important;
+  z-index: 2000 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(4px);
+}
+body.dark .modal-backdrop {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+.modal-content-responsive {
+  background: var(--surface) !important;
+  border-radius: 20px;
+  padding: 24px 28px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  border: 1px solid var(--border) !important;
+}
+@media (max-width: 768px) {
+  .modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-content-responsive {
+    border-radius: 24px 24px 0 0 !important;
+    max-height: 92vh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px 16px calc(24px + var(--safe-bottom)) !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+}
+@keyframes modalSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Notification list box responsive fixes */
+@media (max-width: 768px) {
+  .notification-dropdown {
+    width: calc(100vw - 24px) !important;
+    max-width: 340px !important;
+    right: 12px !important;
+    top: 62px !important;
+  }
+}
+
+/* Standardized collapsed bottom navigation columns */
+@media (max-width: 768px) {
+  .pragati-bottom-nav {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    height: auto !important;
+    padding: 6px 0 calc(6px + var(--safe-bottom)) !important;
+  }
+  .pragati-bottom-nav.collapsed {
+    max-height: 66px !important;
+  }
+  .pragati-bottom-nav.expanded {
+    max-height: 320px !important;
+  }
+  .pragati-bottom-nav a {
+    min-width: 0 !important;
+    width: 100% !important;
+    padding: 4px 2px !important;
+  }
+  .bottom-nav-toggle {
+    grid-column: 1 / -1 !important;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding: 6px 0 2px !important;
+    margin-top: 4px !important;
+  }
+  body.dark .bottom-nav-toggle {
+    border-top-color: rgba(255,255,255,0.06);
+  }
+}
+
+/* Inline Styles Dark Mode Override System */
+body.dark {
+  /* Force dark backgrounds on any elements with hardcoded light inline styles */
+  [style*="background:#fff"],
+  [style*="background: #fff"],
+  [style*="background:'#fff'"],
+  [style*="background: '#fff'"],
+  [style*="background:white"],
+  [style*="background: white"],
+  [style*="background-color:#fff"],
+  [style*="background-color: #fff"],
+  [style*="background-color:white"],
+  [style*="background-color: white"],
+  [style*="background:'#fafbff'"],
+  [style*="background: '#fafbff'"],
+  [style*="background:#fafbff"],
+  [style*="background: #fafbff"],
+  [style*="background-color:#fafbff"],
+  [style*="background-color: #fafbff"],
+  [style*="background:'#f8f9fc'"],
+  [style*="background: '#f8f9fc'"],
+  [style*="background:#f8f9fc"],
+  [style*="background: #f8f9fc"],
+  [style*="background-color:#f8f9fc"],
+  [style*="background-color: #f8f9fc"],
+  [style*="background:'#f0f3fa'"],
+  [style*="background: '#f0f3fa'"],
+  [style*="background:#f0f3fa"],
+  [style*="background: #f0f3fa"],
+  [style*="background-color:#f0f3fa"],
+  [style*="background-color: #f0f3fa"],
+  [style*="background:rgb(255, 255, 255)"],
+  [style*="background: rgb(255, 255, 255)"],
+  [style*="background-color:rgb(255, 255, 255)"],
+  [style*="background-color: rgb(255, 255, 255)"],
+  [style*="background:rgb(250, 251, 255)"],
+  [style*="background: rgb(250, 251, 255)"],
+  [style*="background-color:rgb(250, 251, 255)"],
+  [style*="background-color: rgb(250, 251, 255)"],
+  [style*="background:rgb(248, 249, 252)"],
+  [style*="background: rgb(248, 249, 252)"],
+  [style*="background-color:rgb(248, 249, 252)"],
+  [style*="background-color: rgb(248, 249, 252)"],
+  [style*="background:rgb(240, 243, 250)"],
+  [style*="background: rgb(240, 243, 250)"],
+  [style*="background-color:rgb(240, 243, 250)"],
+  [style*="background-color: rgb(240, 243, 250)"],
+  [style*="background:#f8faff"],
+  [style*="background: #f8faff"],
+  [style*="background-color:#f8faff"],
+  [style*="background-color: #f8faff"],
+  [style*="background:rgb(248, 250, 255)"],
+  [style*="background: rgb(248, 250, 255)"],
+  [style*="background-color:rgb(248, 250, 255)"],
+  [style*="background-color: rgb(248, 250, 255)"] {
+    background: var(--surface) !important;
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+  }
+
+  /* Specific hovers mapped dynamically */
+  [style*="background:#f8f9ff"],
+  [style*="background: #f8f9ff"],
+  [style*="background:'#f8f9ff'"],
+  [style*="background: '#f8f9ff'"],
+  [style*="rgb(248, 249, 255)"] {
+    background: var(--surface-2) !important;
+    background-color: var(--surface-2) !important;
+  }
+
+  /* Specific premium overrides for light-theme inline light gradients */
+  [style*="linear-gradient(135deg,#fafbff,#f0f3fa)"],
+  [style*="linear-gradient(135deg, #fafbff, #f0f3fa)"],
+  [style*="linear-gradient(150deg,#f8f9ff,#f0eeff,#e8fdfd)"],
+  [style*="linear-gradient(150deg, #f8f9ff, #f0eeff, #e8fdfd)"] {
+    background: var(--grad-subtle) !important;
+  }
+
+  /* Map translucent highlights to dark equivalents */
+  [style*="background:rgba(83,22,151,0.04)"],
+  [style*="background: rgba(83,22,151,0.04)"],
+  [style*="background:'rgba(83,22,151,0.04)'"],
+  [style*="background: 'rgba(83,22,151,0.04)'"],
+  [style*="background:rgba(83,22,151,0.05)"],
+  [style*="background: rgba(83,22,151,0.05)"],
+  [style*="background:rgba(19,161,165,0.04)"],
+  [style*="background: rgba(19,161,165,0.04)"],
+  [style*="background:rgba(19,161,165,0.05)"],
+  [style*="background: rgba(19,161,165,0.05)"] {
+    background: rgba(167, 139, 250, 0.08) !important;
+    border-color: rgba(167, 139, 250, 0.25) !important;
+  }
+
+  /* Hardcoded border overrides */
+  [style*="border: '1px solid #e8edf5'"],
+  [style*="border:'1px solid #e8edf5'"],
+  [style*="border: '1.5px solid #d0d7e8'"],
+  [style*="border:'1.5px solid #d0d7e8'"],
+  [style*="border: '1px solid #d0d7e8'"],
+  [style*="border:'1px solid #d0d7e8'"],
+  [style*="border: '1px solid #e4e8f0'"],
+  [style*="border:'1px solid #e4e8f0'"],
+  [style*="border: '1px solid #eef1f8'"],
+  [style*="border:'1px solid #eef1f8'"],
+  [style*="border: '1px solid #f0f3fa'"],
+  [style*="border:'1px solid #f0f3fa'"],
+  [style*="border-color: '#e8edf5'"],
+  [style*="border-color:'#e8edf5'"],
+  [style*="border-color: '#d0d7e8'"],
+  [style*="border-color:'#d0d7e8'"],
+  [style*="#e8edf5"],
+  [style*="#d0d7e8"],
+  [style*="#eef1f8"],
+  [style*="#f0f3fa"] {
+    border-color: var(--border) !important;
+  }
+
+  /* Force highly readable light colors on text elements with hardcoded dark colors */
+  [style*="color:#531697"],
+  [style*="color: #531697"],
+  [style*="color:'#531697'"],
+  [style*="color: '#531697'"],
+  [style*="color: rgb(83, 22, 151)"],
+  [style*="color:rgb(83,22,151)"] {
+    color: #c084fc !important; /* Premium light purple for high readability */
+  }
+
+  [style*="color:#042c5d"],
+  [style*="color: #042c5d"],
+  [style*="color:'#042c5d'"],
+  [style*="color: '#042c5d'"],
+  [style*="color: rgb(4, 44, 93)"],
+  [style*="color:rgb(4,44,93)"] {
+    color: #60a5fa !important; /* Premium light blue/teal for readability */
+  }
+
+  [style*="color:#0d7a7e"],
+  [style*="color: #0d7a7e"],
+  [style*="color:'#0d7a7e'"],
+  [style*="color: '#0d7a7e'"],
+  [style*="color: rgb(13, 122, 126)"],
+  [style*="color:rgb(13,122,126)"] {
+    color: #2dd4bf !important; /* Premium light teal for readability */
+  }
+
+  [style*="color:#b0bec9"],
+  [style*="color: #b0bec9"],
+  [style*="color:'#b0bec9'"],
+  [style*="color: '#b0bec9'"] {
+    color: var(--text-3) !important;
+  }
+}
+
+/* ── Aptitude Quiz Topic Buttons ── */
+.aptitude-quiz-topic-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.82rem;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.aptitude-quiz-topic-btn:hover {
+  border-color: var(--teal);
+  background: var(--surface-2);
+}
+
+.aptitude-quiz-topic-btn.chosen {
+  border-color: var(--purple-light);
+  background: rgba(83, 22, 151, 0.08);
+  color: var(--purple-light);
+}
+
+.aptitude-quiz-topic-btn .count-text {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.aptitude-quiz-topic-btn.chosen .count-text {
+  color: var(--purple-light);
+}
+
+/* Dark mode overrides for Aptitude Quiz Topic Buttons */
+body.dark .aptitude-quiz-topic-btn {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+body.dark .aptitude-quiz-topic-btn:hover {
+  border-color: var(--teal);
+  background: var(--surface);
+}
+
+body.dark .aptitude-quiz-topic-btn.chosen {
+  border-color: var(--purple-light);
+  background: rgba(138, 62, 230, 0.15);
+  color: #c084fc;
+}
+
+body.dark .aptitude-quiz-topic-btn.chosen .count-text {
+  color: #c084fc;
+}
+
+/* Quiz Selection Summary */
+.aptitude-quiz-selection-summary {
+  padding: 10px 14px;
+  background: rgba(83, 22, 151, 0.04);
+  border-radius: 9px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: var(--purple);
+  font-weight: 600;
+  border: 1.5px solid rgba(83, 22, 151, 0.1);
+}
+
+body.dark .aptitude-quiz-selection-summary {
+  background: rgba(138, 62, 230, 0.1);
+  color: #cbd5e1;
+  border-color: rgba(138, 62, 230, 0.25);
 }

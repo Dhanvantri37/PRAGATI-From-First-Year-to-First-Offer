@@ -587,8 +587,8 @@ export default function DashboardLayout() {
     }
 
     return (
-      <div style={{ position:'fixed', inset:0, background:'rgba(4,44,93,0.6)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={()=>setShowEditProfile(false)}>
-        <div style={{ background:dropBg, borderRadius:20, padding:'24px 28px', maxWidth:560, width:'100%', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 80px rgba(4,44,93,0.3)' }} onClick={e=>e.stopPropagation()}>
+      <div className="modal-backdrop" onClick={()=>setShowEditProfile(false)}>
+        <div className="modal-content-responsive" style={{ maxWidth:560 }} onClick={e=>e.stopPropagation()}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:txt }}>✏️ Edit Profile</div>
             <button onClick={()=>setShowEditProfile(false)} style={{ width:32, height:32, borderRadius:'50%', border:`1px solid ${inpBrd}`, background:inpBg, cursor:'pointer', fontWeight:800, color:sub, fontSize:'1rem' }}>×</button>
@@ -632,8 +632,8 @@ export default function DashboardLayout() {
   function DeleteModal() {
     const [confirmText, setConfirmText] = useState('');
     return (
-      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={()=>setShowDeleteConfirm(false)}>
-        <div style={{ background:dropBg, borderRadius:20, padding:'28px', maxWidth:420, width:'100%', boxShadow:'0 20px 80px rgba(0,0,0,0.4)' }} onClick={e=>e.stopPropagation()}>
+      <div className="modal-backdrop" onClick={()=>setShowDeleteConfirm(false)}>
+        <div className="modal-content-responsive" style={{ maxWidth:420 }} onClick={e=>e.stopPropagation()}>
           <div style={{ textAlign:'center', marginBottom:16 }}>
             <div style={{ fontSize:'3rem', marginBottom:8 }}>⚠️</div>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', color:'#ef4444' }}>Delete Account</div>
@@ -1204,9 +1204,12 @@ function MobileBottomNav({ role, dm }) {
     return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
   }, []);
 
+  const needsToggle = links.length > 5;
+  const visibleLinks = (expanded || !needsToggle) ? links : links.slice(0, 4);
+
   return (
     <nav ref={navRef} className={`pragati-bottom-nav${dm ? ' dark' : ''}${expanded ? ' expanded' : ' collapsed'}`}>
-      {links.map(l => (
+      {visibleLinks.map(l => (
         <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'}
           style={({ isActive }) => ({
             display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -1224,13 +1227,15 @@ function MobileBottomNav({ role, dm }) {
           {l.label}
         </NavLink>
       ))}
-      <button
-        className="bottom-nav-toggle"
-        onClick={() => setExpanded(p => !p)}
-        aria-label={expanded ? 'Show less' : 'Show all modules'}
-      >
-        {expanded ? '▾ Less' : '▴ More'}
-      </button>
+      {needsToggle && (
+        <button
+          className="bottom-nav-toggle"
+          onClick={() => setExpanded(p => !p)}
+          aria-label={expanded ? 'Show less' : 'Show all modules'}
+        >
+          {expanded ? '▾ Less' : '▴ More'}
+        </button>
+      )}
     </nav>
   );
 }

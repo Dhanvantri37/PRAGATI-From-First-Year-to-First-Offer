@@ -308,9 +308,9 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
 
         <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:16 }}>
           {(q.options||[]).map((opt,i) => {
-            let bg='#fafbff', brd='#d0d7e8', col='var(--text-2)';
-            if (revealed) { if (opt===q.answer){bg='rgba(71,211,114,0.1)';brd='#47d372';col='#166534';} else if(opt===sel){bg='rgba(239,68,68,0.08)';brd='#ef4444';col='#991b1b';} }
-            else if (sel===opt) { bg='rgba(83,22,151,0.08)';brd='#531697';col='#531697'; }
+            let bg='var(--surface-2)', brd='var(--border)', col='var(--text-2)';
+            if (revealed) { if (opt===q.answer){bg='rgba(71,211,114,0.12)';brd='var(--success)';col='var(--success)';} else if(opt===sel){bg='rgba(239,68,68,0.1)';brd='var(--danger)';col='var(--danger)';} }
+            else if (sel===opt) { bg='rgba(83,22,151,0.1)';brd='var(--purple)';col='var(--purple)'; }
             return (
               <button key={i} onClick={()=>!revealed&&!expired&&setSel(opt)} disabled={revealed||expired}
                 style={{ padding:'12px 16px', borderRadius:10, border:`1.5px solid ${brd}`, background:bg, color:col, fontWeight:opt===q.answer&&revealed?800:500, cursor:revealed||expired?'default':'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", fontSize:'.88rem', transition:'all .15s', display:'flex', gap:10, alignItems:'center' }}>
@@ -327,7 +327,7 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode }) {
 
         {revealed&&q.explanation&&(
           <div style={{ padding:'12px 14px', background:'rgba(83,22,151,0.05)', borderRadius:10, border:'1px solid rgba(83,22,151,0.1)', fontSize:'.82rem', color:'var(--text-2)', lineHeight:1.7, marginBottom:12 }}>
-            <strong style={{ color:'#531697' }}>💡 Explanation:</strong> {q.explanation}
+            <strong style={{ color:'var(--purple)' }}>💡 Explanation:</strong> {q.explanation}
           </div>
         )}
 
@@ -681,10 +681,10 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
               const chosen = quizTopics.includes(t);
               return (
                 <button key={t} onClick={()=>toggleQT(t)}
-                  style={{ padding:'10px 14px', borderRadius:10, border:`1.5px solid ${chosen?'#531697':'#d0d7e8'}`, background:chosen?'rgba(83,22,151,0.08)':'#fafbff', color:chosen?'#531697':'var(--text-2)', fontWeight:700, cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', transition:'all .15s' }}>
+                  className={`aptitude-quiz-topic-btn${chosen ? ' chosen' : ''}`}>
                   <div style={{ fontSize:'1.2rem', marginBottom:3 }}>{ICONS[t]||'❓'}</div>
                   <div>{t}</div>
-                  <div style={{ fontSize:'.68rem', color:chosen?'#531697':'#b0bec9', marginTop:2 }}>{topicsData.questionCounts?.[t]||0} Qs</div>
+                  <div className="count-text">{topicsData.questionCounts?.[t]||0} Qs</div>
                 </button>
               );
             })}
@@ -707,12 +707,12 @@ function TopicSelector({ topicsData, stats, progress, onStartPractice, onStartQu
             </div>
           </div>
           {quizTopics.length > 0 && (
-            <div style={{ padding:'10px 14px', background:'rgba(83,22,151,0.04)', borderRadius:9, marginBottom:14, fontSize:'.8rem', color:'#531697', fontWeight:600 }}>
+            <div className="aptitude-quiz-selection-summary">
               📋 Quiz: {quizTopics.join(' + ')} · {quizCount} questions · {quizDiff} difficulty
             </div>
           )}
           <button disabled={quizTopics.length===0} onClick={()=>onStartQuiz({topics:quizTopics,difficulty:quizDiff,count:quizCount})}
-            style={{ width:'100%', padding:'13px', borderRadius:11, border:'none', background:quizTopics.length?GRAD:'#d0d7e8', color:'#fff', fontWeight:800, cursor:quizTopics.length?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif", fontSize:'.92rem' }}>
+            style={{ width:'100%', padding:'13px', borderRadius:11, border:'none', background:quizTopics.length?GRAD:'var(--border-light)', color:quizTopics.length?'#fff':'var(--text-3)', fontWeight:800, cursor:quizTopics.length?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif", fontSize:'.92rem' }}>
             {quizTopics.length?`🧪 Generate Quiz (${quizCount} Questions)`:'Select at least one topic'}
           </button>
         </div>

@@ -9,12 +9,12 @@ const tk   = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
 
 const selectStyle = {
-  width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8',
-  fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', fontWeight:600, outline:'none', background:'#fff',
+  width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid var(--border)',
+  fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', fontWeight:600, outline:'none', background:'var(--surface)', color:'var(--text)',
 };
 const inputStyle = {
-  width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8',
-  fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', fontWeight:600, outline:'none', background:'#fff', boxSizing:'border-box',
+  width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid var(--border)',
+  fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', fontWeight:600, outline:'none', background:'var(--surface)', color:'var(--text)', boxSizing:'border-box',
 };
 
 function FormField({ label, children }) {
@@ -112,7 +112,7 @@ export default function GDLobbyPage() {
 
       {/* Create Room Form */}
       {showCreate && (
-        <div style={{ background:'#fff', borderRadius:16, padding:'24px 28px', marginBottom:20, boxShadow:'0 4px 24px rgba(83,22,151,0.1)', border:'1.5px solid rgba(83,22,151,0.12)' }}>
+        <div style={{ background:'var(--surface)', borderRadius:16, padding:'24px 28px', marginBottom:20, boxShadow:'0 4px 24px rgba(83,22,151,0.1)', border:'1.5px solid var(--border)' }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', marginBottom:18, color:'var(--text)' }}>Configure New GD Room</div>
           <form onSubmit={handleCreate}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:14, marginBottom:18 }}>
@@ -158,12 +158,12 @@ export default function GDLobbyPage() {
       )}
 
       {/* Join by Code */}
-      <div style={{ background:'#fff', borderRadius:14, padding:'18px 22px', marginBottom:20, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #e8edf5' }}>
+      <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 22px', marginBottom:20, boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)' }}>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', marginBottom:12, color:'var(--text)' }}>🔑 Join with Room Code</div>
         <form onSubmit={handleJoinCode} style={{ display:'flex', gap:10 }}>
           <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
             placeholder="e.g. A1B2C3D4" maxLength={10}
-            style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', fontWeight:700, letterSpacing:'0.1em', outline:'none' }} />
+            style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', fontWeight:700, letterSpacing:'0.1em', outline:'none' }} />
           <button type="submit"
             style={{ padding:'10px 22px', borderRadius:10, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
             Join →
@@ -177,13 +177,13 @@ export default function GDLobbyPage() {
           🔴 Live Sessions
           {rooms.length > 0 && <span style={{ marginLeft:8, background:'#ef4444', color:'#fff', borderRadius:20, padding:'2px 10px', fontSize:'.72rem', fontWeight:800 }}>{rooms.length}</span>}
         </div>
-        <button onClick={fetchRooms} style={{ padding:'7px 16px', borderRadius:8, border:'1px solid #e8edf5', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>↻ Refresh</button>
+        <button onClick={fetchRooms} style={{ padding:'7px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem' }}>↻ Refresh</button>
       </div>
 
       {loading ? (
         <div style={{ textAlign:'center', padding:'40px 0', color:'#b0bec9' }}>Loading sessions…</div>
       ) : rooms.length === 0 ? (
-        <div style={{ textAlign:'center', padding:'50px 20px', background:'#fff', borderRadius:14, border:'1px dashed #d0d7e8' }}>
+        <div style={{ textAlign:'center', padding:'50px 20px', background:'var(--surface)', borderRadius:14, border:'1px dashed var(--border)' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:12 }}>🎤</div>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:'var(--text)', marginBottom:8 }}>No sessions open right now</div>
           <div style={{ color:'var(--text-3)', fontSize:'.85rem', marginBottom:20 }}>Create a room — others will be notified instantly</div>
@@ -197,7 +197,7 @@ export default function GDLobbyPage() {
             const bColor = pct >= 100 ? '#ef4444' : pct >= 60 ? '#f59e0b' : '#47d372';
             const isFull = count >= room.maxParticipants;
             return (
-              <div key={room.roomCode} style={{ background:'#fff', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #e8edf5', display:'flex', flexDirection:'column', gap:10 }}>
+              <div key={room.roomCode} style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)', display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                   <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:'.9rem', color:'#531697', background:'rgba(83,22,151,0.08)', padding:'3px 10px', borderRadius:6 }}>{room.roomCode}</div>
                   <div style={{ display:'flex', gap:6 }}>
@@ -207,7 +207,7 @@ export default function GDLobbyPage() {
                 </div>
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                   {[['🏢',room.companyContext||'General'],['⏱',`${Math.round(room.durationSeconds/60)} min`],['🌐',room.language||'English']].map(([ic,txt]) => (
-                    <span key={txt} style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-2)', background:'#f8faff', padding:'3px 9px', borderRadius:6 }}>{ic} {txt}</span>
+                    <span key={txt} style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-2)', background:'var(--bg-alt)', padding:'3px 9px', borderRadius:6 }}>{ic} {txt}</span>
                   ))}
                 </div>
                 <div>
@@ -237,7 +237,7 @@ export default function GDLobbyPage() {
       )}
 
       {/* How it works */}
-      <div style={{ marginTop:32, background:'#fff', borderRadius:16, padding:'24px 28px', border:'1px solid #e8edf5' }}>
+      <div style={{ marginTop:32, background:'var(--surface)', borderRadius:16, padding:'24px 28px', border:'1px solid var(--border)' }}>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', marginBottom:18, color:'var(--text)' }}>🤖 How AI-Powered GD Works</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:14 }}>
           {[
@@ -248,7 +248,7 @@ export default function GDLobbyPage() {
             ['5️⃣','AI Auto-Joins','If not enough participants in 2 min, AI fills in as participant.'],
             ['6️⃣','Instant Report','7-dimension AI evaluation report generated per student after GD.'],
           ].map(([n, title, desc]) => (
-            <div key={n} style={{ padding:'14px', borderRadius:10, background:'#f8faff', border:'1px solid #e8edf5' }}>
+            <div key={n} style={{ padding:'14px', borderRadius:10, background:'var(--bg-alt)', border:'1px solid var(--border)' }}>
               <div style={{ fontSize:'1.3rem', marginBottom:6 }}>{n}</div>
               <div style={{ fontWeight:800, fontSize:'.82rem', color:'var(--text)', marginBottom:4 }}>{title}</div>
               <div style={{ fontSize:'.75rem', color:'var(--text-3)', lineHeight:1.5 }}>{desc}</div>

@@ -766,7 +766,7 @@ function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
                 placeholder="Type a message…"
                 onChange={e => { chatInputRef.current = e.target.value; }}
                 onKeyDown={e => { if (e.key === 'Enter') onSendChat(); }}
-                style={{ flex:1, padding:'7px 10px', borderRadius:7, border:'1px solid #2a3a5a', background:'var(--text)', color:'#fff', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', outline:'none' }}
+                style={{ flex:1, padding:'7px 10px', borderRadius:7, border:'1px solid #2a3a5a', background:'var(--surface-2)', color:'#fff', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', outline:'none' }}
               />
               <button onClick={onSendChat} style={{ padding:'7px 12px', borderRadius:7, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.82rem' }}>→</button>
             </div>

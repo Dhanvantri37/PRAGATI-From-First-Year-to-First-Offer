@@ -61,20 +61,20 @@ export default function MediaPermissionGate({ roomCode, userName, onReady, onSki
 
   // ── PROMPT SCREEN ────────────────────────────────────────────────────────
   if (step === 'prompt' || step === 'requesting') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text)', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: '40px 36px', maxWidth: 440, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: '40px 36px', maxWidth: 440, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', border: '1px solid var(--border)' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎤</div>
         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.5rem', color: 'var(--text)', marginBottom: 8 }}>
           Join GD Session
         </div>
         <div style={{ fontSize: '.85rem', color: 'var(--text-3)', marginBottom: 6 }}>Room Code</div>
-        <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '1.3rem', color: '#531697', background: 'rgba(83,22,151,0.08)', padding: '6px 20px', borderRadius: 10, display: 'inline-block', marginBottom: 20 }}>{roomCode}</div>
+        <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '1.3rem', color: 'var(--teal)', background: 'rgba(19,161,165,0.08)', padding: '6px 20px', borderRadius: 10, display: 'inline-block', marginBottom: 20 }}>{roomCode}</div>
         <div style={{ fontSize: '.9rem', color: 'var(--text-2)', marginBottom: 24, lineHeight: 1.6 }}>
           PRAGATI needs access to your <strong>microphone</strong> and <strong>camera</strong> for the Group Discussion.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
           {[['🎙️','Microphone','To speak and be heard by participants'],['📹','Camera','To show your live video to others']].map(([ic, name, desc]) => (
-            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: '#f8faff', border: '1px solid #e8edf5', textAlign: 'left' }}>
+            <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', textAlign: 'left' }}>
               <span style={{ fontSize: 20 }}>{ic}</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '.85rem', color: 'var(--text)' }}>{name}</div>
@@ -87,7 +87,7 @@ export default function MediaPermissionGate({ roomCode, userName, onReady, onSki
           style={{ width: '100%', padding: '14px', borderRadius: 12, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, fontFamily: "'Nunito',sans-serif", fontSize: '1rem', cursor: step === 'requesting' ? 'wait' : 'pointer', marginBottom: 10 }}>
           {step === 'requesting' ? '⏳ Requesting…' : '🔓 Allow & Continue'}
         </button>
-        <button onClick={() => onSkip()} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid #d0d7e8', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, fontFamily: "'Nunito',sans-serif", cursor: 'pointer', fontSize: '.88rem' }}>
+        <button onClick={() => onSkip()} style={{ width: '100%', padding: '10px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, fontFamily: "'Nunito',sans-serif", cursor: 'pointer', fontSize: '.88rem' }}>
           Join without camera (voice only)
         </button>
       </div>
@@ -96,8 +96,8 @@ export default function MediaPermissionGate({ roomCode, userName, onReady, onSki
 
   // ── ERROR ─────────────────────────────────────────────────────────────────
   if (step === 'error') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--text)', padding: 24 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: '40px 36px', maxWidth: 440, width: '100%', textAlign: 'center' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 20, padding: '40px 36px', maxWidth: 440, width: '100%', textAlign: 'center', border: '1px solid var(--border)' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.3rem', color: 'var(--text)', marginBottom: 12 }}>Permission Required</div>
         <div style={{ color: 'var(--text-3)', marginBottom: 24, lineHeight: 1.6 }}>{errMsg}</div>

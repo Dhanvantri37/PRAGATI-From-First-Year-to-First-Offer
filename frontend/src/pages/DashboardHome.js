@@ -47,8 +47,8 @@ function EditProfileModal({ user, onClose, onSaved }) {
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(4,44,93,0.55)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={onClose}>
-      <div style={{ background:'var(--surface)', borderRadius:20, padding:'24px 28px', maxWidth:560, width:'100%', maxHeight:'88vh', overflowY:'auto', boxShadow:'0 20px 80px rgba(4,44,93,0.25)' }} onClick={e=>e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content-responsive" style={{ maxWidth:560 }} onClick={e=>e.stopPropagation()}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:'var(--text)' }}>✏️ Edit Profile</div>
           <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', border:'1px solid #e8edf5', background:'#f8f9fc', cursor:'pointer', fontWeight:800, color:'var(--text-3)', fontSize:'1rem' }}>×</button>
@@ -173,12 +173,12 @@ function ActivityHeatmap({ submissions=[], currentStreak=0, maxStreak=0, compact
   const allCounts = Object.values(counts);
   const maxCount = Math.max(1, ...allCounts);
   const getPurple = c => {
-    if (!c) return '#f0f3fa';
+    if (!c) return 'var(--heatmap-empty)';
     const t = c / maxCount;
-    if (t < 0.25) return '#e2d0f0';
-    if (t < 0.5)  return '#b57bed';
-    if (t < 0.75) return '#7c3aed';
-    return '#531697';
+    if (t < 0.25) return 'var(--heatmap-level1)';
+    if (t < 0.5)  return 'var(--heatmap-level2)';
+    if (t < 0.75) return 'var(--heatmap-level3)';
+    return 'var(--heatmap-level4)';
   };
   const CELL = compact ? 9 : 11;
   const GAP  = compact ? 1 : 2;
@@ -205,12 +205,12 @@ function ActivityHeatmap({ submissions=[], currentStreak=0, maxStreak=0, compact
       <div style={{ display:'flex', gap:14, marginTop:8, alignItems:'center', flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:4 }}>
           <span style={{ fontSize:'.68rem', color:'var(--text-3)', fontWeight:600 }}>Activity:</span>
-          {['#f0f3fa','#e2d0f0','#b57bed','#7c3aed','#531697'].map((c,i)=>(
-            <div key={i} style={{ width:CELL, height:CELL, borderRadius:2, background:c, border:'1px solid #e8edf5' }}/>
+          {['var(--heatmap-empty)','var(--heatmap-level1)','var(--heatmap-level2)','var(--heatmap-level3)','var(--heatmap-level4)'].map((c,i)=>(
+            <div key={i} style={{ width:CELL, height:CELL, borderRadius:2, background:c, border:'1px solid var(--border)' }}/>
           ))}
         </div>
         <span style={{ fontSize:'.72rem', color:'var(--text-3)' }}>
-          Current Streak <strong style={{ color:'#531697' }}>{currentStreak} Days</strong>
+          Current Streak <strong style={{ color:'var(--purple)' }}>{currentStreak} Days</strong>
         </span>
         <span style={{ fontSize:'.72rem', color:'var(--text-3)' }}>
           Max Streak <strong style={{ color:'var(--text)' }}>{maxStreak} Days</strong>
@@ -436,10 +436,8 @@ function LeaderboardModal({ onClose, myId }) {
   const SKILL_COLOR = { Beginner:'#f59e0b', Intermediate:'#531697', Expert:'#47d372' };
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(4,44,93,0.6)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'20px 12px', overflowY:'auto' }}
-      onClick={onClose}>
-      <div style={{ background:'#f8f9fc', borderRadius:20, width:'100%', maxWidth:860, boxShadow:'0 24px 80px rgba(4,44,93,0.3)', position:'relative' }}
-        onClick={e => e.stopPropagation()}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-content-responsive" style={{ maxWidth:860, padding: 0 }} onClick={e => e.stopPropagation()}>
 
         {/* ── Header bar ── */}
         <div style={{ background:'linear-gradient(135deg,#531697,#13a1a5)', borderRadius:'20px 20px 0 0', padding:'18px 24px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
