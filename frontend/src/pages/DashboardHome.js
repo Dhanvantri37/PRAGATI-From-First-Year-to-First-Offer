@@ -1039,7 +1039,7 @@ function StudentDash() {
         </div>
 
         {/* Quick Actions */}
-        <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa' }}>
+        <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)', display:'flex', flexDirection:'column', height:'100%' }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:12, color:'var(--text)' }}>⚡ Quick Actions</div>
           {[
             { icon:'💻', label:"Today's DSA Problem", sub:'Solve to extend streak', to:'/dashboard/problems', grad:'linear-gradient(135deg,#531697,#13a1a5)' },
@@ -1050,9 +1050,9 @@ function StudentDash() {
             { icon:'📝', label:'Discussions', sub:'Post doubts, get answers', to:'/dashboard/discussions', grad:'linear-gradient(135deg,#10b981,#13a1a5)' },
           ].map(a=>(
             <button key={a.to} onClick={()=>nav(a.to)}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, border:'1px solid #f0f3fa', background:'#fafbff', cursor:'pointer', marginBottom:5, textAlign:'left', transition:'all .15s' }}
-              onMouseOver={e=>{ e.currentTarget.style.background='rgba(83,22,151,0.04)'; e.currentTarget.style.borderColor='rgba(83,22,151,0.2)'; }}
-              onMouseOut={e=>{ e.currentTarget.style.background='#fafbff'; e.currentTarget.style.borderColor='#f0f3fa'; }}>
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-2)', cursor:'pointer', marginBottom:5, textAlign:'left', transition:'all .15s' }}
+              onMouseOver={e=>{ e.currentTarget.style.background='rgba(83,22,151,0.08)'; e.currentTarget.style.borderColor='rgba(83,22,151,0.2)'; }}
+              onMouseOut={e=>{ e.currentTarget.style.background='var(--surface-2)'; e.currentTarget.style.borderColor='var(--border)'; }}>
               <div style={{ width:32, height:32, borderRadius:8, background:a.grad, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.9rem', flexShrink:0 }}>{a.icon}</div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:'.8rem', fontWeight:700, color:'var(--text)' }}>{a.label}</div>
@@ -1126,10 +1126,10 @@ function StudentDash() {
       )}
 
       {/* ── ROW 3: COMPANY READINESS + BATCH RANK ─────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="grid-2-1">
 
         {/* Company Readiness */}
-        <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa' }}>
+        <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)', display:'flex', flexDirection:'column', height:'100%' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)' }}>🏢 Company Readiness</div>
             <div style={{ display:'flex', gap:6 }}>
@@ -1170,8 +1170,8 @@ function StudentDash() {
         </div>
 
         {/* Batch Rank + Leaderboard Top 3 */}
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          <div style={{ background:'var(--surface)', borderRadius:14, padding:'16px 18px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa', flex:1 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:10, height:'100%' }}>
+          <div style={{ background:'var(--surface)', borderRadius:14, padding:'16px 18px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)', flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', marginBottom:10, color:'var(--text)' }}>🏆 Batch Rank</div>
             {batchData?.batchSize > 1 ? (
               <div style={{ textAlign:'center' }}>
@@ -1183,7 +1183,7 @@ function StudentDash() {
               </div>
             ) : <div style={{ textAlign:'center', color:'#b0bec9', fontSize:'.78rem', padding:'10px 0' }}>More data needed for batch rank</div>}
           </div>
-          <div style={{ background:'var(--surface)', borderRadius:14, padding:'16px 18px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa', flex:1 }}>
+          <div style={{ background:'var(--surface)', borderRadius:14, padding:'16px 18px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid var(--border)', flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)' }}>🥇 Top Performers</div>
               <button onClick={()=>setShowLeaderboard(true)} style={{ padding:'3px 8px', borderRadius:6, border:'1px solid rgba(83,22,151,.2)', background:'rgba(83,22,151,.05)', color:'#531697', fontWeight:700, fontSize:'.65rem', cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>All →</button>
@@ -1200,7 +1200,7 @@ function StudentDash() {
                 const skillColors = { Beginner:'#f59e0b', Intermediate:'#531697', Expert:'#47d372' };
                 const sc = skillColors[s.skillLevel] || '#531697';
                 return (
-                  <div key={s._id||i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:10, marginBottom:5, background:isMe?'rgba(83,22,151,0.06)':'#fafbff', border:isMe?'1.5px solid rgba(83,22,151,0.2)':'1px solid #f0f3fa', cursor:'pointer' }}
+                  <div key={s._id||i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:10, marginBottom:5, background:isMe?'rgba(83,22,151,0.06)':'var(--surface-2)', border:isMe?'1.5px solid rgba(83,22,151,0.2)':'1px solid var(--border)', cursor:'pointer' }}
                     onClick={()=>setShowLeaderboard(true)}>
                     <span style={{ fontSize:'1.1rem', flexShrink:0 }}>{medals[i]}</span>
                     <div style={{ width:28, height:28, borderRadius:8, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.75rem', flexShrink:0 }}>
