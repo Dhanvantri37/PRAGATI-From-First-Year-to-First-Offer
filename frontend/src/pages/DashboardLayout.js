@@ -1177,8 +1177,6 @@ function MobileBottomNav({ role, dm }) {
       <button className="bottom-nav-toggle" onClick={toggleExpand} aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}>
         {expanded ? '▲' : '▼'}
       </button>
-    </nav>
-  );
-}
-
+      </nav>
+    );
 }
