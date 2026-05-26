@@ -99,15 +99,37 @@ body.dark select option {
 }
 
 body.dark .card {
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 22, 35, 0.7));
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  background: #0d1520 !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  color: #e2e8f0 !important;
+}
+/* Only override color on plain text elements inside dark cards, not on gradient/icon/colored elements */
+body.dark .card > *:not([style*="WebkitTextFillColor"]):not([style*="-webkit-text-fill"]):not([style*="background-clip"]) {
+  color: inherit;
+}
+/* Ensure labels and sub-text are clearly readable */
+body.dark .card [style*="color:'var(--text-2)'"],
+body.dark .card [style*="color: 'var(--text-2)'"] {
+  color: #cbd5e1 !important;
 }
 body.dark .card-hover:hover {
-  border-color: rgba(19, 161, 165, 0.4);
-  box-shadow: 0 12px 40px rgba(19, 161, 165, 0.15), 0 4px 12px rgba(0,0,0,0.5);
+  border-color: rgba(19, 161, 165, 0.5) !important;
+  box-shadow: 0 12px 40px rgba(19, 161, 165, 0.18), 0 4px 12px rgba(0,0,0,0.5);
   transform: translateY(-3px);
+}
+/* Stats cards equal height grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.stats-grid .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -760,54 +782,77 @@ html { scroll-behavior: smooth; }
 .pragati-bottom-nav {
   display: none;
 }
-@media (max-width: 768px) {
-  .pragati-bottom-nav.collapsed {
-  max-height: 60px;
-  overflow: hidden;
-  transition: max-height .3s ease;
-}
-.pragati-bottom-nav.expanded {
-  max-height: none;
-  overflow: visible;
-}
 .bottom-nav-toggle {
-  background: none;
-  border: none;
-  color: var(--text-3);
-  font-size: 1rem;
-  padding: 4px;
-  cursor: pointer;
+  display: none;
 }
+@media (max-width: 768px) {
   .pragati-bottom-nav {
     display: flex;
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: auto;
     flex-wrap: wrap;
-    background: #fff;
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid #e8edf5;
-    z-index: 999;
-    justify-content: center;
-    align-items: center;
-    padding: 4px 4px 8px;
-    box-shadow: 0 -4px 20px rgba(83,22,151,0.08);
+    z-index: 1100;
+    justify-content: space-around;
+    align-items: flex-start;
+    padding: 6px 4px env(safe-area-inset-bottom, 8px);
+    box-shadow: 0 -4px 24px rgba(83,22,151,0.12);
+    transition: max-height 0.35s cubic-bezier(.4,0,.2,1), padding 0.25s;
+    overflow: hidden;
+  }
+  .pragati-bottom-nav.collapsed {
+    max-height: 68px;
+  }
+  .pragati-bottom-nav.expanded {
+    max-height: 400px;
   }
   .pragati-bottom-nav.dark {
-    background: #1a2640;
+    background: rgba(22, 29, 46, 0.97);
     border-top-color: #2a3a5a;
   }
   .pragati-bottom-nav a {
     display: flex; flex-direction: column; align-items: center;
-    gap: 2px; padding: 6px 10px; border-radius: 10px;
-    text-decoration: none; font-size: .62rem; font-weight: 700;
+    gap: 3px; padding: 6px 8px; border-radius: 12px;
+    text-decoration: none; font-size: .60rem; font-weight: 700;
     color: #7a8ba8; transition: color .15s, background .15s;
-    min-width: 65px;
+    min-width: 58px; flex: 1;
   }
-  .pragati-bottom-nav a.active {
-    color: #531697; background: rgba(83,22,151,0.08);
+  .pragati-bottom-nav.dark a {
+    color: #94a3b8;
+  }
+  .pragati-bottom-nav a.active, .pragati-bottom-nav a[aria-current="page"] {
+    color: #531697;
+    background: rgba(83,22,151,0.10);
+    border-radius: 12px;
+  }
+  .pragati-bottom-nav.dark a.active, .pragati-bottom-nav.dark a[aria-current="page"] {
+    color: #a78bfa;
+    background: rgba(83,22,151,0.2);
   }
   .pragati-bottom-nav a span:first-child {
-    font-size: 1.3rem; line-height: 1;
+    font-size: 1.35rem; line-height: 1;
+  }
+  .bottom-nav-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding: 4px 0 2px;
+    color: #7a8ba8;
+    font-size: .75rem;
+    cursor: pointer;
+    order: 999;
+    letter-spacing: .04em;
+  }
+  .pragati-bottom-nav.dark .bottom-nav-toggle {
+    color: #64748b;
+    border-top-color: rgba(255,255,255,0.06);
   }
 }
 

@@ -516,7 +516,11 @@ export default function DashboardLayout() {
   }
 
   useEffect(() => {
-    function handle(e) { if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false); }
+    function handle(e) {
+      if (dropRef.current && !dropRef.current.contains(e.target)) setDropOpen(false);
+      // Close notification dropdown when clicking outside
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false);
+    }
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, []);
@@ -735,46 +739,73 @@ export default function DashboardLayout() {
                 🔔
                 {notifCount>0&&<span style={{ position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%', background:'#ef4444', color:'#fff', fontSize:'.6rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', border:'2px solid #fff' }}>{notifCount>9?'9+':notifCount}</span>}
               </button>
-              {showNotif&&(
-                <div style={{ position:'absolute', top:44, right:0, width:320, background:dm?'#1e2a3b':'#fff', border:`1px solid ${headerBrd}`, borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', zIndex:200, overflow:'hidden' }}>
-                  <div style={{ padding:'12px 16px', borderBottom:`1px solid ${headerBrd}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontWeight:800, fontSize:'.88rem', color:dm?'#e2e8f0':'var(--text)', fontFamily:"'Syne',sans-serif" }}>🔔 Notifications</span>
+              {showNotif && (
+                <div
+                  className="notification-dropdown"
+                  style={{
+                    position: 'fixed', top: 62, right: 12,
+                    width: 340,
+                    background: dm ? '#0f1e30' : '#fff',
+                    border: `1.5px solid ${dm ? '#1e3a5a' : '#e8edf5'}`,
+                    borderRadius: 18,
+                    boxShadow: dm
+                      ? '0 16px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(83,22,151,0.2)'
+                      : '0 16px 48px rgba(4,44,93,0.18), 0 2px 8px rgba(83,22,151,0.1)',
+                    zIndex: 9999,
+                    overflow: 'hidden',
+                    animation: 'notifSlideIn .2s cubic-bezier(.16,1,.3,1)',
+                  }}
+                >
+                  <style>{`@keyframes notifSlideIn{from{opacity:0;transform:translateY(-12px) scale(.97)}to{opacity:1;transform:none}}`}</style>
+                  {/* Header */}
+                  <div style={{ padding:'14px 18px 10px', borderBottom:`1px solid ${dm?'#1e3a5a':'#f0f2f8'}`, display:'flex', justifyContent:'space-between', alignItems:'center', background: dm?'rgba(83,22,151,0.08)':'rgba(83,22,151,0.04)' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontSize:'1.1rem' }}>🔔</span>
+                      <span style={{ fontWeight:800, fontSize:'.9rem', color:dm?'#f1f5f9':'#042c5d', fontFamily:"'Syne',sans-serif" }}>Notifications</span>
+                      {notifCount > 0 && <span style={{ padding:'1px 7px', borderRadius:999, background:'#531697', color:'#fff', fontSize:'.6rem', fontWeight:800 }}>{notifCount}</span>}
+                    </div>
                     <button onClick={()=>{ markAllRead(); setShowNotif(false); }}
-                      style={{ fontSize:'.65rem', color:'#531697', fontWeight:700, background:'none', border:'none', cursor:'pointer' }}>✓ Mark all read</button>
+                      style={{ fontSize:'.68rem', color:'#531697', fontWeight:700, background:'none', border:'none', cursor:'pointer', padding:'4px 8px', borderRadius:6, transition:'background .12s' }}
+                      onMouseOver={e=>e.currentTarget.style.background='rgba(83,22,151,0.08)'}
+                      onMouseOut={e=>e.currentTarget.style.background='none'}
+                    >✓ Mark all read</button>
                   </div>
-                  <div style={{ maxHeight:300, overflowY:'auto' }}>
+                  {/* List */}
+                  <div style={{ maxHeight:340, overflowY:'auto' }}>
                     {notifList.filter(a => !readIds.has(String(a._id))).length > 0
                       ? notifList.filter(a => !readIds.has(String(a._id))).map((a,i)=>(
-                      <div key={i}
-                        onClick={() => {
-                          const url = a.url || (a.title.includes('Drive') ? '/dashboard/drives' : '/dashboard/announcements');
-                          markNotifRead(a._id);
-                          nav(url);
-                          setShowNotif(false);
-                        }}
-                        style={{
-                          padding:'10px 16px', borderBottom:`1px solid ${headerBrd}`,
-                          background: dm?'rgba(83,22,151,0.08)':'rgba(83,22,151,0.04)',
-                          display:'flex', gap:10, alignItems:'flex-start',
-                          cursor: 'pointer', transition: 'background .15s'
-                        }}
-                        onMouseOver={e => e.currentTarget.style.background = dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)'}
-                        onMouseOut={e => e.currentTarget.style.background = dm ? 'rgba(83,22,151,0.08)' : 'rgba(83,22,151,0.04)'}
-                      >
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:700, fontSize:'.8rem', color:dm?'#e2e8f0':'var(--text)', marginBottom:2 }}>{a.title}</div>
-                          <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'var(--text-3)', lineHeight:1.5 }}>{a.message}</div>
-                          <div style={{ fontSize:'.65rem', color:dm?'#64748b':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                        <div key={i}
+                          onClick={() => {
+                            const url = a.url || (a.title.includes('Drive') ? '/dashboard/drives' : '/dashboard/announcements');
+                            markNotifRead(a._id); nav(url); setShowNotif(false);
+                          }}
+                          style={{ padding:'12px 18px', borderBottom:`1px solid ${dm?'rgba(255,255,255,0.05)':'#f5f6fa'}`, display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer', transition:'background .15s' }}
+                          onMouseOver={e=>e.currentTarget.style.background=dm?'rgba(83,22,151,0.12)':'rgba(83,22,151,0.04)'}
+                          onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                        >
+                          <div style={{ width:36, height:36, borderRadius:'50%', background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.9rem', flexShrink:0 }}>
+                            {a.title?.includes('Drive') ? '🗓️' : '📢'}
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontWeight:700, fontSize:'.82rem', color:dm?'#f1f5f9':'#0f1a2e', marginBottom:2, lineHeight:1.3 }}>{a.title}</div>
+                            <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5 }}>{a.message}</div>
+                            <div style={{ fontSize:'.63rem', color:dm?'#4a5a72':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+                          </div>
+                          <button onClick={(e)=>{ e.stopPropagation(); markNotifRead(a._id); }}
+                            style={{ background:'none', border:'none', color:dm?'#4a5a72':'#c0cad8', cursor:'pointer', fontSize:'.85rem', flexShrink:0, padding:'2px 4px', borderRadius:4, transition:'color .12s' }}
+                            onMouseOver={e=>e.currentTarget.style.color='#ef4444'}
+                            onMouseOut={e=>e.currentTarget.style.color=dm?'#4a5a72':'#c0cad8'}
+                          >✕</button>
                         </div>
-                        {/* ✕ dismisses single notification */}
-                        <button onClick={(e)=>{ e.stopPropagation(); markNotifRead(a._id); }}
-                          style={{ background:'none', border:'none', color:dm?'#64748b':'#b0bec9', cursor:'pointer', fontSize:'.85rem', flexShrink:0, padding:'2px 4px' }}>✕</button>
-                      </div>
-                    )) : (
-                      <div style={{ padding:'24px 16px', textAlign:'center', color:dm?'#64748b':'#b0bec9', fontSize:'.82rem' }}>
-                        ✅ All caught up! No new notifications.
-                      </div>
-                    )}
+                      ))
+                      : (
+                        <div style={{ padding:'32px 16px', textAlign:'center' }}>
+                          <div style={{ fontSize:'2rem', marginBottom:8 }}>✅</div>
+                          <div style={{ color:dm?'#64748b':'#b0bec9', fontSize:'.84rem', fontWeight:600 }}>All caught up!</div>
+                          <div style={{ color:dm?'#4a5a72':'#c8d0dc', fontSize:'.74rem', marginTop:4 }}>No new notifications</div>
+                        </div>
+                      )
+                    }
                   </div>
                 </div>
               )}
@@ -909,7 +940,7 @@ export default function DashboardLayout() {
           flex: 1,
           ...(isGDRoom
             ? { padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }
-            : { padding: '28px 28px', overflowY: 'auto', maxWidth: 1200, width: '100%' }
+            : { padding: '24px 28px 100px', overflowY: 'auto', maxWidth: '100%', width: '100%' }
           ),
         }}>
           <Outlet context={{ darkMode: dm }} />
@@ -1150,33 +1181,56 @@ export default function DashboardLayout() {
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
   const [expanded, setExpanded] = useState(false);
+  const navRef = useRef(null);
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
   // Collapse after navigation
-  useEffect(() => {
-    setExpanded(false);
-  }, [location]);
+  useEffect(() => { setExpanded(false); }, [location]);
 
-  const toggleExpand = () => setExpanded(prev => !prev);
+  // Swipe-up to expand, swipe-down to collapse
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    let startY = 0;
+    const onStart = (e) => { startY = (e.touches ? e.touches[0].clientY : e.clientY); };
+    const onEnd = (e) => {
+      const endY = (e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
+      const delta = startY - endY;
+      if (delta > 30) setExpanded(true);   // swipe up
+      if (delta < -30) setExpanded(false); // swipe down
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
+  }, []);
 
   return (
-    <nav className={`pragati-bottom-nav${dm ? ' dark' : ''}${expanded ? ' expanded' : ' collapsed'}`}>
+    <nav ref={navRef} className={`pragati-bottom-nav${dm ? ' dark' : ''}${expanded ? ' expanded' : ' collapsed'}`}>
       {links.map(l => (
-        <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'} style={({ isActive }) => ({
-          display:'flex', flexDirection:'column', alignItems:'center',
-          gap:2, padding:'6px 8px', borderRadius:10, textDecoration:'none',
-          fontSize:'.58rem', fontWeight:700,
-          color: isActive ? '#531697' : dm ? 'var(--text-3)' : 'var(--text-3)',
-          background: isActive ? (dm ? 'rgba(83,22,151,0.15)' : 'rgba(83,22,151,0.08)') : 'transparent',
-          flex:'1 1 auto', minWidth:60, maxWidth:85,
-        })}>
-          <span style={{ fontSize:'1.25rem', lineHeight:1 }}>{l.icon}</span>
+        <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'}
+          style={({ isActive }) => ({
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            gap: 3, padding: '7px 6px', borderRadius: 12, textDecoration: 'none',
+            fontSize: '.60rem', fontWeight: 700,
+            color: isActive ? '#531697' : dm ? '#94a3b8' : '#7a8ba8',
+            background: isActive
+              ? (dm ? 'rgba(83,22,151,0.2)' : 'rgba(83,22,151,0.09)')
+              : 'transparent',
+            flex: '1 1 auto', minWidth: 54, maxWidth: 80,
+            transition: 'all .15s',
+          })}
+        >
+          <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>{l.icon}</span>
           {l.label}
         </NavLink>
       ))}
-      <button className="bottom-nav-toggle" onClick={toggleExpand} aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}>
-        {expanded ? '▲' : '▼'}
+      <button
+        className="bottom-nav-toggle"
+        onClick={() => setExpanded(p => !p)}
+        aria-label={expanded ? 'Show less' : 'Show all modules'}
+      >
+        {expanded ? '▾ Less' : '▴ More'}
       </button>
-      </nav>
-    );
+    </nav>
+  );
 }
