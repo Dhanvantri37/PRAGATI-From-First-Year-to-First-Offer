@@ -1239,15 +1239,16 @@ function MobileBottomNav({ role, dm }) {
     if (!el) return;
 
     const singleSetWidth = el.scrollWidth / 3;
+    const buffer = el.clientWidth / 2; // Allow scroll offset to enter Set 0 and Set 2 up to half the screen width for perfect centering
     let adjusted = false;
 
     // If user scrolls too far right into Set 2, teleport back to the middle Set 1
-    if (el.scrollLeft >= singleSetWidth * 2) {
+    if (el.scrollLeft >= (singleSetWidth * 2) - buffer) {
       el.scrollLeft -= singleSetWidth;
       adjusted = true;
     }
     // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
-    else if (el.scrollLeft < singleSetWidth) {
+    else if (el.scrollLeft < singleSetWidth - buffer) {
       el.scrollLeft += singleSetWidth;
       adjusted = true;
     }
