@@ -1331,7 +1331,8 @@ function MobileBottomNav({ role, dm }) {
       const activeEl = el.querySelector('.active-center');
       if (activeEl) {
         const targetScrollLeft = activeEl.offsetLeft - (el.clientWidth / 2) + (activeEl.clientWidth / 2);
-        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+        // Use 'auto' instead of 'smooth' to prevent automatic distracting spin sliding on page load/transitions
+        el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
         // Force update transformations immediately
         updateTransforms();
       }
