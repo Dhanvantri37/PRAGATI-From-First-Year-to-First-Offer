@@ -1180,62 +1180,131 @@ export default function DashboardLayout() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────────
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
-  const [expanded, setExpanded] = useState(false);
-  const navRef = useRef(null);
+  const containerRef = useRef(null);
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
-  // Collapse after navigation
-  useEffect(() => { setExpanded(false); }, [location]);
-
-  // Swipe-up to expand, swipe-down to collapse
-  useEffect(() => {
-    const el = navRef.current;
+  // Real-time high-performance 3D cylindrical scroll calculations
+  const updateTransforms = () => {
+    const el = containerRef.current;
     if (!el) return;
-    let startY = 0;
-    const onStart = (e) => { startY = (e.touches ? e.touches[0].clientY : e.clientY); };
-    const onEnd = (e) => {
-      const endY = (e.changedTouches ? e.changedTouches[0].clientY : e.clientY);
-      const delta = startY - endY;
-      if (delta > 30) setExpanded(true);   // swipe up
-      if (delta < -30) setExpanded(false); // swipe down
-    };
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchend', onEnd, { passive: true });
-    return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
-  }, []);
 
-  const needsToggle = links.length > 5;
-  const visibleLinks = (expanded || !needsToggle) ? links : links.slice(0, 4);
+    const containerMid = el.scrollLeft + el.clientWidth / 2;
+    const halfWidth = el.clientWidth / 2;
+    const items = el.querySelectorAll('.pragati-bottom-nav-item');
+
+    items.forEach((item) => {
+      const itemMid = item.offsetLeft + item.clientWidth / 2;
+      const offset = itemMid - containerMid;
+      const distance = halfWidth > 0 ? offset / halfWidth : 0;
+      
+      // Calculate normalized 3D transform variables
+      const scale = Math.max(0.82, 1.45 - Math.abs(distance) * 0.63);
+      const rotate = distance * 25; // cylindrical rotation
+      // Parabolic curve: center item rises to -24px, side items curve down to 8px
+      const translateY = Math.pow(Math.abs(distance), 1.8) * 32 - 24;
+      const opacity = Math.max(0.5, 1.0 - Math.abs(distance) * 0.55);
+
+      // Set CSS custom properties on the DOM style directly for buttery 60fps GPU smoothness
+      item.style.setProperty('--nav-scale', scale);
+      item.style.setProperty('--nav-rot', `${rotate}deg`);
+      item.style.setProperty('--nav-ty', `${translateY}px`);
+      item.style.setProperty('--nav-op', opacity);
+    });
+  };
+
+  // Listen to container scroll, resize, and perform layout calculations
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let frameId;
+    const handleScroll = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(updateTransforms);
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    
+    // Initial delay call to position items correctly after rendering finishes
+    const initialTimer = setTimeout(updateTransforms, 120);
+
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      cancelAnimationFrame(frameId);
+      clearTimeout(initialTimer);
+    };
+  }, [links]); // Recalculate when role-based links change
+
+  // Center the active menu item perfectly upon path changing (or initial load)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Small delay to allow element rendering and scroll sizes to stabilize
+    const timer = setTimeout(() => {
+      const activeEl = el.querySelector('.active-center');
+      if (activeEl) {
+        const targetScrollLeft = activeEl.offsetLeft - (el.clientWidth / 2) + (activeEl.clientWidth / 2);
+        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+        // Force update transformations immediately
+        updateTransforms();
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname, links]);
+
+  // Touch gesture support to ease scrolling responsiveness on mobile touchscreens
+  const handleTouchStart = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.style.scrollBehavior = 'auto'; // Disable smooth during active touch for native drag response
+  };
+
+  const handleTouchEnd = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.style.scrollBehavior = 'smooth'; // Restore smooth scroll snapping
+  };
 
   return (
-    <nav ref={navRef} className={`pragati-bottom-nav${dm ? ' dark' : ''}${expanded ? ' expanded' : ' collapsed'}`}>
-      {visibleLinks.map(l => (
-        <NavLink key={l.to} to={l.to} end={l.to === '/dashboard'}
-          style={({ isActive }) => ({
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            gap: 3, padding: '7px 6px', borderRadius: 12, textDecoration: 'none',
-            fontSize: '.60rem', fontWeight: 700,
-            color: isActive ? '#531697' : dm ? '#94a3b8' : '#7a8ba8',
-            background: isActive
-              ? (dm ? 'rgba(83,22,151,0.2)' : 'rgba(83,22,151,0.09)')
-              : 'transparent',
-            flex: '1 1 auto', minWidth: 54, maxWidth: 80,
-            transition: 'all .15s',
-          })}
-        >
-          <span style={{ fontSize: '1.3rem', lineHeight: 1 }}>{l.icon}</span>
-          {l.label}
-        </NavLink>
-      ))}
-      {needsToggle && (
-        <button
-          className="bottom-nav-toggle"
-          onClick={() => setExpanded(p => !p)}
-          aria-label={expanded ? 'Show less' : 'Show all modules'}
-        >
-          {expanded ? '▾ Less' : '▴ More'}
-        </button>
-      )}
-    </nav>
+    <div className={`pragati-bottom-nav-wrapper${dm ? ' dark' : ''}`}>
+      {/* Curved background cut-out and cyber neon border outline arch */}
+      <div className="bottom-nav-curve-bg" />
+      <div className="bottom-nav-neon-arch" />
+
+      <nav
+        ref={containerRef}
+        className="pragati-bottom-nav-scroll"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Left spacing block to allow the first item to center scroll */}
+        <div className="bottom-nav-spacer" />
+
+        {links.map((l) => {
+          const isHomeActive = l.to === '/dashboard' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/');
+          const isActive = isHomeActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
+          return (
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.to === '/dashboard'}
+              className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
+            >
+              <div className="nav-item-icon-wrapper">
+                <span className="nav-item-icon">{l.icon}</span>
+              </div>
+              <span className="nav-item-label">{l.label}</span>
+            </NavLink>
+          );
+        })}
+
+        {/* Right spacing block to allow the last item to center scroll */}
+        <div className="bottom-nav-spacer" />
+      </nav>
+    </div>
   );
 }
