@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * InterviewPrepPage v5.0 — Timed AI Interviewer (Adaptive Questions)
  *

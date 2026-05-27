@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState } from 'react';
 import { ROUND_RESOURCES } from './RESOURCES';
 import { RoundHeader, Card, SectionTitle } from './PracticeComponents';

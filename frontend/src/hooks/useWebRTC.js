@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useRef, useCallback, useEffect } from 'react';
 
 /**

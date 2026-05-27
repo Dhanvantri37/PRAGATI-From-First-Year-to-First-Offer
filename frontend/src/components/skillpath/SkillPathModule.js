@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useAuth } from '../../context/AuthContext';

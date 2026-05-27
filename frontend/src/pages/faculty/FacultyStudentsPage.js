@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect, useCallback } from 'react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';

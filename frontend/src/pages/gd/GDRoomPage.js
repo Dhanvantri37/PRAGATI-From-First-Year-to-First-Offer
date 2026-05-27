@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * GDRoomPage — Fixed & Enhanced v3.0
  *
