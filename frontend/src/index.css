@@ -903,6 +903,11 @@ html { scroll-behavior: smooth; }
   /* ── ACTIVE CENTERPIECE SELECTION ──
      This styles the active centered module just like the user's reference image
   */
+  .pragati-bottom-nav-item.active-center {
+    /* Disable transform transition to eliminate any page-load or re-render spin glitches */
+    transition: opacity 0.25s ease-out, background 0.25s ease-out, box-shadow 0.25s ease-out !important;
+  }
+
   .pragati-bottom-nav-item.active-center .nav-item-icon-wrapper {
     background: linear-gradient(135deg, #ef4444, #b91c1c); /* Punchy active red gradient */
     border: 2px solid #ffffff;

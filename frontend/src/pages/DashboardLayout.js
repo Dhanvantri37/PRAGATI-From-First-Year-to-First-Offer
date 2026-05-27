@@ -1213,7 +1213,12 @@ function MobileBottomNav({ role, dm }) {
       
       // Calculate normalized 3D transform variables (fine-tuned to prevent icon overlaps)
       const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); // Max active scale is 1.32x for safety
-      const rotate = distance * 22; // cylindrical rotation
+      
+      // Determine if this item is the active centerpiece (FAB)
+      const isActiveCenter = item.classList.contains('active-center');
+      // Set rotation to 0 for the active centerpiece (FAB) to completely eliminate unexpected spinning/rotation glitches during page changes or re-renders
+      const rotate = isActiveCenter ? 0 : distance * 22;
+      
       // Parabolic curve: center item rises to -18px, side items curve down to 8px
       const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18;
       const opacity = Math.max(0.48, 1.0 - Math.abs(distance) * 0.58);
