@@ -1279,7 +1279,10 @@ function MobileBottomNav({ role, dm }) {
 
     if (closestItem) {
       const targetScrollLeft = closestItem.offsetLeft - (el.clientWidth / 2) + (closestItem.clientWidth / 2);
-      el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+      // ONLY trigger scrollTo if we are not already centered on this item to break the infinite scroll loop
+      if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
+        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+      }
     }
   };
 
@@ -1338,8 +1341,10 @@ function MobileBottomNav({ role, dm }) {
       const activeEl = el.querySelector('.active-center');
       if (activeEl) {
         const targetScrollLeft = activeEl.offsetLeft - (el.clientWidth / 2) + (activeEl.clientWidth / 2);
-        // Use 'auto' instead of 'smooth' to prevent automatic distracting spin sliding on page load/transitions
-        el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+        // ONLY perform auto-centering scroll if the target is not already centered to avoid glitches during re-renders
+        if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
+          el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+        }
         // Force update transformations immediately
         updateTransforms();
       }
