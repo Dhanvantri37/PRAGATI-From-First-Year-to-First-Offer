@@ -1183,10 +1183,31 @@ function MobileBottomNav({ role, dm }) {
   const containerRef = useRef(null);
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
-  // Real-time high-performance 3D cylindrical scroll calculations
+  // Tripled links array to enable infinite looping buffer sets (0 = left, 1 = middle, 2 = right)
+  const tripledLinks = React.useMemo(() => {
+    return [
+      ...links.map(l => ({ ...l, set: 0 })),
+      ...links.map(l => ({ ...l, set: 1 })),
+      ...links.map(l => ({ ...l, set: 2 }))
+    ];
+  }, [links]);
+
+  // Real-time high-performance 3D cylindrical scroll calculations with infinite loop checks
   const updateTransforms = () => {
     const el = containerRef.current;
     if (!el) return;
+
+    const singleSetWidth = el.scrollWidth / 3;
+
+    // Seamless scroll teleportation looping:
+    // If user scrolls too far right into Set 2, teleport back to the middle Set 1
+    if (el.scrollLeft >= singleSetWidth * 2) {
+      el.scrollLeft -= singleSetWidth;
+    }
+    // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
+    else if (el.scrollLeft < singleSetWidth) {
+      el.scrollLeft += singleSetWidth;
+    }
 
     const containerMid = el.scrollLeft + el.clientWidth / 2;
     const halfWidth = el.clientWidth / 2;
@@ -1197,12 +1218,12 @@ function MobileBottomNav({ role, dm }) {
       const offset = itemMid - containerMid;
       const distance = halfWidth > 0 ? offset / halfWidth : 0;
       
-      // Calculate normalized 3D transform variables
-      const scale = Math.max(0.82, 1.45 - Math.abs(distance) * 0.63);
-      const rotate = distance * 25; // cylindrical rotation
-      // Parabolic curve: center item rises to -24px, side items curve down to 8px
-      const translateY = Math.pow(Math.abs(distance), 1.8) * 32 - 24;
-      const opacity = Math.max(0.5, 1.0 - Math.abs(distance) * 0.55);
+      // Calculate normalized 3D transform variables (fine-tuned to prevent icon overlaps)
+      const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); // Max active scale is 1.32x for safety
+      const rotate = distance * 22; // cylindrical rotation
+      // Parabolic curve: center item rises to -18px, side items curve down to 8px
+      const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18;
+      const opacity = Math.max(0.48, 1.0 - Math.abs(distance) * 0.58);
 
       // Set CSS custom properties on the DOM style directly for buttery 60fps GPU smoothness
       item.style.setProperty('--nav-scale', scale);
@@ -1226,8 +1247,13 @@ function MobileBottomNav({ role, dm }) {
     el.addEventListener('scroll', handleScroll, { passive: true });
     window.addEventListener('resize', handleScroll);
     
-    // Initial delay call to position items correctly after rendering finishes
-    const initialTimer = setTimeout(updateTransforms, 120);
+    // Initial delay call to position items correctly in the middle set
+    const initialTimer = setTimeout(() => {
+      // Pre-scroll to the middle set (Set 1) so buffers are filled
+      const singleSetWidth = el.scrollWidth / 3;
+      el.scrollLeft = singleSetWidth;
+      updateTransforms();
+    }, 120);
 
     return () => {
       el.removeEventListener('scroll', handleScroll);
@@ -1237,12 +1263,11 @@ function MobileBottomNav({ role, dm }) {
     };
   }, [links]); // Recalculate when role-based links change
 
-  // Center the active menu item perfectly upon path changing (or initial load)
+  // Center the active menu item perfectly in the middle set (Set 1) upon path change
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    // Small delay to allow element rendering and scroll sizes to stabilize
     const timer = setTimeout(() => {
       const activeEl = el.querySelector('.active-center');
       if (activeEl) {
@@ -1281,15 +1306,17 @@ function MobileBottomNav({ role, dm }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Left spacing block to allow the first item to center scroll */}
-        <div className="bottom-nav-spacer" />
-
-        {links.map((l) => {
+        {tripledLinks.map((l, idx) => {
           const isHomeActive = l.to === '/dashboard' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/');
-          const isActive = isHomeActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
+          const isPathActive = isHomeActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
+          
+          // Only the matching item inside Set 1 (middle copy) acts as the active-center selector
+          // so the centering system always scrolls securely to the middle of the scroll area
+          const isActive = isPathActive && l.set === 1;
+
           return (
             <NavLink
-              key={l.to}
+              key={`${l.to}-${l.set}-${idx}`}
               to={l.to}
               end={l.to === '/dashboard'}
               className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
@@ -1301,9 +1328,6 @@ function MobileBottomNav({ role, dm }) {
             </NavLink>
           );
         })}
-
-        {/* Right spacing block to allow the last item to center scroll */}
-        <div className="bottom-nav-spacer" />
       </nav>
     </div>
   );

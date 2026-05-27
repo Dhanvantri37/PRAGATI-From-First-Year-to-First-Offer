@@ -829,21 +829,15 @@ html { scroll-behavior: smooth; }
     align-items: flex-end;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
+    scroll-behavior: auto; /* Disabled default smooth transition to allow instant seamless looping jumps */
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     pointer-events: auto;
     z-index: 10;
-    padding-bottom: calc(5px + var(--safe-bottom));
+    padding-bottom: calc(4px + var(--safe-bottom));
   }
   .pragati-bottom-nav-scroll::-webkit-scrollbar {
     display: none;
-  }
-
-  .bottom-nav-spacer {
-    flex: 0 0 50%;
-    width: 50%;
-    pointer-events: none;
   }
 
   .pragati-bottom-nav-item {
@@ -851,8 +845,8 @@ html { scroll-behavior: smooth; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 0 0 68px;
-    width: 68px;
+    flex: 0 0 56px;
+    width: 56px;
     text-decoration: none;
     position: relative;
     pointer-events: auto;
@@ -866,8 +860,8 @@ html { scroll-behavior: smooth; }
   }
 
   .nav-item-icon-wrapper {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -883,23 +877,24 @@ html { scroll-behavior: smooth; }
   }
 
   .nav-item-icon {
-    font-size: 1.3rem;
+    font-size: 1.05rem;
     line-height: 1;
     transition: font-size 0.2s;
   }
 
   .nav-item-label {
-    font-size: 0.58rem;
+    font-size: 0.52rem;
     font-weight: 800;
     color: #7a8ba8;
-    margin-top: 4px;
+    margin-top: 3px;
     text-align: center;
     white-space: nowrap;
-    max-width: 68px;
+    max-width: 56px;
     overflow: hidden;
     text-overflow: ellipsis;
     text-transform: uppercase;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
     transition: color 0.25s, transform 0.25s;
   }
   .pragati-bottom-nav-wrapper.dark .nav-item-label {
@@ -911,16 +906,18 @@ html { scroll-behavior: smooth; }
   */
   .pragati-bottom-nav-item.active-center .nav-item-icon-wrapper {
     background: linear-gradient(135deg, #ef4444, #b91c1c); /* Punchy active red gradient */
-    border: 2.5px solid #ffffff;
-    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.55), 
-                0 0 12px rgba(239, 68, 68, 0.3), 
-                inset 0 2px 6px rgba(255,255,255,0.45);
+    border: 2px solid #ffffff;
+    width: 42px;
+    height: 42px;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.55), 
+                0 0 10px rgba(239, 68, 68, 0.3), 
+                inset 0 2px 4px rgba(255,255,255,0.45);
   }
 
   .pragati-bottom-nav-item.active-center .nav-item-icon {
-    font-size: 1.45rem;
+    font-size: 1.25rem;
     color: #ffffff;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.25);
+    text-shadow: 0 1.5px 3px rgba(0,0,0,0.25);
   }
 
   .pragati-bottom-nav-item.active-center .nav-item-label {
