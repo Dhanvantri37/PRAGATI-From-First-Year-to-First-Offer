@@ -1202,18 +1202,6 @@ function MobileBottomNav({ role, dm }) {
     const el = containerRef.current;
     if (!el) return;
 
-    const singleSetWidth = el.scrollWidth / 3;
-
-    // Seamless scroll teleportation looping:
-    // If user scrolls too far right into Set 2, teleport back to the middle Set 1
-    if (el.scrollLeft >= singleSetWidth * 2) {
-      el.scrollLeft -= singleSetWidth;
-    }
-    // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
-    else if (el.scrollLeft < singleSetWidth) {
-      el.scrollLeft += singleSetWidth;
-    }
-
     const containerMid = el.scrollLeft + el.clientWidth / 2;
     const halfWidth = el.clientWidth / 2;
     const items = el.querySelectorAll('.pragati-bottom-nav-item');
@@ -1236,6 +1224,31 @@ function MobileBottomNav({ role, dm }) {
       item.style.setProperty('--nav-ty', `${translateY}px`);
       item.style.setProperty('--nav-op', opacity);
     });
+  };
+
+  // Seamless scroll teleportation looping:
+  // ONLY run teleportation when user is NOT actively dragging to prevent touch momentum interruptions or visual stutters mid-swipe!
+  const checkLoopBounds = () => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const singleSetWidth = el.scrollWidth / 3;
+    let adjusted = false;
+
+    // If user scrolls too far right into Set 2, teleport back to the middle Set 1
+    if (el.scrollLeft >= singleSetWidth * 2) {
+      el.scrollLeft -= singleSetWidth;
+      adjusted = true;
+    }
+    // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
+    else if (el.scrollLeft < singleSetWidth) {
+      el.scrollLeft += singleSetWidth;
+      adjusted = true;
+    }
+
+    if (adjusted) {
+      updateTransforms();
+    }
   };
 
   // Find the item closest to the center and gently center-align it (smooth inertial snap)
@@ -1272,12 +1285,17 @@ function MobileBottomNav({ role, dm }) {
     const handleScroll = () => {
       cancelAnimationFrame(frameId);
       frameId = requestAnimationFrame(() => {
+        // Safe looping boundary checks — ONLY run teleportation when user is NOT actively dragging
+        if (!touchingRef.current) {
+          checkLoopBounds();
+        }
         updateTransforms();
         
         // Trigger inertial snap when scrolling decelerates and stops
         clearTimeout(scrollEndTimeoutRef.current);
         scrollEndTimeoutRef.current = setTimeout(() => {
           if (!touchingRef.current) {
+            checkLoopBounds();
             triggerInertialSnap();
           }
         }, 140);
@@ -1345,7 +1363,8 @@ function MobileBottomNav({ role, dm }) {
     const el = containerRef.current;
     if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions for snapping
     
-    // Trigger snap in case scroll decelerated instantly
+    // Teleport and snap once finger is released to avoid touch dragging interruptions
+    checkLoopBounds();
     triggerInertialSnap();
   };
 
