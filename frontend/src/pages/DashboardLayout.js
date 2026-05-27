@@ -1186,6 +1186,7 @@ function MobileBottomNav({ role, dm }) {
   const startXRef = useRef(0);
   const touchingRef = useRef(false);
   const scrollEndTimeoutRef = useRef(null);
+  const clickedIndexRef = useRef(null); // Ref to track clicked item and prevent path-change race snaps
 
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
@@ -1198,7 +1199,7 @@ function MobileBottomNav({ role, dm }) {
     ];
   }, [links]);
 
-  // Real-time high-performance 3D cylindrical scroll calculations with infinite loop checks
+  // Real-time high-performance 2D dynamic cylindrical wheel scroll calculations
   const updateTransforms = () => {
     const el = containerRef.current;
     if (!el) return;
@@ -1207,56 +1208,20 @@ function MobileBottomNav({ role, dm }) {
     const halfWidth = el.clientWidth / 2;
     const items = el.querySelectorAll('.pragati-bottom-nav-item');
 
-    // 1. Find all items that correspond to the active path
-    let activePathItems = [];
-    items.forEach((item, index) => {
-      const l = tripledLinks[index];
-      const isHomeActive = l.to === '/dashboard' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/');
-      const isProblemsActive = l.to === '/dashboard/problems' && location.pathname.startsWith('/dashboard/practice');
-      const isPathActive = isHomeActive || isProblemsActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
-      
-      if (isPathActive) {
-        activePathItems.push({ item, index });
-      }
-    });
-
-    // 2. Find the active path item closest to the center of the viewport
-    let closestActiveIndex = -1;
-    let minActiveDistance = Infinity;
-    activePathItems.forEach(({ item, index }) => {
-      const itemMid = item.offsetLeft + item.clientWidth / 2;
-      const distance = Math.abs(itemMid - containerMid);
-      if (distance < minActiveDistance) {
-        minActiveDistance = distance;
-        closestActiveIndex = index;
-      }
-    });
-
-    // 3. Apply 3D properties and classes directly to the DOM for 60fps/120fps hardware smoothness
-    items.forEach((item, index) => {
+    items.forEach((item) => {
       const itemMid = item.offsetLeft + item.clientWidth / 2;
       const offset = itemMid - containerMid;
       const distance = halfWidth > 0 ? offset / halfWidth : 0;
-
-      // Add active-center only to the centerpiece copy currently in view
-      const isCurrentlyActiveCenter = (index === closestActiveIndex);
-      if (isCurrentlyActiveCenter) {
-        item.classList.add('active-center');
-      } else {
-        item.classList.remove('active-center');
-      }
       
-      // Calculate 3D cylindrical formulas (curved carousel facing inward)
-      const scale = Math.max(0.85, 1.30 - Math.abs(distance) * 0.45); // Max size is 1.30x for the center
-      const translateY = Math.pow(Math.abs(distance), 1.8) * 32 - 22; // Rises to -22px in center, curves down to 10px on sides
-      const translateZ = -Math.abs(distance) * 90; // Depth curves back up to 90px deep
-      const rotateY = distance * -38; // Rotate toward the screen center
-      const opacity = Math.max(0.5, 1.0 - Math.abs(distance) * 0.55); // Edge items fade down to 50%
+      // Exact original 2D styling values for gorgeous, warp-free flat layout:
+      const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); 
+      const rotate = distance * 22; // Beautiful original 2D rotation angle
+      const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18; // Classic curved rises
+      const opacity = Math.max(0.48, 1.0 - Math.abs(distance) * 0.58);
 
       item.style.setProperty('--nav-scale', scale);
+      item.style.setProperty('--nav-rot', `${rotate}deg`);
       item.style.setProperty('--nav-ty', `${translateY}px`);
-      item.style.setProperty('--nav-tz', `${translateZ}px`);
-      item.style.setProperty('--nav-roty', `${rotateY}deg`);
       item.style.setProperty('--nav-op', opacity);
     });
   };
@@ -1367,9 +1332,33 @@ function MobileBottomNav({ role, dm }) {
     if (!el) return;
 
     const timer = setTimeout(() => {
-      const activeEl = el.querySelector('.active-center');
-      if (activeEl) {
-        const targetScrollLeft = activeEl.offsetLeft - (el.clientWidth / 2) + (activeEl.clientWidth / 2);
+      let targetEl = null;
+
+      if (clickedIndexRef.current !== null) {
+        // If navigation was triggered by clicking a bottom nav item, use the exact clicked element
+        const items = el.querySelectorAll('.pragati-bottom-nav-item');
+        targetEl = items[clickedIndexRef.current];
+        clickedIndexRef.current = null; // Clear the ref
+      } else {
+        // Otherwise (external navigation), find the active element closest to the current viewport center
+        const activeEls = el.querySelectorAll('.active-center');
+        if (activeEls.length > 0) {
+          const containerMid = el.scrollLeft + el.clientWidth / 2;
+          let minDistance = Infinity;
+
+          activeEls.forEach((activeEl) => {
+            const itemMid = activeEl.offsetLeft + activeEl.clientWidth / 2;
+            const distance = Math.abs(itemMid - containerMid);
+            if (distance < minDistance) {
+              minDistance = distance;
+              targetEl = activeEl;
+            }
+          });
+        }
+      }
+
+      if (targetEl) {
+        const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
         // Only run instant positioning if there is a real layout deviation
         if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
           el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
@@ -1431,8 +1420,8 @@ function MobileBottomNav({ role, dm }) {
           const isProblemsActive = l.to === '/dashboard/problems' && location.pathname.startsWith('/dashboard/practice');
           const isPathActive = isHomeActive || isProblemsActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
           
-          // Initial class marking for the middle set. updateTransforms will immediately adjust it dynamically
-          const isActive = isPathActive && l.set === 1;
+          // The active centerpiece highlight class is added in all sets so whichever set copy is in front is styled active
+          const isActive = isPathActive;
 
           return (
             <NavLink
@@ -1448,6 +1437,7 @@ function MobileBottomNav({ role, dm }) {
                 
                 // Prevent standard route link default transition to coordinate smooth snap scrolls safely
                 e.preventDefault();
+                clickedIndexRef.current = idx; // Store clicked index to prevent race conditions
 
                 const el = containerRef.current;
                 if (el) {

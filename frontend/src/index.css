@@ -845,19 +845,17 @@ html { scroll-behavior: smooth; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 0 0 60px; /* Slightly wider for elegant 3D spacing */
-    width: 60px;
+    flex: 0 0 56px;
+    width: 56px;
     text-decoration: none;
     position: relative;
     pointer-events: auto;
     
-    /* 3D cylindrical transform driven by high-performance requestAnimationFrame properties */
-    transform: perspective(500px) translate3d(0, var(--nav-ty, 0px), var(--nav-tz, 0px)) rotateY(var(--nav-roty, 0deg)) scale(var(--nav-scale, 1));
+    /* Apply dynamic properties driven by requestAnimationFrame scroll listener */
+    transform: translateY(var(--nav-ty, 0px)) scale(var(--nav-scale, 1)) rotate(var(--nav-rot, 0deg));
     opacity: var(--nav-op, 1);
     transform-origin: center bottom;
-    
-    /* No transform transition to allow instantaneous, ultra-responsive 3D rendering */
-    transition: opacity 0.15s ease, color 0.15s ease;
+    transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.1s linear;
   }
 
   .nav-item-icon-wrapper {
@@ -890,7 +888,7 @@ html { scroll-behavior: smooth; }
     margin-top: 3px;
     text-align: center;
     white-space: nowrap;
-    max-width: 60px; /* Matched to 60px item width */
+    max-width: 56px;
     overflow: hidden;
     text-overflow: ellipsis;
     text-transform: uppercase;
