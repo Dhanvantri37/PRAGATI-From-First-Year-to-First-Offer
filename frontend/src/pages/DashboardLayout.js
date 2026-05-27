@@ -208,7 +208,6 @@ export default function DashboardLayout() {
   const [pragatiInput,  setPragatiInput]   = useState('');
   const [pragatiLoading,setPragatiLoading] = useState(false);
   const [wakePulse,     setWakePulse]      = useState(false);
-  const [wakeListening, setWakeListening]  = useState(false);
   const [pragatiVoice,  setPragatiVoice]   = useState(true);  // voice on/off toggle
   const [pragatiMicOn,  setPragatiMicOn]   = useState(false); // in-chat mic
   const pragatiEndRef   = useRef(null);
