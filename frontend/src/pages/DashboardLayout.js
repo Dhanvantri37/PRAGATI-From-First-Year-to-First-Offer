@@ -94,6 +94,7 @@ export default function DashboardLayout() {
 
     return () => {
       socket.disconnect();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       Object.values(gdNotifTimers.current).forEach(clearTimeout);
     };
   }, [user]);
@@ -1329,6 +1330,7 @@ function MobileBottomNav({ role, dm }) {
       clearTimeout(initialTimer);
       clearTimeout(scrollEndTimeoutRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [links]); // Recalculate when role-based links change
 
   // Center the active menu item perfectly in the middle set (Set 1) upon path change
