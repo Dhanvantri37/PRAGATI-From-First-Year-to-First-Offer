@@ -1252,34 +1252,6 @@ function MobileBottomNav({ role, dm }) {
     }
   };
 
-  // Find the item closest to the center and gently center-align it (smooth inertial snap)
-  const triggerInertialSnap = () => {
-    const el = containerRef.current;
-    if (!el || touchingRef.current) return;
-
-    const containerMid = el.scrollLeft + el.clientWidth / 2;
-    const items = el.querySelectorAll('.pragati-bottom-nav-item');
-    let closestItem = null;
-    let minDistance = Infinity;
-
-    items.forEach((item) => {
-      const itemMid = item.offsetLeft + item.clientWidth / 2;
-      const distance = Math.abs(itemMid - containerMid);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestItem = item;
-      }
-    });
-
-    if (closestItem) {
-      const targetScrollLeft = closestItem.offsetLeft - (el.clientWidth / 2) + (closestItem.clientWidth / 2);
-      // ONLY trigger scrollTo if we are not already centered on this item to break the infinite scroll loop
-      if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
-        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-      }
-    }
-  };
-
   // Listen to container scroll, resize, and perform layout calculations
   useEffect(() => {
     const el = containerRef.current;
@@ -1295,14 +1267,13 @@ function MobileBottomNav({ role, dm }) {
         }
         updateTransforms();
         
-        // Trigger inertial snap when scrolling decelerates and stops
+        // Loop boundary verification when scrolling decelerates and stops
         clearTimeout(scrollEndTimeoutRef.current);
         scrollEndTimeoutRef.current = setTimeout(() => {
           if (!touchingRef.current) {
             checkLoopBounds();
-            triggerInertialSnap();
           }
-        }, 120); // Snappier response
+        }, 120);
       });
     };
 
@@ -1335,26 +1306,27 @@ function MobileBottomNav({ role, dm }) {
       let targetEl = null;
 
       if (clickedIndexRef.current !== null) {
-        // If navigation was triggered by clicking a bottom nav item, use the exact clicked element
-        const items = el.querySelectorAll('.pragati-bottom-nav-item');
-        targetEl = items[clickedIndexRef.current];
-        clickedIndexRef.current = null; // Clear the ref
-      } else {
-        // Otherwise (external navigation), find the active element closest to the current viewport center
-        const activeEls = el.querySelectorAll('.active-center');
-        if (activeEls.length > 0) {
-          const containerMid = el.scrollLeft + el.clientWidth / 2;
-          let minDistance = Infinity;
+        // If navigation was triggered by clicking a bottom nav item, the click handler has already
+        // initiated a smooth scroll to the mapped Set 1 item. We just clear the ref and let it animate naturally!
+        clickedIndexRef.current = null;
+        updateTransforms();
+        return;
+      }
 
-          activeEls.forEach((activeEl) => {
-            const itemMid = activeEl.offsetLeft + activeEl.clientWidth / 2;
-            const distance = Math.abs(itemMid - containerMid);
-            if (distance < minDistance) {
-              minDistance = distance;
-              targetEl = activeEl;
-            }
-          });
-        }
+      // Otherwise (external navigation), find the active element closest to the current viewport center
+      const activeEls = el.querySelectorAll('.active-center');
+      if (activeEls.length > 0) {
+        const containerMid = el.scrollLeft + el.clientWidth / 2;
+        let minDistance = Infinity;
+
+        activeEls.forEach((activeEl) => {
+          const itemMid = activeEl.offsetLeft + activeEl.clientWidth / 2;
+          const distance = Math.abs(itemMid - containerMid);
+          if (distance < minDistance) {
+            minDistance = distance;
+            targetEl = activeEl;
+          }
+        });
       }
 
       if (targetEl) {
@@ -1395,11 +1367,10 @@ function MobileBottomNav({ role, dm }) {
   const handleTouchEnd = () => {
     touchingRef.current = false;
     const el = containerRef.current;
-    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions for snapping
+    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions
     
-    // Teleport and snap once finger is released to avoid touch dragging interruptions
+    // Teleport once finger is released to keep it within safe middle bounds
     checkLoopBounds();
-    triggerInertialSnap();
   };
 
   return (
@@ -1437,13 +1408,20 @@ function MobileBottomNav({ role, dm }) {
                 
                 // Prevent standard route link default transition to coordinate smooth snap scrolls safely
                 e.preventDefault();
-                clickedIndexRef.current = idx; // Store clicked index to prevent race conditions
+
+                // Map the clicked index to its counterpart in Set 1 (middle set) to avoid boundary glitches
+                const N = links.length;
+                const mappedIdx = N + (idx % N);
+                clickedIndexRef.current = mappedIdx; 
 
                 const el = containerRef.current;
                 if (el) {
-                  // Scroll directly to the clicked tab's exact local offset
-                  const targetScrollLeft = e.currentTarget.offsetLeft - (el.clientWidth / 2) + (e.currentTarget.clientWidth / 2);
-                  el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                  const items = el.querySelectorAll('.pragati-bottom-nav-item');
+                  const targetEl = items[mappedIdx];
+                  if (targetEl) {
+                    const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
+                    el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                  }
                 }
 
                 // Navigate programmatically using local React Router
