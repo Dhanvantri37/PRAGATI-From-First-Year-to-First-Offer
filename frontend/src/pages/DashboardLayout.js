@@ -1181,6 +1181,11 @@ export default function DashboardLayout() {
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
   const containerRef = useRef(null);
+  const draggedRef = useRef(false);
+  const startXRef = useRef(0);
+  const touchingRef = useRef(false);
+  const scrollEndTimeoutRef = useRef(null);
+
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
   // Tripled links array to enable infinite looping buffer sets (0 = left, 1 = middle, 2 = right)
@@ -1233,6 +1238,31 @@ function MobileBottomNav({ role, dm }) {
     });
   };
 
+  // Find the item closest to the center and gently center-align it (smooth inertial snap)
+  const triggerInertialSnap = () => {
+    const el = containerRef.current;
+    if (!el || touchingRef.current) return;
+
+    const containerMid = el.scrollLeft + el.clientWidth / 2;
+    const items = el.querySelectorAll('.pragati-bottom-nav-item');
+    let closestItem = null;
+    let minDistance = Infinity;
+
+    items.forEach((item) => {
+      const itemMid = item.offsetLeft + item.clientWidth / 2;
+      const distance = Math.abs(itemMid - containerMid);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestItem = item;
+      }
+    });
+
+    if (closestItem) {
+      const targetScrollLeft = closestItem.offsetLeft - (el.clientWidth / 2) + (closestItem.clientWidth / 2);
+      el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+    }
+  };
+
   // Listen to container scroll, resize, and perform layout calculations
   useEffect(() => {
     const el = containerRef.current;
@@ -1241,7 +1271,17 @@ function MobileBottomNav({ role, dm }) {
     let frameId;
     const handleScroll = () => {
       cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(updateTransforms);
+      frameId = requestAnimationFrame(() => {
+        updateTransforms();
+        
+        // Trigger inertial snap when scrolling decelerates and stops
+        clearTimeout(scrollEndTimeoutRef.current);
+        scrollEndTimeoutRef.current = setTimeout(() => {
+          if (!touchingRef.current) {
+            triggerInertialSnap();
+          }
+        }, 140);
+      });
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
@@ -1260,6 +1300,7 @@ function MobileBottomNav({ role, dm }) {
       window.removeEventListener('resize', handleScroll);
       cancelAnimationFrame(frameId);
       clearTimeout(initialTimer);
+      clearTimeout(scrollEndTimeoutRef.current);
     };
   }, [links]); // Recalculate when role-based links change
 
@@ -1281,17 +1322,31 @@ function MobileBottomNav({ role, dm }) {
     return () => clearTimeout(timer);
   }, [location.pathname, links]);
 
-  // Touch gesture support to ease scrolling responsiveness on mobile touchscreens
-  const handleTouchStart = () => {
+  // Touch gesture support to ease scrolling responsiveness and prevent click-drags on mobile
+  const handleTouchStart = (e) => {
+    touchingRef.current = true;
+    draggedRef.current = false;
+    startXRef.current = e.touches ? e.touches[0].clientX : e.clientX;
+    
     const el = containerRef.current;
-    if (!el) return;
-    el.style.scrollBehavior = 'auto'; // Disable smooth during active touch for native drag response
+    if (el) el.style.scrollBehavior = 'auto'; // Disable smooth during drag for native pixel response
+  };
+
+  const handleTouchMove = (e) => {
+    const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+    const deltaX = Math.abs(currentX - startXRef.current);
+    if (deltaX > 8) {
+      draggedRef.current = true; // Swipe detected, intercept accidental navigation click
+    }
   };
 
   const handleTouchEnd = () => {
+    touchingRef.current = false;
     const el = containerRef.current;
-    if (!el) return;
-    el.style.scrollBehavior = 'smooth'; // Restore smooth scroll snapping
+    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions for snapping
+    
+    // Trigger snap in case scroll decelerated instantly
+    triggerInertialSnap();
   };
 
   return (
@@ -1304,6 +1359,7 @@ function MobileBottomNav({ role, dm }) {
         ref={containerRef}
         className="pragati-bottom-nav-scroll"
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         {tripledLinks.map((l, idx) => {
@@ -1319,6 +1375,16 @@ function MobileBottomNav({ role, dm }) {
               key={`${l.to}-${l.set}-${idx}`}
               to={l.to}
               end={l.to === '/dashboard'}
+              onClick={(e) => {
+                if (draggedRef.current) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                // Click smooth centers instantly
+                const targetScrollLeft = e.currentTarget.offsetLeft - (containerRef.current.clientWidth / 2) + (e.currentTarget.clientWidth / 2);
+                containerRef.current.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+              }}
               className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
             >
               <div className="nav-item-icon-wrapper">
