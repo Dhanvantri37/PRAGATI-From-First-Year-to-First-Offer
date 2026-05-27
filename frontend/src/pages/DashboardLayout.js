@@ -1180,6 +1180,7 @@ export default function DashboardLayout() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────────
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const containerRef = useRef(null);
   const draggedRef = useRef(false);
   const startXRef = useRef(0);
@@ -1406,9 +1407,25 @@ function MobileBottomNav({ role, dm }) {
                   e.stopPropagation();
                   return;
                 }
-                // Click smooth centers instantly
-                const targetScrollLeft = e.currentTarget.offsetLeft - (containerRef.current.clientWidth / 2) + (e.currentTarget.clientWidth / 2);
-                containerRef.current.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                
+                // Prevent standard route link default transition to coordinate smooth snap scrolls safely
+                e.preventDefault();
+
+                const el = containerRef.current;
+                if (el) {
+                  // Resolve the counterpart inside Set 1 (middle main set)
+                  // This guarantees target scroll coordinates are ALWAYS inside Set 1
+                  // completely avoiding boundary crossings and infinite auto-spin loops!
+                  const counterpartIndex = (idx % links.length) + links.length;
+                  const counterpartEl = el.querySelectorAll('.pragati-bottom-nav-item')[counterpartIndex];
+                  if (counterpartEl) {
+                    const targetScrollLeft = counterpartEl.offsetLeft - (el.clientWidth / 2) + (counterpartEl.clientWidth / 2);
+                    el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                  }
+                }
+
+                // Navigate programmatically using local React Router
+                navigate(l.to);
               }}
               className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
             >
