@@ -1277,7 +1277,11 @@ function MobileBottomNav({ role, dm }) {
 
     if (closestItem) {
       const targetScrollLeft = closestItem.offsetLeft - (el.clientWidth / 2) + (closestItem.clientWidth / 2);
-      el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+      
+      // BUG FIX: Prevent infinite loops of small fractional smooth scrolls generating scroll events.
+      if (Math.abs(el.scrollLeft - targetScrollLeft) > 5) {
+        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+      }
     }
   };
 
