@@ -180,7 +180,7 @@ function BulkUserUpload({ onAdded }) {
     try {
       const users = JSON.parse(text);
       const res = await axios.post(`${API}/users/admin-create-bulk`, { users }, { headers:tk() });
-      setMsg(`✅ ${res.data.inserted} users created!`);
+      setMsg(`✅ ${res.data.created ? res.data.created.length : 0} users created!`);
       setText('');
       onAdded();
     } catch(err) { setMsg('❌ '+(err.response?.data?.error||err.message)); }
