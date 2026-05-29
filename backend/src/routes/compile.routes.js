@@ -11,15 +11,21 @@ router.post('/', authenticate, async (req, res) => {
 
   // Currently supporting 'javascript' and 'python'
   let ext = '';
-  let command = '';
+  let execCommand = '';
   if (language === 'javascript' || language === 'nodejs' || language === 'js') {
     ext = 'js';
-    command = 'node';
+    execCommand = 'node Solution.js';
   } else if (language === 'python' || language === 'python3') {
     ext = 'py';
-    command = 'python'; // or python3 depending on env
+    execCommand = 'python3 Solution.py';
+  } else if (language === 'java') {
+    ext = 'java';
+    execCommand = 'java Solution.java';
+  } else if (language === 'c++' || language === 'cpp' || language === 'c') {
+    ext = 'cpp';
+    execCommand = 'g++ Solution.cpp -o Solution && ./Solution';
   } else {
-    return res.status(400).json({ error: 'Unsupported language. Supported: javascript, python' });
+    return res.status(400).json({ error: 'Unsupported language. Supported: javascript, python, java, c++' });
   }
 
   // Ensure temp dir exists
@@ -28,18 +34,23 @@ router.post('/', authenticate, async (req, res) => {
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  const filename = `code_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-  const filepath = path.join(tempDir, filename);
+  const reqId = `run_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const runDir = path.join(tempDir, reqId);
+  if (!fs.existsSync(runDir)) {
+    fs.mkdirSync(runDir, { recursive: true });
+  }
+
+  const filepath = path.join(runDir, `Solution.${ext}`);
 
   try {
     // Write code to file
     fs.writeFileSync(filepath, code);
 
     // Execute
-    exec(`${command} ${filepath}`, { timeout: 5000 }, (error, stdout, stderr) => {
-      // Clean up
-      if (fs.existsSync(filepath)) {
-        fs.unlinkSync(filepath);
+    exec(execCommand, { cwd: runDir, timeout: 5000 }, (error, stdout, stderr) => {
+      // Clean up directory
+      if (fs.existsSync(runDir)) {
+        fs.rmSync(runDir, { recursive: true, force: true });
       }
 
       if (error) {
@@ -52,7 +63,7 @@ router.post('/', authenticate, async (req, res) => {
       res.json({ output: stdout || stderr });
     });
   } catch (err) {
-    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    if (fs.existsSync(runDir)) fs.rmSync(runDir, { recursive: true, force: true });
     res.status(500).json({ error: err.message });
   }
 });

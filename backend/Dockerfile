@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# Add curl for Docker healthcheck
-RUN apk add --no-cache curl
+# Add curl for Docker healthcheck and python3, java, c++ for compiler
+RUN apk add --no-cache curl python3 openjdk17 g++
 
 WORKDIR /app
 
