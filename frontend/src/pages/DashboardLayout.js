@@ -1,4 +1,3 @@
-/* eslint-disable */
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -95,7 +94,6 @@ export default function DashboardLayout() {
 
     return () => {
       socket.disconnect();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       Object.values(gdNotifTimers.current).forEach(clearTimeout);
     };
   }, [user]);
@@ -209,6 +207,7 @@ export default function DashboardLayout() {
   const [pragatiInput,  setPragatiInput]   = useState('');
   const [pragatiLoading,setPragatiLoading] = useState(false);
   const [wakePulse,     setWakePulse]      = useState(false);
+  const [wakeListening, setWakeListening]  = useState(false);
   const [pragatiVoice,  setPragatiVoice]   = useState(true);  // voice on/off toggle
   const [pragatiMicOn,  setPragatiMicOn]   = useState(false); // in-chat mic
   const pragatiEndRef   = useRef(null);
@@ -1296,7 +1295,6 @@ function MobileBottomNav({ role, dm }) {
       clearTimeout(initialTimer);
       clearTimeout(scrollEndTimeoutRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [links]); // Recalculate when role-based links change
 
   // Center the active menu item perfectly upon path change, keeping it in the current set loop

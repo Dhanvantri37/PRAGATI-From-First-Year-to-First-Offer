@@ -3,7 +3,7 @@ const { authenticate } = require('../middleware/auth.middleware');
 
 // ── API Keys — Groq (primary) → Gemini (fallback) → Static analysis ───────────
 const GROQ_API_KEY   = process.env.GROQ_API_KEY   || '';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY || '';
 
 const GROQ_URL   = 'https://api.groq.com/openai/v1/chat/completions';
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -75,111 +75,100 @@ async function callGemini(prompt, retries = 2) {
 function buildPrompt({ code, language, problemTitle, testCases }) {
   const lang = (language || 'javascript').toLowerCase();
   const tcSection = (testCases && testCases.length > 0)
-    ? `\nTEST CASES (simulate execution for EACH, step by step):\n${testCases.map((tc, i) =>
-        `  Case ${i + 1}: Input=${JSON.stringify(tc.input)} → Expected=${JSON.stringify(tc.expected)}`
+    ? `Test Cases:\n${testCases.map((tc, i) =>
+        `  Case ${i + 1}: Input=${JSON.stringify(tc.input)} -> Expected=${JSON.stringify(tc.expected)}`
       ).join('\n')}`
-    : '\n(No test cases provided — analyze correctness from algorithm logic, identify likely failure inputs)';
+    : '(No test cases provided — analyze algorithm correctness from logic)';
 
   const langChecks = {
-    java:       'String == vs .equals(), integer overflow, ArrayIndexOutOfBounds, NullPointerException, missing break in switch, Integer vs int comparisons',
-    python:     '/ vs // for integer division, range() off-by-one, mutable default args, indentation errors, global vs local scope, list mutation in loop',
-    javascript: '=== vs ==, typeof null === "object", NaN comparisons, undefined access, array.sort() default lexicographic, closure in loop, async/await missing',
-    'c++':      'pointer dereference, array bounds, integer overflow, uninitialized variables, memory leaks, stack overflow on recursion',
-    c:          'buffer overflow, uninitialized pointers, memory leaks, signed/unsigned mismatch, integer overflow',
-    go:         'nil pointer dereference, slice bounds, goroutine leak, integer division truncation',
-    rust:       'ownership/borrow errors, integer overflow in debug, unwrap on None/Err',
+    java:       '== vs .equals(), integer overflow, IndexOutOfBounds, NullPointer, missing break, int/Integer comparison',
+    python:     '/ vs //, range() bounds, mutable defaults, indentation, global/local scope, mutating list in loop',
+    javascript: '=== vs ==, typeof null, NaN comparisons, undefined, array.sort() defaults, async/await',
+    'c++':      'pointer deref, out-of-bounds, overflow, uninitialized vars, memory leaks, stack overflow',
+    c:          'buffer overflow, uninitialized pointers, leaks, signed/unsigned, overflow',
+    go:         'nil deref, slice bounds, goroutine leak, division truncation',
+    rust:       'borrow/ownership errors, integer overflow, unwrap on None/Err',
   };
   const specificChecks = langChecks[lang] || 'integer overflow, uninitialized variables, bounds checking';
 
-  return `You are an elite software engineer and debugger with 20 years of experience. Your job is to deeply analyze the provided code and produce a structured, accurate, and educational debug report.
+  return `Analyze this ${lang} solution for "${problemTitle || 'Coding Problem'}" as an expert debugger.
+Return a structured JSON debug report.
 
-━━━ CONTEXT ━━━
+Context:
 Language: ${lang}
-Problem: ${problemTitle || 'Unknown problem'}
 ${tcSection}
 
-━━━ CODE TO ANALYZE ━━━
+Code:
 \`\`\`${lang}
 ${code}
 \`\`\`
 
-━━━ YOUR ANALYSIS TASK ━━━
+Instructions:
+1. Trace execution step-by-step for the given inputs.
+2. Check for typical bugs: off-by-one, wrong operators, missing return/break, uninitialized variables, overflow, null dereference, bad recursion base cases, or edge cases.
+3. Check for specific ${lang} bugs: ${specificChecks}.
+4. If errors are found, identify the exact line and explain why it is incorrect. Provide a complete corrected code block in 'suggestedFix'.
+5. Strictly decide the verdict:
+   - "likely_correct": All tests pass, no bugs found, handles all edge cases.
+   - "has_errors": Code contains a logic bug, incorrect test output, or runtime exception.
+   - "review": No test cases supplied, correctness is uncertain, or code is overly complex.
 
-STEP 1 — UNDERSTAND:
-  - What algorithm/approach is being used?
-  - What is the time and space complexity?
-  - Is this the right approach for the problem?
-
-STEP 2 — LINE-BY-LINE EXECUTION TRACE (for each test case):
-  - Simulate the code exactly as a CPU would
-  - Track every variable's value at each step
-  - Identify the exact line where output diverges from expected
-  - If no test cases, trace with: empty input, single element, negatives
-
-STEP 3 — BUG HUNT (check ALL of these):
-  [ ] Off-by-one errors (loop bounds, array indexing, string slicing)
-  [ ] Wrong comparison operators (< vs <=, == vs ===)
-  [ ] Missing return/break statements
-  [ ] Uninitialized variables used before assignment
-  [ ] Integer overflow / underflow
-  [ ] Null/undefined/None dereference
-  [ ] Incorrect base cases in recursion
-  [ ] Wrong algorithm for problem type (e.g., greedy when DP needed)
-  [ ] Language-specific bugs: ${specificChecks}
-  [ ] Edge cases: empty input, single element, all-same elements, negatives, max constraints
-
-STEP 4 — IF ERRORS FOUND:
-  - State EXACTLY which line has the bug
-  - Explain WHY it's wrong (not just what, but why it produces wrong output)
-  - Provide the CORRECTED version of that specific line
-  - Include a complete corrected version of the entire function in suggestedFix
-
-STEP 5 — VERDICT (apply strictly):
-  - "likely_correct": ALL test cases pass with correct trace AND no bugs found AND algorithm handles edge cases
-  - "has_errors": ANY test case fails OR any logic bug found OR runtime exception possible
-  - "review": no test cases provided, OR correctness uncertain, OR algorithm is overly complex
-
-  ⚠️ NEVER say "likely_correct" if you have any doubt. Default to "review" when uncertain.
-
-━━━ RESPONSE FORMAT ━━━
-Respond ONLY with valid JSON. No markdown fences, no text before or after. JSON must be parseable by JSON.parse().
-
+Response Format:
+Respond ONLY with parseable JSON (no markdown block, no extra text before or after):
 {
   "verdict": "likely_correct" | "review" | "has_errors",
-  "verdictMessage": "Single concise sentence describing the verdict and main finding",
-  "explanation": "3-5 sentences: what the algorithm does, whether it's correct, its complexity, and what could be improved",
+  "verdictMessage": "One concise sentence summarizing the verdict",
+  "explanation": "3-4 sentences: approach summary, correctness check, and complexity.",
   "issues": [
     {
       "type": "error" | "warning" | "info",
-      "line": <line number as integer or null>,
-      "msg": "Clear description of the exact bug and why it's wrong",
-      "fix": "The corrected line of code or short explanation of fix"
+      "line": 12, // line number as integer, or null
+      "msg": "Clear bug description and impact",
+      "fix": "Corrected line of code or quick fix"
     }
   ],
-  "hints": [
-    "Specific, actionable hint — not vague advice but an exact thing to check or change"
-  ],
+  "hints": ["Specific actionable hint to solve the issue"],
   "testResults": [
     {
-      "input": "human-readable input value",
-      "expected": "exact expected output",
-      "actualOutput": "what your code actually produces (trace it)",
-      "passed": true | false | null,
-      "trace": "Step-by-step variable tracking: e.g. i=0,sum=0 → i=1,sum=3 → ... → return 6"
+      "input": "string input",
+      "expected": "string expected",
+      "actualOutput": "string actual",
+      "passed": true | false,
+      "trace": "Step-by-step tracing snippet"
     }
   ],
-  "suggestedFix": "Complete corrected function/code with the bugs fixed. Empty string if no bugs.",
-  "timeComplexity": "O(n) or specific",
-  "spaceComplexity": "O(1) or specific"
+  "suggestedFix": "Complete corrected function code. Empty string if no bugs.",
+  "timeComplexity": "O(...) complexity",
+  "spaceComplexity": "O(...) complexity"
 }`;
 }
 
 // ── Parse AI JSON response ────────────────────────────────────────────────────
 function parseAI(raw) {
-  let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  let text = raw.trim();
+  // Strip markdown code fences if present
+  text = text.replace(/^```json\s*/i, '').replace(/```\s*$/g, '').trim();
+  
   const s = text.indexOf('{'), e = text.lastIndexOf('}');
   if (s === -1 || e === -1) throw new Error('No JSON in AI response');
-  return JSON.parse(text.slice(s, e + 1));
+  text = text.slice(s, e + 1);
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn('[Debug Router] Standard JSON parse failed, attempting regex/unescape cleanup...', err.message);
+    try {
+      // Replace raw newlines and carriage returns in string properties with escaped versions
+      // This regex identifies string literals inside the JSON (values inside quotes) and cleans up newlines.
+      const cleaned = text.replace(/: \s*"([^"\\]*(\\.[^"\\]*)*)"/g, (match, p1) => {
+        const escapedValue = p1.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
+        return ': "' + escapedValue + '"';
+      });
+      return JSON.parse(cleaned);
+    } catch (innerErr) {
+      throw new Error(`JSON parsing failed: ${err.message}. Original text: ${text.slice(0, 250)}`);
+    }
+  }
 }
 
 // ── Enforce strict verdict rules ──────────────────────────────────────────────
