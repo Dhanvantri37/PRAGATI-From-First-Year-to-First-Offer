@@ -88,7 +88,29 @@ router.post('/admin-create', authenticate, authorize('admin'), async (req, res) 
     
     // Send email
     const subject = 'Welcome to PRAGATI - Your Account Credentials';
-    const text = `Hello ${name},\n\nYour account has been created on the PRAGATI platform.\n\nEmail: ${email}\nPassword: ${password}\n\nPlease login and complete your profile.`;
+    const text = `Dear ${name},
+
+Greetings from Team PRAGATI.
+
+Your PRAGATI account has been successfully created. You can now access the platform using the credentials provided below.
+
+Login Details:
+Email ID: ${email}
+Password: ${password}
+
+Login Portal: https://pragati-career-readiness-platform.vercel.app
+
+Important Instructions:
+• Please change your password after your first login.
+• Do not share your credentials with anyone.
+• Use your registered email ID for all future communications and password recovery.
+
+PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
+
+If you face any login or access issues, please contact the PRAGATI support/admin team.
+
+Best Regards,
+Team PRAGATI`;
     await sendEmail(email, subject, text);
     
     res.status(201).json({ message: 'User created', user, password });
@@ -119,7 +141,29 @@ router.post('/admin-create-bulk', authenticate, authorize('admin'), async (req, 
         await user.save();
         
         const subject = 'Welcome to PRAGATI - Your Account Credentials';
-        const text = `Hello ${u.name || 'User'},\n\nYour account has been created on the PRAGATI platform.\n\nEmail: ${u.email}\nPassword: ${password}\n\nPlease login and complete your profile.`;
+        const text = `Dear ${u.name || 'Student'},
+
+Greetings from Team PRAGATI.
+
+Your PRAGATI account has been successfully created. You can now access the platform using the credentials provided below.
+
+Login Details:
+Email ID: ${u.email}
+Password: ${password}
+
+Login Portal: https://pragati-career-readiness-platform.vercel.app
+
+Important Instructions:
+• Please change your password after your first login.
+• Do not share your credentials with anyone.
+• Use your registered email ID for all future communications and password recovery.
+
+PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
+
+If you face any login or access issues, please contact the PRAGATI support/admin team.
+
+Best Regards,
+Team PRAGATI`;
         await sendEmail(u.email, subject, text);
         
         createdUsers.push({ email: u.email, password });
