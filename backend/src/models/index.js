@@ -43,6 +43,7 @@ const problemSchema = new mongoose.Schema({
   company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
   hints: [String],                       // Approach hints without spoiling
   acceptanceRate: { type: Number },      // e.g. 49.5 (%)
+  editorial: { type: String },           // Premium detailed Markdown editorial solution
   assignedDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
@@ -60,7 +61,8 @@ const userProblemSchema = new mongoose.Schema({
   solutionCode: { type: String },
   timeTakenMinutes: { type: Number },
   selfRating: { type: Number, min: 1, max: 5 },
-  shuffled: { type: Boolean, default: false }
+  shuffled: { type: Boolean, default: false },
+  isDaily: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // ─── Aptitude Question ────────────────────────────────────────────────────────

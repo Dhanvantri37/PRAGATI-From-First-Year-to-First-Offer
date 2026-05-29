@@ -18,6 +18,27 @@ const DIFF = {
   Hard:   { bg:'rgba(239,68,68,0.1)',   color:'#991b1b', border:'rgba(239,68,68,0.3)' },
 };
 
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = md;
+  // Escape HTML entities to prevent script injection
+  html = html
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Format headers, bold text, code blocks, and code tags
+  html = html
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/```(javascript|python|java|cpp)?\s*([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br/>');
+
+  return html;
+}
 
 const LANGUAGES = ['javascript', 'python', 'java', 'c++'];
 
@@ -159,9 +180,36 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   const [submitting, setSubmitting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  const problemDetails = useMemo(() => {
-    return getProblemStatement(problem.title, problem.topic, problem.difficulty || problem.level);
+  // Live state for fetched LeetCode descriptions & hints
+  const [fullProblem, setFullProblem] = useState(problem);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+
+  useEffect(() => {
+    const targetIdOrTitle = problem._id || problem.id || problem.title;
+    if (targetIdOrTitle) {
+      setLoadingDetails(true);
+      fetch(`${API}/problems/${encodeURIComponent(targetIdOrTitle)}`, { headers: tk() })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to load live problem details');
+          return res.json();
+        })
+        .then(data => {
+          if (data.problem) {
+            setFullProblem(data.problem);
+          }
+        })
+        .catch(err => {
+          console.warn('Could not fetch live problem details, falling back to static metadata:', err);
+        })
+        .finally(() => {
+          setLoadingDetails(false);
+        });
+    }
   }, [problem]);
+
+  const problemDetails = useMemo(() => {
+    return getProblemStatement(fullProblem.title, fullProblem.topic, fullProblem.difficulty || fullProblem.level);
+  }, [fullProblem]);
 
   useEffect(() => {
     // Record last visited problem
@@ -192,7 +240,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
         body: JSON.stringify({
           code,
           language: lang,
-          problemTitle: problem.title,
+          problemTitle: fullProblem.title,
           testCases: [
             { input: problemDetails.examples[0]?.input || '', expected: problemDetails.examples[0]?.output || '' }
           ]
@@ -207,15 +255,31 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
     }
   };
 
-  const handleSolveSubmit = () => {
+  const handleSolveSubmit = async () => {
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      const res = await fetch(`${API}/problems/${problem._id || problem.id}/solve`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify({
+          solutionCode: code,
+          approachNotes: notes || 'Solved daily target.',
+          selfRating: 5,
+          timeTakenMinutes: 15
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to submit solution');
+
       setIsSolved(true);
       setShowCelebration(true);
-      onSolveProgress(problem.id, problem.difficulty || problem.level || 'Easy');
+      onSolveProgress(problem._id || problem.id, problem.difficulty || problem.level || 'Easy');
       setTimeout(() => setShowCelebration(false), 3500);
-    }, 800);
+    } catch (err) {
+      alert(`Submission error: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const toggleFavorite = () => {
@@ -240,7 +304,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
         </button>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:'1.1rem' }}>💻</span>
-          <span style={{ fontWeight:800, fontSize:'1.05rem', fontFamily:"'Syne',sans-serif" }}>{problem.title}</span>
+          <span style={{ fontWeight:800, fontSize:'1.05rem', fontFamily:"'Syne',sans-serif" }}>{fullProblem.title}</span>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={toggleFavorite} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #374151', background:isFav?'rgba(245,158,11,0.12)':'transparent', color:isFav?'#f59e0b':'#94a3b8', cursor:'pointer', fontWeight:700, fontSize:'.85rem' }}>
@@ -258,7 +322,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
             {[
               { id:'desc', icon:'📄', label:'Description' },
               { id:'hints', icon:'💡', label:'Hints & Editorial' },
-              { id:'video', icon:'📺', label:'Watch Video Explanation' },
+              ...(problem.videoId ? [{ id:'video', icon:'📺', label:'Watch Video Explanation' }] : []),
               { id:'notes', icon:'📝', label:'My Notes' }
             ].map(tab => (
               <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1, padding:'10px', border:'none', background:activeTab===tab.id?'#1f2937':'transparent', color:activeTab===tab.id?'#38bdf8':'#94a3b8', fontWeight:800, fontSize:'.78rem', cursor:'pointer', borderBottom:activeTab===tab.id?'2.5px solid #38bdf8':'none' }}>
@@ -268,73 +332,105 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
           </div>
 
           <div style={{ flex:1, overflowY:'auto', padding:'20px' }}>
-            {activeTab === 'desc' && (
-              <div>
-                <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
-                  <span style={{ padding:'3px 10px', borderRadius:999, background:DIFF[problem.difficulty||problem.level]?.bg || 'rgba(255,255,255,0.05)', color:DIFF[problem.difficulty||problem.level]?.color || '#fff', fontSize:'.72rem', fontWeight:800 }}>
-                    {problem.difficulty || problem.level}
-                  </span>
-                  <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.72rem', fontWeight:800 }}>
-                    {problem.topic}
-                  </span>
-                  {problem.askedBy && (
-                    <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(245,158,11,0.1)', color:'#f59e0b', fontSize:'.72rem', fontWeight:800 }}>
-                      🔥 Frequency Asked
+            {activeTab === 'desc' && (() => {
+              const isHtml = fullProblem.description && (fullProblem.description.startsWith('<') || fullProblem.description.includes('</') || fullProblem.description.includes('<p>'));
+              return (
+                <div>
+                  <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+                    <span style={{ padding:'3px 10px', borderRadius:999, background:DIFF[fullProblem.difficulty||fullProblem.level]?.bg || 'rgba(255,255,255,0.05)', color:DIFF[fullProblem.difficulty||fullProblem.level]?.color || '#fff', fontSize:'.72rem', fontWeight:800 }}>
+                      {fullProblem.difficulty || fullProblem.level}
                     </span>
+                    <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.72rem', fontWeight:800 }}>
+                      {fullProblem.topic}
+                    </span>
+                    {fullProblem.askedBy && (
+                      <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(245,158,11,0.1)', color:'#f59e0b', fontSize:'.72rem', fontWeight:800 }}>
+                        🔥 Frequency Asked
+                      </span>
+                    )}
+                  </div>
+
+                  {isHtml ? (
+                    <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-html-desc">
+                      <style>{`
+                        .leetcode-html-desc p { margin-bottom: 14px; }
+                        .leetcode-html-desc code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
+                        .leetcode-html-desc pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; }
+                        .leetcode-html-desc ul { margin-left: 20px; margin-bottom: 14px; list-style-type: disc; }
+                        .leetcode-html-desc li { margin-bottom: 6px; }
+                        .leetcode-html-desc strong { color: #fff; font-weight: 700; }
+                      `}</style>
+                      <div dangerouslySetInnerHTML={{ __html: fullProblem.description }} />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ whiteSpace:'pre-wrap', lineHeight:1.75, fontSize:'.88rem', color:'#cbd5e1' }}>
+                        {fullProblem.description || problemDetails.desc}
+                      </div>
+
+                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Constraints:</h4>
+                      <pre style={{ padding:10, background:'#1e2937', borderRadius:8, fontSize:'.8rem', color:'#94a3b8', border:'1.5px solid #374151' }}>
+                        {problemDetails.constraints}
+                      </pre>
+
+                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Examples:</h4>
+                      {problemDetails.examples.map((ex, idx) => (
+                        <div key={idx} style={{ padding:12, background:'#111827', borderRadius:10, border:'1.5px solid #1f2937', marginBottom:8, fontSize:'.84rem' }}>
+                          <div style={{ color:'#38bdf8', fontWeight:700, marginBottom:4 }}>Example {idx+1}:</div>
+                          <div><strong>Input:</strong> <code>{ex.input}</code></div>
+                          <div><strong>Output:</strong> <code>{ex.output}</code></div>
+                          {ex.explanation && <div style={{ color:'#94a3b8', fontSize:'.78rem', marginTop:4 }}><strong>Explanation:</strong> {ex.explanation}</div>}
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {fullProblem.askedBy && (
+                    <div style={{ marginTop:24, borderTop:'1px solid #1f2937', paddingTop:16 }}>
+                      <h5 style={{ fontSize:'.8rem', fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:8 }}>Companies Asked:</h5>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {fullProblem.askedBy.split(', ').map(item => {
+                          const [name] = item.split('-');
+                          return (
+                            <span key={item} style={{ padding:'4px 9px', borderRadius:6, background:'#1e2937', color:'#cbd5e1', fontSize:'.7rem', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                              {COMPANY_LOGOS[name] || '🏢'} {item}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
                   )}
                 </div>
-
-                <div style={{ whiteSpace:'pre-wrap', lineHeight:1.75, fontSize:'.88rem', color:'#cbd5e1' }}>
-                  {problemDetails.desc}
-                </div>
-
-                <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Constraints:</h4>
-                <pre style={{ padding:10, background:'#1e2937', borderRadius:8, fontSize:'.8rem', color:'#94a3b8', border:'1.5px solid #374151' }}>
-                  {problemDetails.constraints}
-                </pre>
-
-                <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Examples:</h4>
-                {problemDetails.examples.map((ex, idx) => (
-                  <div key={idx} style={{ padding:12, background:'#111827', borderRadius:10, border:'1.5px solid #1f2937', marginBottom:8, fontSize:'.84rem' }}>
-                    <div style={{ color:'#38bdf8', fontWeight:700, marginBottom:4 }}>Example {idx+1}:</div>
-                    <div><strong>Input:</strong> <code>{ex.input}</code></div>
-                    <div><strong>Output:</strong> <code>{ex.output}</code></div>
-                    {ex.explanation && <div style={{ color:'#94a3b8', fontSize:'.78rem', marginTop:4 }}><strong>Explanation:</strong> {ex.explanation}</div>}
-                  </div>
-                ))}
-
-                {problem.askedBy && (
-                  <div style={{ marginTop:24, borderTop:'1px solid #1f2937', paddingTop:16 }}>
-                    <h5 style={{ fontSize:'.8rem', fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:8 }}>Companies Asked:</h5>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {problem.askedBy.split(', ').map(item => {
-                        const [name] = item.split('-');
-                        return (
-                          <span key={item} style={{ padding:'4px 9px', borderRadius:6, background:'#1e2937', color:'#cbd5e1', fontSize:'.7rem', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
-                            {COMPANY_LOGOS[name] || '🏢'} {item}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {activeTab === 'hints' && (
               <div>
                 <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:12 }}>💡 Guided Hints:</h4>
-                {problemDetails.hints.map((hint, idx) => (
+                {((fullProblem.hints && fullProblem.hints.length > 0) ? fullProblem.hints : problemDetails.hints).map((hint, idx) => (
                   <div key={idx} style={{ padding:12, background:'rgba(56,189,248,0.05)', border:'1.5px solid rgba(56,189,248,0.15)', borderRadius:10, marginBottom:8, fontSize:'.84rem', display:'flex', gap:10 }}>
                     <span style={{ fontSize:'1rem' }}>💡</span>
-                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }}>{hint}</span>
+                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }} dangerouslySetInnerHTML={{ __html: hint }} />
                   </div>
                 ))}
 
                 <h4 style={{ color:'#f1f5f9', fontWeight:800, marginTop:24, marginBottom:12 }}>📝 Editorial Solution:</h4>
-                <div style={{ padding:14, background:'#111827', borderRadius:12, border:'1.5px solid #1f2937', fontSize:'.85rem', lineHeight:1.7, color:'#94a3b8', whiteSpace:'pre-wrap' }}>
-                  {problemDetails.editorial}
-                </div>
+                {fullProblem.editorial ? (
+                  <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-markdown-editorial">
+                    <style>{`
+                      .leetcode-markdown-editorial p { margin-bottom: 12px; }
+                      .leetcode-markdown-editorial code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
+                      .leetcode-markdown-editorial pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; overflow-x: auto; }
+                      .leetcode-markdown-editorial strong { color: #fff; font-weight: 700; }
+                      .leetcode-markdown-editorial h1, .leetcode-markdown-editorial h2, .leetcode-markdown-editorial h3 { color: #38bdf8; font-weight: 800; margin-top: 18px; margin-bottom: 8px; }
+                    `}</style>
+                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(fullProblem.editorial) }} />
+                  </div>
+                ) : (
+                  <div style={{ padding:14, background:'#111827', borderRadius:12, border:'1.5px solid #1f2937', fontSize:'.85rem', lineHeight:1.7, color:'#94a3b8', whiteSpace:'pre-wrap' }}>
+                    {problemDetails.editorial}
+                  </div>
+                )}
               </div>
             )}
 
@@ -472,11 +568,21 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 /* ── Main Structured Platform Component ── */
 export default function ProblemsPage() {
   const [tab, setTab] = useState('dash');
+  const [allLeetCodeProblems, setAllLeetCodeProblems] = useState([]);
+  const [allLeetCodeLoading, setAllLeetCodeLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('All');
   const [solvedFilter, setSolvedFilter] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [companyFilter, setCompanyFilter] = useState('All');
+
+  // Pagination states for browsing all LeetCode problems
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, difficultyFilter, solvedFilter, selectedCategory, companyFilter]);
   
   // Custom states for local DB sync
   const [solved, setSolved] = useState(() => new Set(JSON.parse(localStorage.getItem('pragati_practice_solved') || '[]')));
@@ -510,41 +616,86 @@ export default function ProblemsPage() {
     }
   };
 
+  const syncPracticeData = async () => {
+    try {
+      // 1. Fetch user solved problems history
+      const resHist = await fetch(`${API}/problems/history`, { headers: tk() });
+      if (resHist.ok) {
+        const histData = await resHist.json();
+        const solvedIds = new Set(
+          (histData.history || [])
+            .filter(up => up.status === 'solved')
+            .map(up => up.problemId?._id || up.problemId)
+            .filter(Boolean)
+        );
+        setSolved(solvedIds);
+        localStorage.setItem('pragati_practice_solved', JSON.stringify([...solvedIds]));
+      }
+
+      // 2. Fetch my profile for streak & heatmap
+      const resProf = await fetch(`${API}/analytics/my-profile`, { headers: tk() });
+      if (resProf.ok) {
+        const prof = await resProf.json();
+        if (prof.student) {
+          setStreak(prof.student.streak || 0);
+          setXp(prof.student.totalProblemsSolved * 10); // sync XP based on solved count
+          localStorage.setItem('pragati_practice_streak', String(prof.student.streak || 0));
+        }
+
+        // Reconstruct heatmap count from submissionDates
+        if (prof.submissionDates) {
+          const counts = {};
+          prof.submissionDates.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+          setHeatmap(counts);
+          localStorage.setItem('pragati_practice_heatmap', JSON.stringify(counts));
+        }
+      }
+    } catch (e) {
+      console.error('Error synchronizing coding practice data with server:', e);
+    }
+  };
+
   useEffect(() => {
     fetchDaily();
+    syncPracticeData();
   }, []);
 
-  // Sync state functions
   const handleSolveProgress = (problemId, difficulty) => {
-    // 1. Solve question
+    // Proactively add solved problem locally first for instant feedback
     const nextSolved = new Set(solved);
     nextSolved.add(problemId);
     setSolved(nextSolved);
-    localStorage.setItem('pragati_practice_solved', JSON.stringify([...nextSolved]));
 
-    // 2. Compute XP award
-    let xpGain = 10;
-    if (difficulty === 'Medium') xpGain = 30;
-    if (difficulty === 'Hard') xpGain = 100;
-    const nextXp = xp + xpGain;
-    setXp(nextXp);
-    localStorage.setItem('pragati_practice_xp', String(nextXp));
+    // Refresh everything from the database
+    syncPracticeData();
+  };
 
-    // 3. Update Streak & Heatmap
-    const today = new Date().toISOString().split('T')[0];
-    const nextHeatmap = { ...heatmap };
-    nextHeatmap[today] = (nextHeatmap[today] || 0) + 1;
-    setHeatmap(nextHeatmap);
-    localStorage.setItem('pragati_practice_heatmap', JSON.stringify(nextHeatmap));
+  const fetchAllProblems = async () => {
+    setAllLeetCodeLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (difficultyFilter !== 'All') params.append('difficulty', difficultyFilter);
+      if (selectedCategory !== 'All') params.append('topic', selectedCategory);
+      params.append('source', 'LeetCode');
 
-    if (lastSolveDate !== today) {
-      const nextStreak = streak + 1;
-      setStreak(nextStreak);
-      localStorage.setItem('pragati_practice_streak', String(nextStreak));
-      setLastSolveDate(today);
-      localStorage.setItem('pragati_practice_last_solve_date', today);
+      const res = await fetch(`${API}/problems?${params.toString()}`, { headers: tk() });
+      if (res.ok) {
+        const d = await res.json();
+        setAllLeetCodeProblems(d.problems || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAllLeetCodeLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (tab === 'all-problems') {
+      fetchAllProblems();
+    }
+  }, [tab, search, difficultyFilter, selectedCategory]);
 
   const handleToggleCourseChapter = (courseId, chapterIndex) => {
     const nextProgress = { ...courseProgress };
@@ -663,6 +814,7 @@ export default function ProblemsPage() {
       <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'1px solid var(--border)', flexWrap:'wrap' }}>
         {[
           { id:'dash', label:'🏠 Dashboard & Stats' },
+          { id:'all-problems', label:'🌐 All LeetCode Problems' },
           { id:'mla', label:'🔥 Most Likely Asked' },
           { id:'nc150', label:'🛣️ NeetCode 150 Roadmap' },
           { id:'courses', label:'🎓 Full Video Courses' },
@@ -674,21 +826,44 @@ export default function ProblemsPage() {
         ))}
       </div>
 
-      {/* Today's curriculum assigned problem card */}
-      {tab === 'dash' && daily?.problem && (
-        <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.03),rgba(19,161,165,0.03))', border:'1.5px solid rgba(83,22,151,0.12)', borderRadius:16, padding:20, marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:12 }}>
-          <div>
-            <span style={{ padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#d97706', fontSize:'.65rem', fontWeight:800, textTransform:'uppercase' }}>Curriculum Assigned</span>
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', margin:'6px 0 4px 0' }}>📌 Today\'s Target: {daily.problem.title}</h3>
-            <div style={{ display:'flex', gap:6, fontSize:'.72rem' }}>
-              <span style={{ color:'#ef4444', fontWeight:700 }}>{daily.problem.difficulty}</span>
-              <span style={{ color:'var(--text-3)' }}>·</span>
-              <span style={{ color:'var(--text-3)' }}>{daily.problem.topic}</span>
+      {/* Today's curriculum assigned problems list (Easy, Medium, Hard) */}
+      {tab === 'dash' && daily?.dailyProblems && daily.dailyProblems.length > 0 && (
+        <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.03),rgba(19,161,165,0.03))', border:'1.5px solid rgba(83,22,151,0.12)', borderRadius:16, padding:20, marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+            <div>
+              <span style={{ padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#d97706', fontSize:'.65rem', fontWeight:800, textTransform:'uppercase' }}>Curriculum Assigned</span>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', margin:'4px 0 0 0' }}>📌 Daily 3 LeetCode Targets</h3>
             </div>
+            <span style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:600 }}>Solve at least 1 to advance your streak! Solve all 3 for maximum heatmap dark purple color!</span>
           </div>
-          <button onClick={() => setActiveWorkspaceProblem(daily.problem)} style={{ padding:'10px 20px', borderRadius:8, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, border:'none', cursor:'pointer', fontSize:'.82rem', boxShadow:'0 4px 12px rgba(83,22,151,0.2)' }}>
-            Enter splitscreen Player &amp; Solve →
-          </button>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14 }}>
+            {daily.dailyProblems.map(({ problem, userProblem }) => {
+              const isSolved = solved.has(problem._id || problem.id);
+              const diffCol = DIFF[problem.difficulty]?.color || '#cbd5e1';
+              return (
+                <div key={problem._id || problem.id} style={{ background:'var(--surface)', padding:16, borderRadius:12, border:isSolved?'1.5px solid rgba(71,211,114,0.4)':'1.5px solid var(--border)', display:'flex', flexDirection:'column', justifyContent:'space-between', transition:'transform 0.2s' }}>
+                  <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                      <span style={{ padding:'2px 8px', borderRadius:6, background:DIFF[problem.difficulty]?.bg, color:diffCol, fontSize:'.68rem', fontWeight:800 }}>
+                        {problem.difficulty}
+                      </span>
+                      {isSolved ? (
+                        <span style={{ fontSize:'.75rem', color:'#47d372', fontWeight:800 }}>✅ Solved</span>
+                      ) : (
+                        <span style={{ fontSize:'.75rem', color:'#ea580c', fontWeight:800 }}>🎯 Assigned</span>
+                      )}
+                    </div>
+                    <h4 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', margin:'0 0 6px 0' }}>{problem.title}</h4>
+                    <p style={{ fontSize:'.72rem', color:'var(--text-3)', margin:0 }}>Topic: {problem.topic}</p>
+                  </div>
+                  <button onClick={() => setActiveWorkspaceProblem(problem)} style={{ width:'100%', marginTop:12, padding:'8px 0', borderRadius:8, background:isSolved?'rgba(71,211,114,0.06)':'linear-gradient(135deg,#531697,#13a1a5)', color:isSolved?'#47d372':'#fff', border:isSolved?'1px solid #47d372':'none', fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s' }}>
+                    {isSolved ? 'Review Solution' : 'Solve Target →'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -777,6 +952,150 @@ export default function ProblemsPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* TAB: ALL LEETCODE PROBLEMS */}
+      {tab === 'all-problems' && (
+        <div>
+          {/* Quick Filters */}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search LeetCode problem title..." style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', flex:1, outline:'none', fontSize:'.82rem', background:'var(--surface)', color:'var(--text)' }} />
+            <select value={difficultyFilter} onChange={e=>setDifficultyFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Difficulty</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <select value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Topics</option>
+              {['Arrays', 'Strings', 'Linked List', 'Trees', 'Dynamic Programming', 'Graphs', 'Binary Search', 'Stack & Queue', 'Backtracking', 'Bit Manipulation', 'Math', 'Greedy'].map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <select value={solvedFilter} onChange={e=>setSolvedFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Solved Status</option>
+              <option value="Solved">Solved</option>
+              <option value="Unsolved">Unsolved</option>
+            </select>
+            <button onClick={fetchAllProblems} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, fontSize:'.8rem', cursor:'pointer' }}>
+              🔄 Refresh List
+            </button>
+          </div>
+
+          {/* Table / Grid list */}
+          {allLeetCodeLoading ? (
+            <div style={{ textAlign:'center', padding:40 }}>
+              <div style={{ width:32, height:32, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_leetcodeSpin .7s linear infinite', margin:'0 auto 10px' }} />
+              <style>{`@keyframes _leetcodeSpin{to{transform:rotate(360deg)}}`}</style>
+              <div style={{ color:'var(--text-3)', fontSize:'.82rem' }}>Fetching LeetCode problems list...</div>
+            </div>
+          ) : (
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left', fontSize:'.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom:'1px solid var(--border)', background:'rgba(255,255,255,0.02)' }}>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ID</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>TITLE</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>DIFFICULTY</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>TOPIC</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ACCEPTANCE</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const filtered = allLeetCodeProblems.filter(p => {
+                      const isSolved = solved.has(p._id || p.id);
+                      if (solvedFilter === 'Solved' && !isSolved) return false;
+                      if (solvedFilter === 'Unsolved' && isSolved) return false;
+                      return true;
+                    });
+                    
+                    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+                    const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+                    return (
+                      <>
+                        {paginated.map(p => {
+                          const isSolved = solved.has(p._id || p.id);
+                          const diffCol = DIFF[p.difficulty]?.color || '#cbd5e1';
+                          return (
+                            <tr key={p._id || p.id} style={{ borderBottom:'1px solid var(--border)', background:isSolved?'rgba(71,211,114,0.02)':'transparent', transition:'background 0.2s' }}>
+                              <td style={{ padding:'12px 16px', fontWeight:800, color:'var(--text-3)' }}>#{p.problemId}</td>
+                              <td style={{ padding:'12px 16px', fontWeight:800, color:'var(--text)' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                  {p.title}
+                                  {isSolved && <span style={{ padding:'2px 6px', borderRadius:4, background:'rgba(71,211,114,0.1)', color:'#47d372', fontSize:'.65rem', fontWeight:800 }}>SOLVED</span>}
+                                </div>
+                              </td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <span style={{ padding:'3px 8px', borderRadius:6, background:DIFF[p.difficulty]?.bg, color:diffCol, fontSize:'.7rem', fontWeight:800 }}>
+                                  {p.difficulty}
+                                </span>
+                              </td>
+                              <td style={{ padding:'12px 16px', color:'var(--text-2)' }}>{p.topic}</td>
+                              <td style={{ padding:'12px 16px', color:'var(--text-3)' }}>{p.acceptanceRate ? `${p.acceptanceRate}%` : 'N/A'}</td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <button onClick={() => setActiveWorkspaceProblem({ ...p, id: p._id || p.id })} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer' }}>
+                                  Solve →
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filtered.length === 0 && (
+                          <tr>
+                            <td colSpan={6} style={{ padding:40, textAlign:'center', color:'var(--text-3)' }}>
+                              No problems found. Start the server background sync or try another query!
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+              {(() => {
+                const filtered = allLeetCodeProblems.filter(p => {
+                  const isSolved = solved.has(p._id || p.id);
+                  if (solvedFilter === 'Solved' && !isSolved) return false;
+                  if (solvedFilter === 'Unsolved' && isSolved) return false;
+                  return true;
+                });
+                const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+                return (
+                  <div style={{ padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--border)', background:'rgba(255,255,255,0.01)', flexWrap:'wrap', gap:10 }}>
+                    <div style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:700 }}>
+                      Showing <strong>{filtered.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(filtered.length, currentPage * pageSize)}</strong> of <strong>{filtered.length}</strong> matching problems.
+                    </div>
+                    {totalPages > 1 && (
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <button 
+                          disabled={currentPage === 1}
+                          onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          style={{ padding:'6px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:currentPage === 1 ? 'var(--text-3)' : 'var(--text-2)', cursor:currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight:800, fontSize:'.75rem', transition:'all 0.2s' }}
+                        >
+                          ← Previous
+                        </button>
+                        
+                        <span style={{ fontSize:'.78rem', color:'var(--text)', fontWeight:800, padding:'0 8px' }}>
+                          Page <span style={{ color:'#38bdf8' }}>{currentPage}</span> of {totalPages}
+                        </span>
+                        
+                        <button 
+                          disabled={currentPage === totalPages}
+                          onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          style={{ padding:'6px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:currentPage === totalPages ? 'var(--text-3)' : 'var(--text-2)', cursor:currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight:800, fontSize:'.75rem', transition:'all 0.2s' }}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
