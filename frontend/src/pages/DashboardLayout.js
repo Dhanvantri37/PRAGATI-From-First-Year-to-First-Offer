@@ -547,25 +547,41 @@ export default function DashboardLayout() {
   const inpBrd     = dm ? '#334155' : '#d0d7e8';
 
   // ── Edit Profile Modal ────────────────────────────────────────────────────
-  function EditProfileModal() {
+  function EditProfileModal({ enforce }) {
     const [form, setForm] = useState({
       name: user?.name||'', department: user?.department||'', year: user?.year||'',
       rollNumber: user?.rollNumber||'', phone: user?.phone||'', bio: user?.bio||'',
       linkedinUrl: user?.linkedinUrl||'', githubUrl: user?.githubUrl||'', portfolioUrl: user?.portfolioUrl||'',
     });
+    const [pwdForm, setPwdForm] = useState({ currentPassword:'', newPassword:'' });
     const [photoFile, setPhotoFile]     = useState(null);
     const [photoPreview, setPhotoPreview] = useState(user?.profilePhoto||null);
     const [loading, setLoading]         = useState(false);
+    const [pwdLoading, setPwdLoading]   = useState(false);
     const [msg, setMsg]                 = useState('');
+    const [pwdMsg, setPwdMsg]           = useState('');
     const fileRef = useRef();
 
     const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+    const setPwd = k => e => setPwdForm(f=>({...f,[k]:e.target.value}));
     const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:`1.5px solid ${inpBrd}`, fontFamily:"'Nunito',sans-serif", fontSize:'.875rem', outline:'none', background:inpBg, color:txt, boxSizing:'border-box' } };
-    const LBL = ({ children }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:sub, marginBottom:4, fontFamily:"'Syne',sans-serif" }}>{children}</label>;
+    const LBL = ({ children, req }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:sub, marginBottom:4, fontFamily:"'Syne',sans-serif" }}>{children}{req && <span style={{ color:'#ef4444' }}> *</span>}</label>;
 
     function handlePhoto(e) {
       const f = e.target.files[0]; if(!f) return;
       setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f));
+    }
+
+    async function changePassword(e) {
+      e.preventDefault(); setPwdLoading(true); setPwdMsg('');
+      try {
+        const r = await fetch(`${API}/users/change-password`, { method:'PUT', headers:{...tk(),'Content-Type':'application/json'}, body:JSON.stringify(pwdForm) });
+        const d = await r.json();
+        if(!r.ok) throw new Error(d.error||'Failed');
+        setPwdMsg('✅ Password updated!');
+        setPwdForm({ currentPassword:'', newPassword:'' });
+      } catch(err){ setPwdMsg(`❌ ${err.message}`); }
+      finally { setPwdLoading(false); }
     }
 
     async function save(e) {
@@ -575,23 +591,25 @@ export default function DashboardLayout() {
         if (photoFile) {
           profilePhoto = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(photoFile); });
         }
-        const payload = { ...form, ...(profilePhoto?{profilePhoto}:{}) };
+        const payload = { ...form, isProfileComplete: true, ...(profilePhoto?{profilePhoto}:{}) };
         const r = await fetch(`${API}/users/profile`, { method:'PUT', headers:{...tk(),'Content-Type':'application/json'}, body:JSON.stringify(payload) });
         const d = await r.json();
         if(!r.ok) throw new Error(d.error||'Failed');
         setMsg('✅ Profile updated!');
         if(setUser) setUser(d.user);
-        setTimeout(()=>setShowEditProfile(false), 1200);
+        if (!enforce) setTimeout(()=>setShowEditProfile(false), 1200);
       } catch(err){ setMsg(`❌ ${err.message}`); }
       finally { setLoading(false); }
     }
 
     return (
-      <div className="modal-backdrop" onClick={()=>setShowEditProfile(false)}>
-        <div className="modal-content-responsive" style={{ maxWidth:560 }} onClick={e=>e.stopPropagation()}>
+      <div className="modal-backdrop" onClick={()=>!enforce && setShowEditProfile(false)}>
+        <div className="modal-content-responsive" style={{ maxWidth:560, maxHeight:'90vh', overflowY:'auto' }} onClick={e=>e.stopPropagation()}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:txt }}>✏️ Edit Profile</div>
-            <button onClick={()=>setShowEditProfile(false)} style={{ width:32, height:32, borderRadius:'50%', border:`1px solid ${inpBrd}`, background:inpBg, cursor:'pointer', fontWeight:800, color:sub, fontSize:'1rem' }}>×</button>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:txt }}>
+              {enforce ? '🚨 Complete Your Profile' : '✏️ Edit Profile'}
+            </div>
+            {!enforce && <button onClick={()=>setShowEditProfile(false)} style={{ width:32, height:32, borderRadius:'50%', border:`1px solid ${inpBrd}`, background:inpBg, cursor:'pointer', fontWeight:800, color:sub, fontSize:'1rem' }}>×</button>}
           </div>
           <div style={{ textAlign:'center', marginBottom:18 }}>
             <div style={{ position:'relative', display:'inline-block' }}>
@@ -606,13 +624,13 @@ export default function DashboardLayout() {
             <div style={{ marginTop:2, fontSize:'.7rem', color:sub }}>{user?.email}</div>
             <span style={{ padding:'2px 10px', borderRadius:999, background:'rgba(83,22,151,.1)', color:'#531697', fontSize:'.7rem', fontWeight:700 }}>{user?.role?.toUpperCase()}</span>
           </div>
-          <form onSubmit={save}>
+          <form onSubmit={save} style={{ marginBottom:24 }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
-              <div style={{ gridColumn:'1/-1' }}><LBL>Full Name</LBL><input {...INP} value={form.name} onChange={set('name')} placeholder="Your full name" /></div>
-              <div><LBL>Department</LBL><select {...INP} value={form.department} onChange={set('department')}>{['CSE','CSAIML','IT','ECE','Mechanical','Civil','Other'].map(d=><option key={d}>{d}</option>)}</select></div>
-              {user?.role==='student'&&<div><LBL>Year</LBL><select {...INP} value={form.year} onChange={set('year')}>{[1,2,3,4].map(y=><option key={y} value={y}>Year {y}</option>)}</select></div>}
-              {user?.role==='student'&&<div><LBL>Roll Number</LBL><input {...INP} value={form.rollNumber} onChange={set('rollNumber')} placeholder="e.g. 22CS101" /></div>}
-              <div><LBL>Phone</LBL><input {...INP} value={form.phone} onChange={set('phone')} placeholder="+91 XXXXXXXXXX" /></div>
+              <div style={{ gridColumn:'1/-1' }}><LBL req={enforce}>Full Name</LBL><input {...INP} value={form.name} onChange={set('name')} placeholder="Your full name" required={enforce} /></div>
+              <div><LBL req={enforce}>Department</LBL><select {...INP} value={form.department} onChange={set('department')} required={enforce}><option value="">Select Dept</option>{['CSE','CSAIML','IT','ECE','Mechanical','Civil','Other'].map(d=><option key={d}>{d}</option>)}</select></div>
+              {user?.role==='student'&&<div><LBL req={enforce}>Year</LBL><select {...INP} value={form.year} onChange={set('year')} required={enforce}><option value="">Select Year</option>{[1,2,3,4].map(y=><option key={y} value={y}>Year {y}</option>)}</select></div>}
+              {user?.role==='student'&&<div><LBL req={enforce}>Roll Number</LBL><input {...INP} value={form.rollNumber} onChange={set('rollNumber')} placeholder="e.g. 22CS101" required={enforce} /></div>}
+              <div><LBL req={enforce}>Phone</LBL><input {...INP} value={form.phone} onChange={set('phone')} placeholder="+91 XXXXXXXXXX" required={enforce} /></div>
               <div style={{ gridColumn:'1/-1' }}><LBL>Bio</LBL><textarea {...INP} style={{...INP.style,resize:'vertical',height:64}} value={form.bio} onChange={set('bio')} placeholder="A short bio…" /></div>
               <div style={{ gridColumn:'1/-1' }}><LBL>LinkedIn URL</LBL><input {...INP} type="url" value={form.linkedinUrl} onChange={set('linkedinUrl')} placeholder="https://linkedin.com/in/username" /></div>
               <div><LBL>GitHub URL</LBL><input {...INP} type="url" value={form.githubUrl} onChange={set('githubUrl')} placeholder="https://github.com/username" /></div>
@@ -623,6 +641,22 @@ export default function DashboardLayout() {
               {loading?'Saving…':'💾 Save Profile'}
             </button>
           </form>
+
+          {!enforce && (
+            <div style={{ paddingTop:20, borderTop:`1px solid ${inpBrd}` }}>
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'1rem', color:txt, marginBottom:12 }}>🔒 Change Password</div>
+              <form onSubmit={changePassword}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12, marginBottom:12 }}>
+                  <div><LBL>Current Password</LBL><input {...INP} type="password" value={pwdForm.currentPassword} onChange={setPwd('currentPassword')} required /></div>
+                  <div><LBL>New Password</LBL><input {...INP} type="password" value={pwdForm.newPassword} onChange={setPwd('newPassword')} required minLength={6} /></div>
+                </div>
+                {pwdMsg&&<div style={{ marginBottom:12, padding:'9px 14px', borderRadius:8, fontSize:'.83rem', fontWeight:600, background:pwdMsg.startsWith('✅')?'#dcfce7':'#fee2e2', color:pwdMsg.startsWith('✅')?'#166534':'#991b1b' }}>{pwdMsg}</div>}
+                <button type="submit" disabled={pwdLoading} style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', background:pwdLoading?'#d0d7e8':'#042c5d', color:'#fff', fontWeight:800, fontSize:'.9rem', cursor:pwdLoading?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif" }}>
+                  {pwdLoading?'Updating...':'Update Password'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -653,6 +687,8 @@ export default function DashboardLayout() {
     );
   }
 
+  const enforceProfile = user && user.isProfileComplete === false;
+
   return (
     <div style={{ display:'flex', minHeight:'100vh', background:pageBg, fontFamily:"'Nunito',sans-serif" }}>
       <style>{`
@@ -664,7 +700,7 @@ export default function DashboardLayout() {
         `:``}
       `}</style>
 
-      {showEditProfile   && <EditProfileModal />}
+      {(showEditProfile || enforceProfile) && <EditProfileModal enforce={enforceProfile} />}
       {showDeleteConfirm && <DeleteModal />}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}

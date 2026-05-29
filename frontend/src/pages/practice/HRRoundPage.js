@@ -98,20 +98,16 @@ export default function HRRoundPage() {
         subtitle={`${HR_QUESTIONS.length} questions · Keyword-based feedback · Sample answers`} />
 
       {/* Stats + Resources bar */}
-      <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-        <div style={{ display:'flex', gap:16, padding:'10px 16px', background:'var(--surface)', borderRadius:10, border:'1px solid var(--border)' }}>
-          {[['Answered', answered, '#531697'], ['Total', HR_QUESTIONS.length, '#13a1a5'], ['Progress', `${Math.round((answered/HR_QUESTIONS.length)*100)}%`, '#47d372']].map(([l,v,c])=>(
-            <div key={l}><span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', color:c }}>{v}</span><span style={{ fontSize:'.68rem', color:'var(--text-3)', marginLeft:4 }}>{l}</span></div>
-          ))}
-        </div>
-        <div style={{ flex:1 }}/>
-          style={{ padding:'8px 16px', borderRadius:9, border:`1.5px solid ${showRes?'#531697':'var(--border)'}`, background:showRes?'rgba(83,22,151,0.07)':'var(--surface)', color:showRes?'#531697':'var(--text-3)', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem' }}>
+      <div style={{ display:'flex', gap:12, marginBottom:20 }}>
+        <Card style={{ flex:1, padding:14, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div><div style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:700 }}>PRACTICED</div><div style={{ fontSize:'1.2rem', fontWeight:800, color:'var(--text)', marginTop:4 }}>{answered}/{HR_QUESTIONS.length}</div></div>
+          <button onClick={()=>setShowRes(!showRes)} style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-2)', color:'var(--text)', fontWeight:700, cursor:'pointer', fontSize:'.78rem' }}>{showRes?'Hide Resources':'📚 Helpful Resources'}</button>
+        </Card>
       </div>
 
-      {/* Resources panel */}
       {showRes && (
-        <Card style={{ marginBottom:16, background:'rgba(124,58,237,0.03)', border:'1px solid rgba(124,58,237,0.12)' }}>
-          <SectionTitle>📚 Best HR Preparation Resources</SectionTitle>
+        <Card style={{ padding:16, marginBottom:20, background:'rgba(124,58,237,0.02)', borderColor:'rgba(124,58,237,0.2)' }}>
+          <div style={{ fontSize:'.85rem', fontWeight:800, color:'#7c3aed', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}><span style={{fontSize:'1.1rem'}}>📚</span> Reference Materials</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))', gap:8 }}>
             {resources.map((r,i)=>(
               <a key={i} href={r.url} target="_blank" rel="noreferrer"

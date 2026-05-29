@@ -122,7 +122,83 @@ function PendingNotes({ onRefresh }) {
   ));
 }
 
-function UsersTable() {
+function CreateUserForm({ onAdded }) {
+  const [form, setForm] = useState({ name:'', email:'', department:'CSE', role:'student' });
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+  async function submit(e) {
+    e.preventDefault();
+    setLoading(true); setMsg('');
+    try {
+      await axios.post(`${API}/users/admin-create`, form, { headers:tk() });
+      setMsg('✅ User created! Password sent via email.');
+      setForm({ name:'', email:'', department:'CSE', role:'student' });
+      onAdded();
+    } catch(err) { setMsg('❌ '+(err.response?.data?.error||err.message)); }
+    finally { setLoading(false); }
+  }
+  return (
+    <form onSubmit={submit}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:10 }}>
+        <div><Lbl req>Name</Lbl><input style={inp} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} required/></div>
+        <div><Lbl req>Email</Lbl><input style={inp} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} required/></div>
+        <div><Lbl req>Department</Lbl>
+          <select style={inp} value={form.department} onChange={e=>setForm(f=>({...f,department:e.target.value}))} required>
+            <option value="CSE">CSE</option>
+            <option value="CSAIML">CSAIML</option>
+            <option value="IT">IT</option>
+            <option value="ECE">ECE</option>
+            <option value="Mechanical">Mechanical</option>
+            <option value="Civil">Civil</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div><Lbl>Role</Lbl>
+          <select style={inp} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+            <option value="student">Student</option>
+            <option value="faculty">Faculty</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <Msg msg={msg}/>
+      <button type="submit" disabled={loading} style={{ marginTop:10, padding:'9px 18px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
+        {loading?'Creating...':'Create User'}
+      </button>
+    </form>
+  );
+}
+
+function BulkUserUpload({ onAdded }) {
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+  const sample = `[\n  {\n    "name": "John Doe",\n    "email": "john@example.com",\n    "department": "CSE",\n    "role": "student"\n  }\n]`;
+  async function submit(e) {
+    e.preventDefault();
+    setLoading(true); setMsg('');
+    try {
+      const users = JSON.parse(text);
+      const res = await axios.post(`${API}/users/admin-create-bulk`, { users }, { headers:tk() });
+      setMsg(`✅ ${res.data.inserted} users created!`);
+      setText('');
+      onAdded();
+    } catch(err) { setMsg('❌ '+(err.response?.data?.error||err.message)); }
+    finally { setLoading(false); }
+  }
+  return (
+    <form onSubmit={submit}>
+      <Lbl>Paste JSON Array:</Lbl>
+      <textarea style={{ ...inp, height:160, resize:'vertical', fontFamily:'monospace', fontSize:'.8rem' }} value={text} onChange={e=>setText(e.target.value)} placeholder={sample} required/>
+      <Msg msg={msg}/>
+      <button type="submit" disabled={loading||!text.trim()} style={{ marginTop:10, padding:'9px 18px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#13a1a5,#47d372)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
+        {loading?'Uploading...':'Bulk Upload Users'}
+      </button>
+    </form>
+  );
+}
+
+function UsersTable({ refreshKey }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState('students'); // students | faculty | admins
@@ -132,7 +208,16 @@ function UsersTable() {
   useEffect(() => {
     axios.get(`${API}/users`, { headers:tk() })
       .then(r=>setUsers(r.data.users||[])).catch(()=>[]).finally(()=>setLoading(false));
-  }, []);
+  }, [refreshKey]);
+
+  async function deleteUser(id) {
+    if (!window.confirm('Delete this user?')) return;
+    try {
+      await axios.delete(`${API}/users/${id}`, { headers:tk() });
+      setUsers(u=>u.filter(x=>x._id!==id));
+    } catch(err) { alert('Failed to delete: '+(err.response?.data?.error||err.message)); }
+  }
+
 
   const lc = { Beginner:'#f59e0b', Intermediate:'#531697', Expert:'#47d372' };
   const students = users.filter(u=>u.role==='student' && (!yearFilter||String(u.year)===yearFilter) && (!deptFilter||u.department===deptFilter));
@@ -172,7 +257,7 @@ function UsersTable() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
             <thead><tr style={{ borderBottom:'2px solid #e8edf5' }}>
-              {['Name','Email','Roll','Year','Dept','Level','Streak','ATS'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
+              {['Name','Email','Roll','Year','Dept','Level','Streak','ATS','Actions'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {students.map(u=>(
@@ -185,9 +270,12 @@ function UsersTable() {
                   <td style={{ padding:'8px 10px' }}><span style={{ padding:'2px 7px', borderRadius:999, background:`${lc[u.skillLevel]||'#531697'}15`, color:lc[u.skillLevel]||'#531697', fontWeight:700, fontSize:'.7rem' }}>{u.skillLevel||'Beginner'}</span></td>
                   <td style={{ padding:'8px 10px', color:'var(--text-2)' }}>🔥{u.streak||0}</td>
                   <td style={{ padding:'8px 10px', fontWeight:800, color:'#531697' }}>{u.atsScore||'—'}</td>
+                  <td style={{ padding:'8px 10px' }}>
+                    <button onClick={()=>deleteUser(u._id)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.06)', color:'#991b1b', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>Delete</button>
+                  </td>
                 </tr>
               ))}
-              {!students.length&&<tr><td colSpan={8} style={{ padding:16, textAlign:'center', color:'#b0bec9' }}>No students found</td></tr>}
+              {!students.length&&<tr><td colSpan={9} style={{ padding:16, textAlign:'center', color:'#b0bec9' }}>No students found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -198,7 +286,7 @@ function UsersTable() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
             <thead><tr style={{ borderBottom:'2px solid #e8edf5' }}>
-              {['Name','Email','Department','Joined','Role'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
+              {['Name','Email','Department','Joined','Role','Actions'].map(h=><th key={h} style={{ padding:'7px 10px', textAlign:'left', color:'var(--text-2)', fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'.72rem' }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {faculty.map(u=>(
@@ -208,9 +296,12 @@ function UsersTable() {
                   <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.department}</td>
                   <td style={{ padding:'8px 10px', color:'#b0bec9', fontSize:'.72rem' }}>{u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—'}</td>
                   <td style={{ padding:'8px 10px' }}><span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(4,44,93,0.08)', color:'#042c5d', fontWeight:700, fontSize:'.7rem' }}>Faculty</span></td>
+                  <td style={{ padding:'8px 10px' }}>
+                    <button onClick={()=>deleteUser(u._id)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.06)', color:'#991b1b', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>Delete</button>
+                  </td>
                 </tr>
               ))}
-              {!faculty.length&&<tr><td colSpan={5} style={{ padding:16, textAlign:'center', color:'#b0bec9' }}>No faculty found</td></tr>}
+              {!faculty.length&&<tr><td colSpan={6} style={{ padding:16, textAlign:'center', color:'#b0bec9' }}>No faculty found</td></tr>}
             </tbody>
           </table>
         </div>
@@ -220,14 +311,55 @@ function UsersTable() {
       {section==='admins' && (
         <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
           {admins.map(u=>(
-            <div key={u._id} style={{ padding:'10px 16px', borderRadius:10, background:'rgba(83,22,151,0.06)', border:'1px solid rgba(83,22,151,0.12)' }}>
-              <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name}</div>
-              <div style={{ fontSize:'.72rem', color:'var(--text-3)' }}>{u.email}</div>
+            <div key={u._id} style={{ padding:'10px 16px', borderRadius:10, background:'rgba(83,22,151,0.06)', border:'1px solid rgba(83,22,151,0.12)', display:'flex', alignItems:'center', gap:12 }}>
+              <div>
+                <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name}</div>
+                <div style={{ fontSize:'.72rem', color:'var(--text-3)' }}>{u.email}</div>
+              </div>
+              <button onClick={()=>deleteUser(u._id)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.06)', color:'#991b1b', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>Delete</button>
             </div>
           ))}
           {!admins.length&&<div style={{ color:'#b0bec9', fontSize:'.875rem' }}>No admins found</div>}
         </div>
       )}
+    </div>
+  );
+}
+
+function ManageCompanies({ refreshKey, onRefresh }) {
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    axios.get(`${API}/companies`, { headers:tk() })
+      .then(r=>setCompanies(r.data.companies||[])).catch(()=>[]).finally(()=>setLoading(false));
+  }, [refreshKey]);
+  
+  async function deleteCompany(id) {
+    if (!window.confirm('Delete this company?')) return;
+    try {
+      await axios.delete(`${API}/companies/${id}`, { headers:tk() });
+      setCompanies(c=>c.filter(x=>x._id!==id));
+    } catch(err) { alert('Failed to delete: '+(err.response?.data?.error||err.message)); }
+  }
+  
+  return (
+    <div>
+      <AddCompanyForm onAdded={onRefresh} />
+      <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', margin:'24px 0 16px 0', color:'var(--text)' }}>🏢 All Companies ({companies.length})</h3>
+      {loading ? <div style={{ color:'#b0bec9' }}>Loading...</div> :
+       companies.length === 0 ? <div style={{ color:'#b0bec9', fontSize:'.85rem' }}>No companies found.</div> :
+       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:12 }}>
+         {companies.map(c => (
+           <div key={c._id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderRadius:10, border:'1px solid #e8edf5', background:'#fafbff' }}>
+             <div style={{ flex:1 }}>
+               <div style={{ fontWeight:800, fontSize:'.88rem', color:'var(--text)' }}>{c.name}</div>
+               <div style={{ fontSize:'.72rem', color:'var(--text-3)', marginTop:2 }}>Sector: {c.sector} · Status: {c.status}</div>
+             </div>
+             <button onClick={()=>deleteCompany(c._id)} style={{ padding:'5px 10px', borderRadius:7, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.06)', color:'#991b1b', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.75rem' }}>Delete</button>
+           </div>
+         ))}
+       </div>
+      }
     </div>
   );
 }
@@ -347,9 +479,17 @@ export default function AdminPage() {
         ))}
       </div>
       {tab==='notes'    && <Section title="📋 Notes Awaiting Approval"><PendingNotes onRefresh={()=>setRefresh(r=>r+1)}/></Section>}
-      {tab==='company'  && <Section title="🏢 Add Company Profile"><AddCompanyForm onAdded={()=>setRefresh(r=>r+1)}/></Section>}
+      {tab==='company'  && <Section title="🏢 Manage Companies"><ManageCompanies refreshKey={refresh} onRefresh={()=>setRefresh(r=>r+1)}/></Section>}
       {tab==='aptitude' && <Section title="🎯 Bulk Upload Aptitude Questions"><BulkAptitudeUpload onAdded={()=>setRefresh(r=>r+1)}/></Section>}
-      {tab==='users'    && <Section title="👥 All Users"><UsersTable/></Section>}
+      {tab==='users'    && (
+        <>
+          <div style={{ display:'grid', gridTemplateColumns:window.innerWidth<768?'1fr':'1fr 1fr', gap:20 }}>
+            <Section title="➕ Create User"><CreateUserForm onAdded={()=>setRefresh(r=>r+1)}/></Section>
+            <Section title="📄 Bulk Upload Users (JSON)"><BulkUserUpload onAdded={()=>setRefresh(r=>r+1)}/></Section>
+          </div>
+          <Section title="👥 All Users"><UsersTable refreshKey={refresh}/></Section>
+        </>
+      )}
       {tab==='drives'   && <Section title="🗓️ Placement Drives"><ManageDrives onRefresh={()=>setRefresh(r=>r+1)}/></Section>}
     </div>
   );

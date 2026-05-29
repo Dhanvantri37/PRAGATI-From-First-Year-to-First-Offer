@@ -177,6 +177,8 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 
   const [debugging, setDebugging] = useState(false);
   const [debugResult, setDebugResult] = useState(null);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
@@ -252,6 +254,25 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
       setDebugResult({ verdict:'review', verdictMessage:'Debug service offline. Code syntax checked.' });
     } finally {
       setDebugging(false);
+    }
+  };
+
+  const handleRunCode = async () => {
+    if (!code.trim()) return;
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const res = await fetch(`${API}/compile`, {
+        method:'POST',
+        headers:tks(),
+        body: JSON.stringify({ code, language: lang })
+      });
+      const d = await res.json();
+      setRunResult(d);
+    } catch {
+      setRunResult({ output: 'Error connecting to compiler service.' });
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -505,6 +526,17 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
             </div>
           </div>
 
+          {/* Compile panel */}
+          {runResult && (
+            <div style={{ maxHeight:200, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px', background:'#020617', color:'#4ade80', fontSize:'.8rem', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+                <strong style={{ color:'#94a3b8' }}>Execution Output:</strong>
+                <button onClick={()=>setRunResult(null)} style={{ background:'transparent', border:'none', color:'#ef4444', cursor:'pointer' }}>✖</button>
+              </div>
+              {runResult.output}
+            </div>
+          )}
+
           {/* Debug panel */}
           {debugResult && (
             <div style={{ maxHeight:260, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px' }}>
@@ -514,9 +546,14 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 
           {/* Action buttons footer */}
           <div style={{ padding:'12px 18px', background:'#111827', borderTop:'1px solid #1f2937', display:'flex', gap:8, justifyContent:'space-between', alignItems:'center' }}>
-            <button onClick={handleDebug} disabled={debugging || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:debugging?'transparent':'rgba(129,140,248,0.1)', color:'#818cf8', fontWeight:700, fontSize:'.82rem', cursor:debugging||!code.trim()?'not-allowed':'pointer' }}>
-              {debugging ? 'Analysing...' : '🤖 AI Analyse Code'}
-            </button>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={handleRunCode} disabled={running || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:running?'transparent':'rgba(74,222,128,0.1)', color:'#4ade80', fontWeight:700, fontSize:'.82rem', cursor:running||!code.trim()?'not-allowed':'pointer' }}>
+                {running ? 'Running...' : '▶ Run Code'}
+              </button>
+              <button onClick={handleDebug} disabled={debugging || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:debugging?'transparent':'rgba(129,140,248,0.1)', color:'#818cf8', fontWeight:700, fontSize:'.82rem', cursor:debugging||!code.trim()?'not-allowed':'pointer' }}>
+                {debugging ? 'Analysing...' : '🤖 AI Analyse Code'}
+              </button>
+            </div>
             <div style={{ display:'flex', gap:8 }}>
               {isSolved ? (
                 <span style={{ color:'#4ade80', fontSize:'.85rem', fontWeight:800 }}>🎉 You solved this problem!</span>
@@ -857,9 +894,14 @@ export default function ProblemsPage() {
                     <h4 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', margin:'0 0 6px 0' }}>{problem.title}</h4>
                     <p style={{ fontSize:'.72rem', color:'var(--text-3)', margin:0 }}>Topic: {problem.topic}</p>
                   </div>
-                  <button onClick={() => setActiveWorkspaceProblem(problem)} style={{ width:'100%', marginTop:12, padding:'8px 0', borderRadius:8, background:isSolved?'rgba(71,211,114,0.06)':'linear-gradient(135deg,#531697,#13a1a5)', color:isSolved?'#47d372':'#fff', border:isSolved?'1px solid #47d372':'none', fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s' }}>
-                    {isSolved ? 'Review Solution' : 'Solve Target →'}
-                  </button>
+                  <div style={{ display:'flex', gap:8, marginTop:12 }}>
+                    <button onClick={() => setActiveWorkspaceProblem(problem)} style={{ flex:1, padding:'8px 0', borderRadius:8, background:isSolved?'rgba(71,211,114,0.06)':'linear-gradient(135deg,#531697,#13a1a5)', color:isSolved?'#47d372':'#fff', border:isSolved?'1px solid #47d372':'none', fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s' }}>
+                      {isSolved ? 'Review Solution' : 'Solve Target →'}
+                    </button>
+                    <a href={`https://leetcode.com/problems/${problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, padding:'8px 0', borderRadius:8, background:'rgba(255,255,255,0.05)', color:'#cbd5e1', border:'1px solid var(--border)', fontWeight:800, fontSize:'.78rem', textDecoration:'none' }}>
+                      Solve on LeetCode ↗
+                    </a>
+                  </div>
                 </div>
               );
             })}
