@@ -16,6 +16,7 @@ const ALL_EVENTS = [
 export function useGDSocket({ onEvent } = {}) {
   const socketRef = useRef(null);
   const onEventRef = useRef(onEvent);
+  const lastJoinPayloadRef = useRef(null);
 
   useEffect(() => {
     onEventRef.current = onEvent;
@@ -32,7 +33,13 @@ export function useGDSocket({ onEvent } = {}) {
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => console.log('Socket connected', socket.id));
+    socket.on('connect', () => {
+      console.log('Socket connected', socket.id);
+      if (lastJoinPayloadRef.current) {
+        console.log('[Socket] Reconnected, re-emitting join-room', lastJoinPayloadRef.current);
+        socket.emit('join-room', lastJoinPayloadRef.current);
+      }
+    });
     socket.on('disconnect', (reason) => console.log('Socket disconnected', reason));
     socket.on('connect_error', (err) => console.error('Socket connection error', err));
 
@@ -43,6 +50,9 @@ export function useGDSocket({ onEvent } = {}) {
   }, []);
 
   const emit = useCallback((event, data) => {
+    if (event === 'join-room') {
+      lastJoinPayloadRef.current = data;
+    }
     socketRef.current?.emit(event, data);
   }, []);
 
