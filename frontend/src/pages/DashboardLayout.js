@@ -1181,11 +1181,13 @@ export default function DashboardLayout() {
 // ── Mobile bottom navigation bar ─────────────────────────────────────────────
 function MobileBottomNav({ role, dm }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const containerRef = useRef(null);
   const draggedRef = useRef(false);
   const startXRef = useRef(0);
   const touchingRef = useRef(false);
   const scrollEndTimeoutRef = useRef(null);
+  const clickedIndexRef = useRef(null); // Ref to track clicked item and prevent path-change race snaps
 
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
@@ -1198,7 +1200,7 @@ function MobileBottomNav({ role, dm }) {
     ];
   }, [links]);
 
-  // Real-time high-performance 3D cylindrical scroll calculations with infinite loop checks
+  // Real-time high-performance 2D dynamic cylindrical wheel scroll calculations
   const updateTransforms = () => {
     const el = containerRef.current;
     if (!el) return;
@@ -1212,19 +1214,12 @@ function MobileBottomNav({ role, dm }) {
       const offset = itemMid - containerMid;
       const distance = halfWidth > 0 ? offset / halfWidth : 0;
       
-      // Calculate normalized 3D transform variables (fine-tuned to prevent icon overlaps)
-      const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); // Max active scale is 1.32x for safety
-      
-      // Determine if this item is the active centerpiece (FAB)
-      const isActiveCenter = item.classList.contains('active-center');
-      // Set rotation to 0 for the active centerpiece (FAB) to completely eliminate unexpected spinning/rotation glitches during page changes or re-renders
-      const rotate = isActiveCenter ? 0 : distance * 22;
-      
-      // Parabolic curve: center item rises to -18px, side items curve down to 8px
-      const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18;
+      // Exact original 2D styling values for gorgeous, warp-free flat layout:
+      const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); 
+      const rotate = distance * 22; // Beautiful original 2D rotation angle
+      const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18; // Classic curved rises
       const opacity = Math.max(0.48, 1.0 - Math.abs(distance) * 0.58);
 
-      // Set CSS custom properties on the DOM style directly for buttery 60fps GPU smoothness
       item.style.setProperty('--nav-scale', scale);
       item.style.setProperty('--nav-rot', `${rotate}deg`);
       item.style.setProperty('--nav-ty', `${translateY}px`);
@@ -1239,50 +1234,22 @@ function MobileBottomNav({ role, dm }) {
     if (!el) return;
 
     const singleSetWidth = el.scrollWidth / 3;
+    const buffer = el.clientWidth / 2; // Allow scroll offset to enter Set 0 and Set 2 up to half the screen width for perfect centering
     let adjusted = false;
 
     // If user scrolls too far right into Set 2, teleport back to the middle Set 1
-    if (el.scrollLeft >= singleSetWidth * 2) {
+    if (el.scrollLeft >= (singleSetWidth * 2) - buffer) {
       el.scrollLeft -= singleSetWidth;
       adjusted = true;
     }
     // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
-    else if (el.scrollLeft < singleSetWidth) {
+    else if (el.scrollLeft < singleSetWidth - buffer) {
       el.scrollLeft += singleSetWidth;
       adjusted = true;
     }
 
     if (adjusted) {
       updateTransforms();
-    }
-  };
-
-  // Find the item closest to the center and gently center-align it (smooth inertial snap)
-  const triggerInertialSnap = () => {
-    const el = containerRef.current;
-    if (!el || touchingRef.current) return;
-
-    const containerMid = el.scrollLeft + el.clientWidth / 2;
-    const items = el.querySelectorAll('.pragati-bottom-nav-item');
-    let closestItem = null;
-    let minDistance = Infinity;
-
-    items.forEach((item) => {
-      const itemMid = item.offsetLeft + item.clientWidth / 2;
-      const distance = Math.abs(itemMid - containerMid);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestItem = item;
-      }
-    });
-
-    if (closestItem) {
-      const targetScrollLeft = closestItem.offsetLeft - (el.clientWidth / 2) + (closestItem.clientWidth / 2);
-      
-      // BUG FIX: Prevent infinite loops of small fractional smooth scrolls generating scroll events.
-      if (Math.abs(el.scrollLeft - targetScrollLeft) > 5) {
-        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-      }
     }
   };
 
@@ -1301,14 +1268,13 @@ function MobileBottomNav({ role, dm }) {
         }
         updateTransforms();
         
-        // Trigger inertial snap when scrolling decelerates and stops
+        // Loop boundary verification when scrolling decelerates and stops
         clearTimeout(scrollEndTimeoutRef.current);
         scrollEndTimeoutRef.current = setTimeout(() => {
           if (!touchingRef.current) {
             checkLoopBounds();
-            triggerInertialSnap();
           }
-        }, 140);
+        }, 120);
       });
     };
 
@@ -1333,18 +1299,44 @@ function MobileBottomNav({ role, dm }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [links]); // Recalculate when role-based links change
 
-  // Center the active menu item perfectly in the middle set (Set 1) upon path change
+  // Center the active menu item perfectly upon path change, keeping it in the current set loop
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const timer = setTimeout(() => {
-      const activeEl = el.querySelector('.active-center');
-      if (activeEl) {
-        const targetScrollLeft = activeEl.offsetLeft - (el.clientWidth / 2) + (activeEl.clientWidth / 2);
-        // Use 'auto' instead of 'smooth' to prevent automatic distracting spin sliding on page load/transitions
-        el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
-        // Force update transformations immediately
+      let targetEl = null;
+
+      if (clickedIndexRef.current !== null) {
+        // If navigation was triggered by clicking a bottom nav item, the click handler has already
+        // initiated a smooth scroll to the mapped Set 1 item. We just clear the ref and let it animate naturally!
+        clickedIndexRef.current = null;
+        updateTransforms();
+        return;
+      }
+
+      // Otherwise (external navigation), find the active element closest to the current viewport center
+      const activeEls = el.querySelectorAll('.active-center');
+      if (activeEls.length > 0) {
+        const containerMid = el.scrollLeft + el.clientWidth / 2;
+        let minDistance = Infinity;
+
+        activeEls.forEach((activeEl) => {
+          const itemMid = activeEl.offsetLeft + activeEl.clientWidth / 2;
+          const distance = Math.abs(itemMid - containerMid);
+          if (distance < minDistance) {
+            minDistance = distance;
+            targetEl = activeEl;
+          }
+        });
+      }
+
+      if (targetEl) {
+        const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
+        // Only run instant positioning if there is a real layout deviation
+        if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
+          el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
+        }
         updateTransforms();
       }
     }, 150);
@@ -1359,7 +1351,11 @@ function MobileBottomNav({ role, dm }) {
     startXRef.current = e.touches ? e.touches[0].clientX : e.clientX;
     
     const el = containerRef.current;
-    if (el) el.style.scrollBehavior = 'auto'; // Disable smooth during drag for native pixel response
+    if (el) {
+      el.style.scrollBehavior = 'auto'; // Disable smooth during drag for native pixel response
+      // Instantly halt any active programmatic smooth scroll/snapping animations on finger down
+      el.scrollTo({ left: el.scrollLeft, behavior: 'auto' });
+    }
   };
 
   const handleTouchMove = (e) => {
@@ -1373,11 +1369,10 @@ function MobileBottomNav({ role, dm }) {
   const handleTouchEnd = () => {
     touchingRef.current = false;
     const el = containerRef.current;
-    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions for snapping
+    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions
     
-    // Teleport and snap once finger is released to avoid touch dragging interruptions
+    // Teleport once finger is released to keep it within safe middle bounds
     checkLoopBounds();
-    triggerInertialSnap();
   };
 
   return (
@@ -1395,11 +1390,11 @@ function MobileBottomNav({ role, dm }) {
       >
         {tripledLinks.map((l, idx) => {
           const isHomeActive = l.to === '/dashboard' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/');
-          const isPathActive = isHomeActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
+          const isProblemsActive = l.to === '/dashboard/problems' && location.pathname.startsWith('/dashboard/practice');
+          const isPathActive = isHomeActive || isProblemsActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
           
-          // Only the matching item inside Set 1 (middle copy) acts as the active-center selector
-          // so the centering system always scrolls securely to the middle of the scroll area
-          const isActive = isPathActive && l.set === 1;
+          // The active centerpiece highlight class is added in all sets so whichever set copy is in front is styled active
+          const isActive = isPathActive;
 
           return (
             <NavLink
@@ -1412,9 +1407,27 @@ function MobileBottomNav({ role, dm }) {
                   e.stopPropagation();
                   return;
                 }
-                // Click smooth centers instantly
-                const targetScrollLeft = e.currentTarget.offsetLeft - (containerRef.current.clientWidth / 2) + (e.currentTarget.clientWidth / 2);
-                containerRef.current.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                
+                // Prevent standard route link default transition to coordinate smooth snap scrolls safely
+                e.preventDefault();
+
+                // Map the clicked index to its counterpart in Set 1 (middle set) to avoid boundary glitches
+                const N = links.length;
+                const mappedIdx = N + (idx % N);
+                clickedIndexRef.current = mappedIdx; 
+
+                const el = containerRef.current;
+                if (el) {
+                  const items = el.querySelectorAll('.pragati-bottom-nav-item');
+                  const targetEl = items[mappedIdx];
+                  if (targetEl) {
+                    const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
+                    el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
+                  }
+                }
+
+                // Navigate programmatically using local React Router
+                navigate(l.to);
               }}
               className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
             >

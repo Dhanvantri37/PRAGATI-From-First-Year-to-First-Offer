@@ -99,14 +99,14 @@ export default function GDRoomPage() {
   useEffect(() => { moderatorVoiceRef.current   = moderatorVoice;   }, [moderatorVoice]);
   useEffect(() => { participantVoiceRef.current = participantVoice; }, [participantVoice]);
 
-  function stopAllVoice() {
+  const stopAllVoice = useCallback(() => {
     moderatorVoice.stopAll();
     participantVoice.stopAll();
-  }
+  }, [moderatorVoice, participantVoice]);
 
   // ── WebRTC ────────────────────────────────────────────────────────────────
   const {
-    getLocalStream, announceReady, handleWebRTCEvent,
+    announceReady, handleWebRTCEvent,
     setMuted: setRTCMuted, setCameraOff: setRTCCamOff,
     localStreamRef: rtcLocalRef,
   } = useWebRTC({
@@ -141,7 +141,7 @@ export default function GDRoomPage() {
 
   // ── Socket ────────────────────────────────────────────────────────────────
   let socketEmit = () => {};
-  const { emit, socket, getSocketId } = useGDSocket({
+  const { emit, getSocketId } = useGDSocket({
     onEvent: useCallback((ev, data) => {
       // Route WebRTC events straight to the handler
       if (['webrtc-offer','webrtc-answer','webrtc-ice','webrtc-peer-joined'].includes(ev)) {
@@ -274,7 +274,8 @@ export default function GDRoomPage() {
 
         default: break;
       }
-    }, [handleWebRTCEvent, announceReady])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleWebRTCEvent, announceReady, stopAllVoice])
   });
   socketEmit = emit;
 
