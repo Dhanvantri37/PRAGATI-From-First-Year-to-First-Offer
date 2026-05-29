@@ -1,4 +1,6 @@
 const router = require('express').Router();
+const axios = require('axios');
+const mongoose = require('mongoose');
 const { Problem, UserProblem } = require('../models/index');
 const User = require('../models/User.model');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
@@ -22,35 +24,46 @@ function isSameLocalDay(d1, d2) {
 }
 
 // ─── GET /api/problems/daily ──────────────────────────────────────────────────
-// Assigns exactly ONE problem per user per calendar day.
-// Returns the same problem on every subsequent visit that day.
+// Assigns exactly THREE problems per user per calendar day (1 Easy, 1 Medium, 1 Hard).
+// Returns the same problems on every subsequent visit that day.
 router.get('/daily', authenticate, async (req, res) => {
   try {
     const user       = req.user;
-    const difficulty = DIFFICULTY_MAP[user.skillLevel] || 'Easy';
     const today      = todayLocal();
 
-    // ── Already assigned today? Return it immediately (same problem every visit) ──
-    const existing = await UserProblem.findOne({
+    // ── Already assigned today? Return them immediately ──
+    const existing = await UserProblem.find({
       userId:    user._id,
+      isDaily:   true,
       createdAt: { $gte: today },
     }).populate('problemId');
 
-    if (existing?.problemId) {
+    if (existing.length === 3) {
       // Calculate hours remaining until tomorrow midnight
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const hoursLeft = Math.max(0, Math.floor((tomorrow - Date.now()) / 3600000));
 
+      const dailyProblems = existing.map(up => ({
+        userProblem: up,
+        problem: up.problemId
+      }));
+
       return res.json({
-        userProblem:          existing,
-        problem:              existing.problemId,
+        dailyProblems,
         hoursUntilNext:       hoursLeft,
         alreadyAssignedToday: true,
       });
     }
 
-    // ── Pick a new problem (exclude last 14 days for variety) ─────────────────
+    // Clean up any incomplete daily assignments for today (if any exist)
+    await UserProblem.deleteMany({
+      userId:  user._id,
+      isDaily: true,
+      createdAt: { $gte: today }
+    });
+
+    // ── Pick new problems (exclude last 14 days for variety) ─────────────────
     const twoWeeksAgo = new Date(today);
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
@@ -58,38 +71,53 @@ router.get('/daily', authenticate, async (req, res) => {
       .find({ userId: user._id, createdAt: { $gte: twoWeeksAgo } })
       .select('problemId')).map(u => u.problemId);
 
-    // Try matched difficulty → any unseen → any
-    let problems = await Problem.aggregate([
-      { $match: { difficulty, _id: { $nin: recentIds } } },
-      { $sample: { size: 1 } },
-    ]);
-    if (!problems.length) {
-      problems = await Problem.aggregate([
-        { $match: { _id: { $nin: recentIds } } },
+    // Helper to pick a problem of specific difficulty
+    async function pickProblem(difficulty) {
+      let problem = await Problem.aggregate([
+        { $match: { source: 'LeetCode', difficulty, _id: { $nin: recentIds } } },
         { $sample: { size: 1 } },
       ]);
+      if (!problem.length) {
+        problem = await Problem.aggregate([
+          { $match: { source: 'LeetCode', difficulty } },
+          { $sample: { size: 1 } },
+        ]);
+      }
+      if (!problem.length) {
+        problem = await Problem.aggregate([
+          { $match: { difficulty } },
+          { $sample: { size: 1 } },
+        ]);
+      }
+      return problem[0];
     }
-    if (!problems.length) {
-      problems = await Problem.aggregate([{ $sample: { size: 1 } }]);
-    }
-    if (!problems.length) {
+
+    const easyProb = await pickProblem('Easy');
+    const medProb  = await pickProblem('Medium');
+    const hardProb = await pickProblem('Hard');
+
+    if (!easyProb || !medProb || !hardProb) {
       return res.status(404).json({
-        message: 'No problems in database. Run: node src/utils/leetcode-problems-seed.js',
+        message: 'Problems database empty. Please wait a few seconds for LeetCode background sync to complete, then refresh!',
       });
     }
 
-    const up = await UserProblem.create({
-      userId:    user._id,
-      problemId: problems[0]._id,
-      status:    'assigned',
-    });
+    // Create UserProblem records
+    const upEasy = await UserProblem.create({ userId: user._id, problemId: easyProb._id, status: 'assigned', isDaily: true });
+    const upMed  = await UserProblem.create({ userId: user._id, problemId: medProb._id, status: 'assigned', isDaily: true });
+    const upHard = await UserProblem.create({ userId: user._id, problemId: hardProb._id, status: 'assigned', isDaily: true });
+
+    const dailyProblems = [
+      { userProblem: upEasy, problem: easyProb },
+      { userProblem: upMed, problem: medProb },
+      { userProblem: upHard, problem: hardProb }
+    ];
 
     res.json({
-      userProblem:          up,
-      problem:              problems[0],
+      dailyProblems,
       hoursUntilNext:       24,
       alreadyAssignedToday: false,
-      message:              '🎯 New daily problem! Solve it before midnight to keep your streak.',
+      message:              '🎯 New daily targets! Solve at least 1 to advance your streak, solve all 3 for maximum heatmap purple shading!',
     });
   } catch (err) {
     console.error('[/daily]', err);
@@ -158,7 +186,7 @@ router.post('/:id/solve', authenticate, async (req, res) => {
       });
     }
 
-    const up = await UserProblem.findOneAndUpdate(
+    let up = await UserProblem.findOneAndUpdate(
       { userId: req.user._id, problemId: req.params.id },
       {
         status:           'solved',
@@ -170,7 +198,21 @@ router.post('/:id/solve', authenticate, async (req, res) => {
       },
       { new: true }
     );
-    if (!up) return res.status(404).json({ error: 'Problem assignment not found' });
+
+    if (!up) {
+      // Create new solved record if not pre-assigned
+      up = await UserProblem.create({
+        userId:           req.user._id,
+        problemId:        req.params.id,
+        status:           'solved',
+        solvedAt:         new Date(),
+        approachNotes,
+        solutionCode,
+        selfRating,
+        timeTakenMinutes: timeTakenMinutes || null,
+        isDaily:          false
+      });
+    }
 
     // ── Streak logic (original, local-day based) ──────────────────────────────
     const user      = await User.findById(req.user._id);
@@ -282,6 +324,164 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// ─── GET /api/problems/:idOrTitle — get problem details (with live LeetCode fetching) ──
+router.get('/:idOrTitle', authenticate, async (req, res) => {
+  try {
+    const { idOrTitle } = req.params;
+    let problem;
+
+    if (mongoose.Types.ObjectId.isValid(idOrTitle)) {
+      problem = await Problem.findById(idOrTitle);
+    } else {
+      // Find by title (case-insensitive regex)
+      problem = await Problem.findOne({ title: { $regex: new RegExp(`^${idOrTitle.trim()}$`, 'i') } });
+    }
+
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    // Lazily fetch description & hints from LeetCode if not present or generic
+    const isGeneric = !problem.description || 
+                      problem.description.trim().length === 0 || 
+                      problem.description.includes('Given the input parameters representing');
+
+    let updated = false;
+
+    if (isGeneric) {
+      console.log(`[LeetCode Scrape] Fetching live description for: ${problem.title}`);
+      
+      // Extract titleSlug from url, or generate it
+      let titleSlug = '';
+      if (problem.url) {
+        const parts = problem.url.split('/').filter(Boolean);
+        // LeetCode URLs are typically https://leetcode.com/problems/title-slug/
+        titleSlug = parts[parts.length - 1]; 
+      }
+      if (!titleSlug || titleSlug === 'problems') {
+        titleSlug = problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+
+      const details = await fetchLeetCodeProblemDetails(titleSlug);
+      if (details) {
+        if (details.content) {
+          problem.description = details.content;
+          updated = true;
+        }
+        if (details.hints && details.hints.length > 0) {
+          problem.hints = details.hints;
+          updated = true;
+        }
+      }
+    }
+
+    // Lazy-load dynamic editorial if missing and we have description
+    if (problem.description && !problem.editorial) {
+      console.log(`[Dynamic Editorial] Generating live editorial for: ${problem.title}`);
+      try {
+        const editorial = await generateEditorial(
+          problem.title,
+          problem.description,
+          problem.difficulty,
+          problem.topic || 'Algorithms'
+        );
+        if (editorial) {
+          problem.editorial = editorial;
+          updated = true;
+        }
+      } catch (err) {
+        console.error('[Dynamic Editorial Error]', err.message);
+      }
+    }
+
+    if (updated) {
+      await problem.save();
+      console.log(`[LeetCode Scrape] Saved dynamic data (description, hints, editorial) for: ${problem.title}`);
+    }
+
+    res.json({ problem });
+  } catch (err) {
+    console.error('[/problems/:idOrTitle]', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Helper to generate a detailed Editorial solution using Gemini
+async function generateEditorial(problemTitle, description, difficulty, topic) {
+  const key = process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY;
+  if (!key) {
+    console.warn('[Dynamic Editorial] No GEMINI_API_KEY found, skipping AI editorial generation.');
+    return '';
+  }
+
+  // Remove HTML tags for prompt cleanliness
+  const cleanDescription = (description || '').replace(/<[^>]*>/g, '').trim();
+
+  const prompt = `Write an exceptional, detailed, and highly comprehensive software engineering interview Editorial Solution in Markdown for the LeetCode problem "${problemTitle}".
+Difficulty: ${difficulty}
+Topic: ${topic}
+
+Problem Description:
+${cleanDescription}
+
+Requirements:
+1. Intuition & High-level Approach (Explain the optimal way to think about the problem).
+2. Step-by-step Algorithm breakdown.
+3. Optimal Implementation (Provide a clean JavaScript solution and a clean Python solution with descriptive comments).
+4. Time & Space Complexity analysis (Analyze and justify the bounds, e.g., O(N) time and O(1) space, explaining why).
+
+Return ONLY the Markdown content. Do not wrap in extra introductory or trailing text. Start directly with "### Editorial Solution".`;
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 2548
+        }
+      },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000
+      }
+    );
+    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return text.trim();
+  } catch (err) {
+    console.error(`[Dynamic Editorial Generator Error] Failed for ${problemTitle}:`, err.message);
+    return '';
+  }
+}
+
+// Helper to fetch details from LeetCode GraphQL
+async function fetchLeetCodeProblemDetails(titleSlug) {
+  try {
+    const response = await axios.post('https://leetcode.com/graphql', {
+      query: `
+        query questionData($titleSlug: String!) {
+          question(titleSlug: $titleSlug) {
+            content
+            hints
+          }
+        }
+      `,
+      variables: { titleSlug }
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    return response.data?.data?.question;
+  } catch (err) {
+    console.error(`[GraphQL Fetch Error] Failed for ${titleSlug}:`, err.message);
+    return null;
+  }
+}
+
 // ─── POST /api/problems — admin/faculty ──────────────────────────────────────
 router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
@@ -302,4 +502,116 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
   }
 });
 
+// ─── POST /api/problems/sync — admin/faculty manual sync ───────────────────
+router.post('/sync', authenticate, authorize('admin', 'faculty'), async (req, res) => {
+  try {
+    syncLeetCodeProblems()
+      .then(cnt => console.log(`[Manual Sync] Upserted ${cnt} LeetCode problems.`))
+      .catch(err => console.error('[Manual Sync Error]', err));
+    res.json({ message: '🔄 LeetCode problems synchronization started in background.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── LeetCode GraphQL Fetcher / Synchronizer ─────────────────────────────────
+async function syncLeetCodeProblems() {
+  try {
+    console.log('🔄 Starting LeetCode problems synchronization...');
+    let totalCount = 1000;
+    let skip = 0;
+    let limit = 1000;
+    let allQuestions = [];
+
+    // Fetch in chunks of 1000 to avoid payload size limit / timeout
+    while (skip < totalCount) {
+      const response = await axios.post('https://leetcode.com/graphql', {
+        query: `
+          query problemsetQuestionList($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+            problemsetQuestionList: questionList(
+              categorySlug: $categorySlug
+              limit: $limit
+              skip: $skip
+              filters: $filters
+            ) {
+              total: totalNum
+              questions: data {
+                acRate
+                difficulty
+                questionFrontendId
+                isPaidOnly
+                title
+                titleSlug
+                topicTags {
+                  name
+                  id
+                  slug
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          categorySlug: "all-code-questions",
+          skip: skip,
+          limit: limit,
+          filters: {}
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 25000
+      });
+
+      const data = response.data?.data?.problemsetQuestionList;
+      if (!data) {
+        console.error('❌ Failed to fetch chunk from LeetCode GraphQL API');
+        break;
+      }
+
+      totalCount = data.total;
+      allQuestions = allQuestions.concat(data.questions);
+      skip += limit;
+      console.log(`Fetched ${allQuestions.length} of ${totalCount} problems...`);
+    }
+
+    if (allQuestions.length > 0) {
+      console.log(`💾 Syncing ${allQuestions.length} LeetCode problems to MongoDB...`);
+      const operations = allQuestions.map(q => {
+        const titleSlug = q.titleSlug;
+        const topic = q.topicTags?.[0]?.name || 'Algorithms';
+        const tags = q.topicTags?.map(t => t.name) || [];
+        return {
+          updateOne: {
+            filter: { source: 'LeetCode', problemId: String(q.questionFrontendId) },
+            update: {
+              $set: {
+                title: q.title,
+                url: `https://leetcode.com/problems/${titleSlug}/`,
+                difficulty: q.difficulty,
+                topic: topic,
+                tags: tags,
+                acceptanceRate: q.acRate,
+                source: 'LeetCode'
+              }
+            },
+            upsert: true
+          }
+        };
+      });
+
+      await Problem.bulkWrite(operations);
+      console.log('✅ LeetCode problems synchronized successfully!');
+      return allQuestions.length;
+    }
+    return 0;
+  } catch (err) {
+    console.error('❌ LeetCode problems synchronization error:', err.message);
+    throw err;
+  }
+}
+
 module.exports = router;
+module.exports.syncLeetCodeProblems = syncLeetCodeProblems;

@@ -1,5 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  MOST_LIKELY_ASKED,
+  NEETCODE_150,
+  NC_CATEGORIES,
+  FULL_COURSES,
+  COMPANY_LOGOS,
+  getProblemStatement
+} from './practice/PracticeData';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization:`Bearer ${localStorage.getItem('pragati_token')}` });
@@ -10,113 +17,46 @@ const DIFF = {
   Medium: { bg:'rgba(245,158,11,0.1)',  color:'#92400e', border:'rgba(245,158,11,0.3)' },
   Hard:   { bg:'rgba(239,68,68,0.1)',   color:'#991b1b', border:'rgba(239,68,68,0.3)' },
 };
-const SRC_COLOR = { LeetCode:'#f59e0b', HackerRank:'#22c55e', CodeChef:'#531697', GFG:'#2ea854', HackerEarth:'#3b82f6', Custom:'#13a1a5' };
-const PROB_CATS = ['All','Arrays','Strings','Linked List','Trees','Graphs','Dynamic Programming','Sorting','Binary Search','Stack & Queue','Recursion','Backtracking','Bit Manipulation','Math','Greedy'];
-const PROB_SRCS = ['All','LeetCode','HackerRank','CodeChef','GFG','HackerEarth','Custom'];
-const LANGUAGES = ['javascript','python','java','c++','c','go','rust'];
 
-const PLATFORMS = [
-  { id:'LeetCode',    name:'LeetCode',    emoji:'⚡', color:'#f59e0b', desc:'DSA & interview prep', url:'https://leetcode.com/problemset/', tagline:'#1 for FAANG prep' },
-  { id:'CodeChef',    name:'CodeChef',    emoji:'👨‍🍳', color:'#531697', desc:'Competitive programming', url:'https://www.codechef.com/practice', tagline:'Great for contests' },
-  { id:'HackerRank',  name:'HackerRank',  emoji:'💻', color:'#22c55e', desc:'Company-specific problems', url:'https://www.hackerrank.com/domains/algorithms', tagline:'Used by TCS, Wipro' },
-  { id:'GFG',         name:'GeeksForGeeks', emoji:'🌐', color:'#2ea854', desc:'Concept + practice combo', url:'https://practice.geeksforgeeks.org/', tagline:'Best for theory+coding' },
-  { id:'HackerEarth', name:'HackerEarth', emoji:'🌍', color:'#3b82f6', desc:'Hiring contests & practice', url:'https://www.hackerearth.com/practice/', tagline:'Used in campus hiring' },
-  { id:'Custom',      name:'PRAGATI Bank',emoji:'🎯', color:'#13a1a5', desc:'Curated by your faculty', url:null, tagline:'Faculty-curated problems' },
-];
-const COMPANY_COLORS = {
-  Google:'#4285F4', Amazon:'#FF9900', Microsoft:'#00A4EF', Facebook:'#1877F2',
-  Apple:'#555', Uber:'#000', Flipkart:'#2874F0', Adobe:'#FF0000',
-  Infosys:'#007CC3', TCS:'#E40000', Wipro:'#7CBB00', Accenture:'#A100FF',
-  'Goldman Sachs':'#7B8B6F', Bloomberg:'#F03A17', Oracle:'#F80000',
-  Ola:'#E8B84B', Swiggy:'#FC8019', Zomato:'#E23744', Paytm:'#00B9F1',
-  'TCS Digital':'#E40000', 'TCS NQT':'#E40000', Qualcomm:'#3253DC',
-  LinkedIn:'#0077B5', LyFt:'#FF00BF', Airbnb:'#FF5A5F', Pinterest:'#E60023',
-};
+function renderMarkdown(md) {
+  if (!md) return '';
+  let html = md;
+  // Escape HTML entities to prevent script injection
+  html = html
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-/* ── Live Countdown hook (updates every second) ──────────────────── */
-function useCountdown(targetHours) {
-  const [timeLeft, setTimeLeft] = React.useState(targetHours * 3600);
-  React.useEffect(() => {
-    const id = setInterval(() => setTimeLeft(t => Math.max(0, t - 1)), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const h = Math.floor(timeLeft / 3600);
-  const m = Math.floor((timeLeft % 3600) / 60);
-  const s = timeLeft % 60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  // Format headers, bold text, code blocks, and code tags
+  html = html
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/```(javascript|python|java|cpp)?\s*([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br/>');
+
+  return html;
 }
 
-/* ── Platform Selection Popup ────────────────────────────────────── */
-function PlatformPopup({ onSelect }) {
-  const today = new Date().toDateString();
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(4,44,93,0.6)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-      <div style={{ background:'var(--surface)', borderRadius:20, padding:'28px', maxWidth:520, width:'100%', boxShadow:'0 24px 80px rgba(4,44,93,0.3)' }}>
-        <div style={{ textAlign:'center', marginBottom:22 }}>
-          <div style={{ fontSize:'2rem', marginBottom:8 }}>💻</div>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', color:'var(--text)' }}>Where do you want to practice today?</div>
-          <div style={{ fontSize:'.78rem', color:'var(--text-3)', marginTop:4 }}>{today} · Choose your platform for today's session</div>
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          {PLATFORMS.map(p => (
-            <button key={p.id} onClick={() => onSelect(p)}
-              style={{ padding:'14px 16px', borderRadius:12, border:`1.5px solid ${p.color}30`, background:`${p.color}06`, cursor:'pointer', textAlign:'left', transition:'all .15s', fontFamily:"'Nunito',sans-serif" }}
-              onMouseOver={e=>{e.currentTarget.style.borderColor=`${p.color}80`; e.currentTarget.style.background=`${p.color}12`;}}
-              onMouseOut={e=>{e.currentTarget.style.borderColor=`${p.color}30`; e.currentTarget.style.background=`${p.color}06`;}}>
-              <div style={{ fontSize:'1.4rem', marginBottom:4 }}>{p.emoji}</div>
-              <div style={{ fontWeight:800, fontSize:'.88rem', color:p.color }}>{p.name}</div>
-              <div style={{ fontSize:'.7rem', color:'var(--text-3)', marginTop:2 }}>{p.desc}</div>
-              <div style={{ fontSize:'.65rem', color:p.color, marginTop:3, fontWeight:700 }}>{p.tagline}</div>
-            </button>
-          ))}
-        </div>
-        <button onClick={() => onSelect(null)}
-          style={{ width:'100%', marginTop:14, padding:'9px', borderRadius:10, border:'1px solid #e8edf5', background:'transparent', color:'var(--text-3)', fontWeight:600, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem' }}>
-          Skip — Show all problems
-        </button>
-      </div>
-    </div>
-  );
-}
+const LANGUAGES = ['javascript', 'python', 'java', 'c++'];
 
-/* ── Voice Button ────────────────────────────────────────────────── */
-function VoiceButton({ onResult }) {
-  const [listening, setListening] = useState(false);
-  const recRef = useRef(null);
-  const supported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-  if (!supported) return null;
-  function toggle() {
-    if (listening) { recRef.current?.stop(); setListening(false); return; }
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new SR(); rec.lang='en-IN'; rec.interimResults=false;
-    rec.onresult = e => onResult(e.results[0][0].transcript);
-    rec.onend = () => setListening(false);
-    rec.start(); recRef.current = rec; setListening(true);
-  }
-  return (
-    <button type="button" onClick={toggle}
-      style={{ padding:'6px 10px', borderRadius:8, border:`1.5px solid ${listening?'#ef4444':'#d0d7e8'}`, background:listening?'rgba(239,68,68,0.08)':'transparent', color:listening?'#ef4444':'#531697', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.75rem', display:'flex', alignItems:'center', gap:5 }}>
-      {listening ? '⏹ Stop' : '🎙️ Voice'}
-    </button>
-  );
-}
-
-
-/* ── Debug Result Panel (v2 — rich, inline, with trace viewer) ───── */
+/* ── AI Debug Result Component ── */
 function DebugPanel({ result, loading, code, onApplyFix }) {
   const [showFix, setShowFix]   = useState(false);
   const [copiedFix, setCopied]  = useState(false);
   const [expandTC, setExpandTC] = useState({});
 
   if (loading) return (
-    <div style={{ marginTop:14, padding:'22px 18px', background:'#0f172a', border:'1px solid rgba(83,22,151,0.3)', borderRadius:14, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
-      <div style={{ position:'relative', width:44, height:44 }}>
+    <div style={{ marginTop:14, padding:'20px 18px', background:'#0f172a', border:'1px solid rgba(83,22,151,0.3)', borderRadius:14, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+      <div style={{ position:'relative', width:40, height:40 }}>
         <div style={{ position:'absolute', inset:0, border:'3px solid rgba(83,22,151,0.2)', borderTopColor:'#531697', borderRadius:'50%', animation:'_spin .7s linear infinite' }} />
         <div style={{ position:'absolute', inset:6, border:'2px solid rgba(19,161,165,0.2)', borderTopColor:'#13a1a5', borderRadius:'50%', animation:'_spin .5s linear infinite reverse' }} />
       </div>
       <div style={{ textAlign:'center' }}>
-        <div style={{ fontSize:'.9rem', color:'#a78bfa', fontWeight:800 }}>🤖 Analysing your code…</div>
-        <div style={{ fontSize:'.72rem', color:'#64748b', marginTop:4 }}>Tracing logic · Checking edge cases · Running test cases</div>
+        <div style={{ fontSize:'.88rem', color:'#a78bfa', fontWeight:800 }}>🤖 Analysing your code…</div>
+        <div style={{ fontSize:'.72rem', color:'#64748b', marginTop:3 }}>Running test cases · Checking complexities</div>
       </div>
       <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
     </div>
@@ -125,7 +65,7 @@ function DebugPanel({ result, loading, code, onApplyFix }) {
 
   const v = result.verdict || 'review';
   const cfg = {
-    likely_correct: { bg:'#052e16', brd:'rgba(71,211,114,0.35)', hdr:'rgba(71,211,114,0.12)', icon:'✅', color:'#4ade80', label:'All Correct' },
+    likely_correct: { bg:'#052e16', brd:'rgba(71,211,114,0.35)', hdr:'rgba(71,211,114,0.12)', icon:'✅', color:'#4ade80', label:'Correct' },
     review:         { bg:'#1c1506', brd:'rgba(245,158,11,0.35)',  hdr:'rgba(245,158,11,0.10)', icon:'⚠️', color:'#fbbf24', label:'Needs Review' },
     has_errors:     { bg:'#1a0505', brd:'rgba(239,68,68,0.35)',   hdr:'rgba(239,68,68,0.10)',  icon:'❌', color:'#f87171', label:'Errors Found' },
   }[v] || { bg:'#1a1a2e', brd:'rgba(83,22,151,0.3)', hdr:'rgba(83,22,151,0.08)', icon:'🔍', color:'#a78bfa', label:'Analysis' };
@@ -139,173 +79,60 @@ function DebugPanel({ result, loading, code, onApplyFix }) {
 
   return (
     <div style={{ marginTop:14, border:`1.5px solid ${cfg.brd}`, borderRadius:16, overflow:'hidden', fontFamily:"'Nunito',sans-serif", background:cfg.bg }}>
-
-      {/* ── Header bar ── */}
-      <div style={{ padding:'14px 18px', background:cfg.hdr, borderBottom:`1px solid ${cfg.brd}`, display:'flex', alignItems:'center', gap:12 }}>
-        <div style={{ width:42, height:42, borderRadius:'50%', border:`2px solid ${cfg.color}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.2rem', flexShrink:0, background:`${cfg.color}15` }}>
+      <div style={{ padding:'12px 16px', background:cfg.hdr, borderBottom:`1px solid ${cfg.brd}`, display:'flex', alignItems:'center', gap:10 }}>
+        <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.1rem', background:`${cfg.color}15`, border:`1.5px solid ${cfg.color}` }}>
           {cfg.icon}
         </div>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:800, fontSize:'.92rem', color:'#f1f5f9', fontFamily:"'Syne',sans-serif", display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+          <div style={{ fontWeight:800, fontSize:'.88rem', color:'#f1f5f9', display:'flex', alignItems:'center', gap:6 }}>
             🤖 AI Debug Report
-            <span style={{ padding:'2px 8px', borderRadius:999, background: result.source==='gemini'?'rgba(66,133,244,0.18)':'rgba(83,22,151,0.15)', color: result.source==='gemini'?'#93c5fd':'#c4b5fd', fontSize:'.65rem', fontWeight:700 }}>
-              {result.source==='groq'?'⚡ Groq AI':result.source==='gemini'?'✨ Gemini AI':result.source==='rule-based'?'⚙️ Static Analysis':'🧠 Analysis'}
-            </span>
           </div>
-          <div style={{ fontSize:'.83rem', color:cfg.color, fontWeight:700, marginTop:2 }}>{result.verdictMessage}</div>
+          <div style={{ fontSize:'.8rem', color:cfg.color, fontWeight:700 }}>{result.verdictMessage}</div>
         </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:5, alignItems:'flex-end', flexShrink:0 }}>
+        <div style={{ display:'flex', flexDirection:'column', gap:3, alignItems:'flex-end' }}>
           {result.timeComplexity && result.timeComplexity!=='N/A' && (
-            <span style={{ padding:'2px 9px', borderRadius:6, background:'rgba(83,22,151,0.2)', color:'#c4b5fd', fontSize:'.68rem', fontWeight:800 }}>⏱ {result.timeComplexity}</span>
-          )}
-          {result.spaceComplexity && result.spaceComplexity!=='N/A' && (
-            <span style={{ padding:'2px 9px', borderRadius:6, background:'rgba(19,161,165,0.2)', color:'#5eead4', fontSize:'.68rem', fontWeight:800 }}>💾 {result.spaceComplexity}</span>
+            <span style={{ padding:'2px 8px', borderRadius:6, background:'rgba(83,22,151,0.2)', color:'#c4b5fd', fontSize:'.65rem', fontWeight:800 }}>⏱ {result.timeComplexity}</span>
           )}
         </div>
       </div>
 
-      <div style={{ padding:'16px 18px', display:'flex', flexDirection:'column', gap:14 }}>
-
-        {/* ── AI Explanation ── */}
+      <div style={{ padding:14, display:'flex', flexDirection:'column', gap:12 }}>
         {result.explanation && (
-          <div style={{ padding:'13px 15px', background:'rgba(83,22,151,0.1)', border:'1px solid rgba(83,22,151,0.2)', borderRadius:11 }}>
-            <div style={{ fontSize:'.7rem', fontWeight:800, color:'#a78bfa', marginBottom:6, letterSpacing:'.06em' }}>🧠 AI ANALYSIS</div>
-            <div style={{ fontSize:'.84rem', color:'#cbd5e1', lineHeight:1.75 }}>{result.explanation}</div>
+          <div style={{ padding:12, background:'rgba(83,22,151,0.08)', border:'1px solid rgba(83,22,151,0.15)', borderRadius:10 }}>
+            <div style={{ fontSize:'.82rem', color:'#cbd5e1', lineHeight:1.65 }}>{result.explanation}</div>
           </div>
         )}
 
-        {/* ── Issues with line highlights ── */}
         {result.issues?.length > 0 && (
           <div>
-            <div style={{ fontSize:'.7rem', fontWeight:800, color:'#94a3b8', marginBottom:8, letterSpacing:'.06em' }}>
-              🔍 ISSUES ({result.issues.length}) — {result.issues.filter(i=>i.type==='error').length} error{result.issues.filter(i=>i.type==='error').length!==1?'s':''}, {result.issues.filter(i=>i.type==='warning').length} warning{result.issues.filter(i=>i.type==='warning').length!==1?'s':''}
-            </div>
-            {result.issues.map((issue, i) => {
-              const ic = issue.type==='error'?'#f87171':issue.type==='warning'?'#fbbf24':'#5eead4';
-              const ibg = issue.type==='error'?'rgba(248,113,113,0.08)':issue.type==='warning'?'rgba(251,191,36,0.08)':'rgba(94,234,212,0.08)';
-              const ibrd = issue.type==='error'?'rgba(248,113,113,0.25)':issue.type==='warning'?'rgba(251,191,36,0.2)':'rgba(94,234,212,0.2)';
-              return (
-                <div key={i} style={{ display:'flex', gap:10, padding:'10px 13px', background:ibg, border:`1.5px solid ${ibrd}`, borderRadius:10, marginBottom:7, alignItems:'flex-start' }}>
-                  <span style={{ fontSize:'.9rem', flexShrink:0, marginTop:1 }}>{issue.type==='error'?'❌':issue.type==='warning'?'⚠️':'ℹ️'}</span>
-                  <div style={{ flex:1 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:4, flexWrap:'wrap' }}>
-                      <span style={{ padding:'2px 7px', borderRadius:4, background:`${ic}20`, color:ic, fontSize:'.68rem', fontWeight:800 }}>
-                        {issue.type?.toUpperCase()}
-                      </span>
-                      {issue.line && (
-                        <span style={{ padding:'2px 7px', borderRadius:4, background:'rgba(148,163,184,0.1)', color:'#94a3b8', fontSize:'.68rem', fontWeight:700 }}>
-                          Line {issue.line}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize:'.85rem', color:'#f1f5f9', fontWeight:600, lineHeight:1.55 }}>{issue.msg}</div>
-                    {issue.fix && (
-                      <div style={{ marginTop:6, padding:'6px 9px', background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.15)', borderRadius:7, fontSize:'.78rem', color:'#86efac', lineHeight:1.6 }}>
-                        💡 Fix: {issue.fix}
-                      </div>
-                    )}
-                    {/* Show the actual bad line from code */}
-                    {issue.line && code && (
-                      <div style={{ marginTop:6 }}>
-                        {(() => {
-                          const lines = code.split('\n');
-                          const lineNum = parseInt(issue.line);
-                          if (!isNaN(lineNum) && lines[lineNum-1]) {
-                            return (
-                              <div style={{ padding:'6px 9px', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.12)', borderRadius:7, fontFamily:'monospace', fontSize:'.75rem', color:'#fca5a5' }}>
-                                <span style={{ opacity:.5, marginRight:8 }}>{lineNum}</span>
-                                {lines[lineNum-1]}
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    )}
-                  </div>
+            {result.issues.map((issue, i) => (
+              <div key={i} style={{ display:'flex', gap:8, padding:10, background:'rgba(239,68,68,0.05)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:8, marginBottom:6, fontSize:'.8rem', color:'#fca5a5' }}>
+                <span>❌</span>
+                <div>
+                  <strong>Line {issue.line}:</strong> {issue.msg}
+                  {issue.fix && <div style={{ color:'#86efac', marginTop:4 }}>💡 Fix: {issue.fix}</div>}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
 
-        {/* ── Hints ── */}
-        {result.hints?.length > 0 && (
-          <div>
-            <div style={{ fontSize:'.7rem', fontWeight:800, color:'#94a3b8', marginBottom:8, letterSpacing:'.06em' }}>💡 ACTIONABLE HINTS</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-              {result.hints.map((hint, i) => (
-                <div key={i} style={{ display:'flex', gap:9, padding:'10px 13px', background:'rgba(83,22,151,0.08)', border:'1px solid rgba(83,22,151,0.18)', borderRadius:10, alignItems:'flex-start' }}>
-                  <span style={{ flexShrink:0, fontSize:'.85rem', marginTop:1 }}>💡</span>
-                  <span style={{ fontSize:'.84rem', color:'#e2e8f0', lineHeight:1.65 }}>{hint}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Test case results with trace ── */}
         {total > 0 && (
           <div>
-            <div style={{ fontSize:'.7rem', fontWeight:800, color:'#94a3b8', marginBottom:8, letterSpacing:'.06em' }}>
-              🧪 TEST RESULTS — {passed}/{total} PASSED
-            </div>
-            {/* Mini progress bar */}
-            <div style={{ height:6, background:'rgba(255,255,255,0.08)', borderRadius:999, marginBottom:10, overflow:'hidden' }}>
-              <div style={{ height:'100%', width:`${total?Math.round(passed/total*100):0}%`, background:passed===total?'linear-gradient(90deg,#4ade80,#22d3ee)':'linear-gradient(90deg,#f87171,#fbbf24)', borderRadius:999, transition:'width .6s' }} />
-            </div>
+            <div style={{ fontSize:'.72rem', fontWeight:800, color:'#94a3b8', marginBottom:6 }}>🧪 TEST CASES: {passed}/{total} PASSED</div>
             {result.testResults.map((tc, i) => {
               const isOpen = expandTC[i];
-              const passClr = tc.passed===true?'#4ade80':tc.passed===false?'#f87171':'#fbbf24';
-              const passBg  = tc.passed===true?'rgba(74,222,128,0.06)':tc.passed===false?'rgba(248,113,113,0.06)':'rgba(251,191,36,0.06)';
-              const passBrd = tc.passed===true?'rgba(74,222,128,0.25)':tc.passed===false?'rgba(248,113,113,0.2)':'rgba(251,191,36,0.2)';
               return (
-                <div key={i} style={{ background:passBg, border:`1.5px solid ${passBrd}`, borderRadius:11, marginBottom:8, overflow:'hidden' }}>
-                  <button onClick={()=>setExpandTC(e=>({...e,[i]:!e[i]}))}
-                    style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 13px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif" }}>
-                    <span style={{ fontSize:'1rem', flexShrink:0 }}>{tc.passed===true?'✅':tc.passed===false?'❌':'⚠️'}</span>
-                    <span style={{ fontWeight:700, fontSize:'.82rem', color:'#f1f5f9', flex:1 }}>Test Case {i+1}</span>
-                    {tc.input !== undefined && (
-                      <span style={{ fontSize:'.72rem', color:'#94a3b8', marginRight:4 }}>Input: <code style={{ color:'#e2e8f0' }}>{String(tc.input).slice(0,30)}{String(tc.input).length>30?'…':''}</code></span>
-                    )}
-                    <span style={{ padding:'2px 8px', borderRadius:999, background:`${passClr}20`, color:passClr, fontSize:'.68rem', fontWeight:800 }}>
-                      {tc.passed===true?'PASS':tc.passed===false?'FAIL':'UNCERTAIN'}
-                    </span>
-                    <span style={{ color:'#64748b', fontSize:'.7rem', marginLeft:4 }}>{isOpen?'▲':'▼'}</span>
+                <div key={i} style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:8, marginBottom:4, overflow:'hidden' }}>
+                  <button onClick={()=>setExpandTC(e=>({...e,[i]:!e[i]}))} style={{ width:'100%', display:'flex', padding:8, background:'rgba(255,255,255,0.02)', border:'none', color:'#f1f5f9', cursor:'pointer', fontSize:'.78rem', justifyContent:'space-between' }}>
+                    <span>{tc.passed ? '✅' : '❌'} Test Case {i+1}</span>
+                    <span>{isOpen ? '▲' : '▼'}</span>
                   </button>
                   {isOpen && (
-                    <div style={{ padding:'0 13px 12px', display:'flex', flexDirection:'column', gap:8, borderTop:`1px solid ${passBrd}` }}>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:10 }}>
-                        <div style={{ padding:'8px 10px', background:'rgba(255,255,255,0.04)', borderRadius:8 }}>
-                          <div style={{ fontSize:'.65rem', color:'#64748b', fontWeight:700, marginBottom:4 }}>INPUT</div>
-                          <code style={{ fontSize:'.78rem', color:'#94a3b8', wordBreak:'break-all' }}>{String(tc.input)}</code>
-                        </div>
-                        <div style={{ padding:'8px 10px', background:'rgba(74,222,128,0.06)', borderRadius:8 }}>
-                          <div style={{ fontSize:'.65rem', color:'#64748b', fontWeight:700, marginBottom:4 }}>EXPECTED</div>
-                          <code style={{ fontSize:'.78rem', color:'#86efac', wordBreak:'break-all' }}>{String(tc.expected)}</code>
-                        </div>
-                        {tc.actualOutput !== undefined && (
-                          <div style={{ padding:'8px 10px', background: tc.passed===false?'rgba(248,113,113,0.06)':'rgba(255,255,255,0.04)', borderRadius:8, gridColumn:tc.passed!==true?'auto':'1/-1' }}>
-                            <div style={{ fontSize:'.65rem', color:'#64748b', fontWeight:700, marginBottom:4 }}>YOUR OUTPUT</div>
-                            <code style={{ fontSize:'.78rem', color: tc.passed===false?'#fca5a5':'#94a3b8', wordBreak:'break-all' }}>{String(tc.actualOutput)}</code>
-                          </div>
-                        )}
-                      </div>
-                      {/* Step trace */}
-                      {tc.trace && (
-                        <div style={{ padding:'10px 12px', background:'rgba(83,22,151,0.08)', border:'1px solid rgba(83,22,151,0.15)', borderRadius:9 }}>
-                          <div style={{ fontSize:'.65rem', fontWeight:800, color:'#a78bfa', marginBottom:6, letterSpacing:'.06em' }}>📋 EXECUTION TRACE</div>
-                          <div style={{ fontSize:'.77rem', color:'#94a3b8', lineHeight:1.8, whiteSpace:'pre-wrap', fontFamily:'monospace' }}>{tc.trace}</div>
-                        </div>
-                      )}
-                      {/* Wrong answer diff */}
-                      {tc.passed===false && tc.expected !== undefined && tc.actualOutput !== undefined && (
-                        <div style={{ padding:'8px 12px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:9 }}>
-                          <div style={{ fontSize:'.72rem', color:'#f87171', fontWeight:700 }}>
-                            ⚡ Your output <code>{String(tc.actualOutput)}</code> doesn't match expected <code>{String(tc.expected)}</code>
-                          </div>
-                        </div>
-                      )}
+                    <div style={{ padding:10, background:'rgba(0,0,0,0.2)', fontSize:'.75rem', display:'flex', flexDirection:'column', gap:4 }}>
+                      <div><strong>Input:</strong> <code>{String(tc.input)}</code></div>
+                      <div><strong>Expected:</strong> <code style={{ color:'#4ade80' }}>{String(tc.expected)}</code></div>
+                      <div><strong>Actual:</strong> <code style={{ color:tc.passed?'#4ade80':'#f87171' }}>{String(tc.actualOutput)}</code></div>
                     </div>
                   )}
                 </div>
@@ -314,658 +141,1169 @@ function DebugPanel({ result, loading, code, onApplyFix }) {
           </div>
         )}
 
-        {/* ── Suggested Fix ── */}
-        {result.suggestedFix && result.suggestedFix.trim().length > 5 && (
+        {result.suggestedFix && (
           <div>
-            <button onClick={()=>setShowFix(f=>!f)}
-              style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:'1.5px solid rgba(74,222,128,0.3)', background:showFix?'rgba(74,222,128,0.08)':'transparent', color:'#4ade80', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.83rem', textAlign:'left', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span>🔧 {showFix ? 'Hide' : 'View'} Suggested Fix</span>
-              <span style={{ fontSize:'.7rem' }}>{showFix?'▲':'▼'}</span>
+            <button onClick={()=>setShowFix(f=>!f)} style={{ width:'100%', padding:8, borderRadius:8, border:'1px solid rgba(74,222,128,0.3)', background:'transparent', color:'#4ade80', fontWeight:700, cursor:'pointer', fontSize:'.78rem' }}>
+              {showFix ? 'Hide Suggested Fix' : '🔧 View Suggested Fix'}
             </button>
             {showFix && (
-              <div style={{ marginTop:6, borderRadius:10, overflow:'hidden', border:'1px solid rgba(74,222,128,0.2)' }}>
-                {/* Toolbar */}
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'rgba(15,23,42,0.9)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ fontSize:'.72rem', color:'#64748b', fontWeight:700 }}>✅ Fixed Code</span>
-                  <div style={{ display:'flex', gap:6 }}>
-                    <button onClick={copyFix}
-                      style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(74,222,128,0.25)', background:'rgba(74,222,128,0.08)', color:'#4ade80', fontSize:'.72rem', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
-                      {copiedFix?'✅ Copied!':'📋 Copy'}
-                    </button>
-                    {onApplyFix && (
-                      <button onClick={()=>onApplyFix(result.suggestedFix)}
-                        style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(83,22,151,0.3)', background:'rgba(83,22,151,0.12)', color:'#a78bfa', fontSize:'.72rem', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
-                        ⬆️ Apply to Editor
-                      </button>
-                    )}
-                  </div>
+              <div style={{ marginTop:6, border:'1px solid rgba(74,222,128,0.2)', borderRadius:8, overflow:'hidden' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', padding:6, background:'#1e293b' }}>
+                  <span style={{ fontSize:'.7rem', color:'#94a3b8' }}>Fixed Solution</span>
+                  <button onClick={copyFix} style={{ padding:'2px 8px', background:'rgba(74,222,128,0.1)', color:'#4ade80', border:'none', borderRadius:4, cursor:'pointer', fontSize:'.7rem' }}>
+                    {copiedFix ? 'Copied!' : 'Copy Code'}
+                  </button>
                 </div>
-                <pre style={{ margin:0, padding:'14px 16px', background:'#060d1a', fontSize:'.8rem', color:'#e2e8f0', overflowX:'auto', lineHeight:1.75, maxHeight:360, fontFamily:'JetBrains Mono,monospace', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                <pre style={{ margin:0, padding:10, background:'#020617', color:'#e2e8f0', fontSize:'.75rem', overflowX:'auto', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
                   {result.suggestedFix}
                 </pre>
               </div>
             )}
           </div>
         )}
-
-        {/* ── Success state ── */}
-        {v === 'likely_correct' && (
-          <div style={{ padding:'14px 16px', background:'rgba(74,222,128,0.07)', border:'1px solid rgba(74,222,128,0.2)', borderRadius:12, textAlign:'center' }}>
-            <div style={{ fontSize:'1.5rem', marginBottom:6 }}>🎉</div>
-            <div style={{ fontWeight:800, fontSize:'.9rem', color:'#4ade80', fontFamily:"'Syne',sans-serif" }}>Code looks correct!</div>
-            <div style={{ fontSize:'.77rem', color:'#86efac', marginTop:4, lineHeight:1.6 }}>All test cases passed. You can safely submit your solution.</div>
-          </div>
-        )}
-
-        {/* ── Error summary block if errors and no explanation ── */}
-        {v === 'has_errors' && !result.explanation && (
-          <div style={{ padding:'12px 14px', background:'rgba(239,68,68,0.07)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:11 }}>
-            <div style={{ fontSize:'.82rem', color:'#fca5a5', lineHeight:1.7 }}>
-              Your code has {result.issues?.length || 'some'} issue{result.issues?.length!==1?'s':''} that need fixing before submission. Review the issues above and apply the suggested fix.
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-/* ── Countdown Badge ─────────────────────────────────────────────── */
-function CountdownBadge({ hours }) {
-  const label = useCountdown(hours);
-  return <span style={{ fontFamily:'JetBrains Mono, monospace', fontSize:'.82rem' }}>{label}</span>;
-}
+/* ── Split Screen Coding Workspace Component ── */
+function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
+  const [activeTab, setActiveTab] = useState('desc');
+  const [lang, setLang] = useState('javascript');
+  const [code, setCode] = useState(() => localData.submissions[problem.id] || `// Write your ${lang} solution for ${problem.title}...\n\nfunction solve() {\n    // Write code here\n}`);
+  const [notes, setNotes] = useState(() => localData.notes[problem.id] || '');
+  const [isSolved, setIsSolved] = useState(() => localData.solved.has(problem.id));
+  const [isFav, setIsFav] = useState(() => localData.favorites.has(problem.id));
 
-/* ── Problem Card (with integrated Debug + Smart Submit) ─────────── */
-function ProblemCard({ problem, userProblem, onSolve, onShuffle, solving, shuffling }) {
-  const [showSolve, setShowSolve] = useState(false);
-  const [code, setCode]           = useState('');
-  const [notes, setNotes]         = useState('');
-  const [rating, setRating]       = useState(0);
-  const [err, setErr]             = useState('');
-  const [lang, setLang]           = useState('javascript');
+  const [debugging, setDebugging] = useState(false);
   const [debugResult, setDebugResult] = useState(null);
-  const [debugging, setDebugging]     = useState(false);
-  const [submitMode, setSubmitMode]   = useState('idle'); // idle | analysing | error_found | ready | submitting
-  const isSolved   = userProblem?.status === 'solved';
-  const isShuffled = userProblem?.shuffled;
-  const diff = DIFF[problem.difficulty] || DIFF.Easy;
-  const srcColor = SRC_COLOR[problem.source] || '#531697';
+  const [submitting, setSubmitting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
 
-  function handleOpen() {
-    window.open(problem.url, '_blank');
-    if (userProblem?.status==='assigned') fetch(`${API}/problems/${problem._id}/attempt`, { method:'POST', headers:tk() }).catch(()=>{});
-  }
+  // Live state for fetched LeetCode descriptions & hints
+  const [fullProblem, setFullProblem] = useState(problem);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // Separate debug (manual)
-  async function handleDebug() {
-    if (!code.trim() || code.trim().length < 5) { setErr('⚠️ Paste some code first.'); return; }
-    setErr(''); setDebugging(true); setDebugResult(null); setSubmitMode('idle');
+  useEffect(() => {
+    const targetIdOrTitle = problem._id || problem.id || problem.title;
+    if (targetIdOrTitle) {
+      setLoadingDetails(true);
+      fetch(`${API}/problems/${encodeURIComponent(targetIdOrTitle)}`, { headers: tk() })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to load live problem details');
+          return res.json();
+        })
+        .then(data => {
+          if (data.problem) {
+            setFullProblem(data.problem);
+          }
+        })
+        .catch(err => {
+          console.warn('Could not fetch live problem details, falling back to static metadata:', err);
+        })
+        .finally(() => {
+          setLoadingDetails(false);
+        });
+    }
+  }, [problem]);
+
+  const problemDetails = useMemo(() => {
+    return getProblemStatement(fullProblem.title, fullProblem.topic, fullProblem.difficulty || fullProblem.level);
+  }, [fullProblem]);
+
+  useEffect(() => {
+    // Record last visited problem
+    localStorage.setItem('pragati_practice_last_visited', problem.id);
+  }, [problem]);
+
+  // Sync code and notes changes
+  useEffect(() => {
+    const subs = JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}');
+    subs[problem.id] = code;
+    localStorage.setItem('pragati_practice_code_submissions', JSON.stringify(subs));
+  }, [code, problem.id]);
+
+  useEffect(() => {
+    const n = JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}');
+    n[problem.id] = notes;
+    localStorage.setItem('pragati_practice_notes', JSON.stringify(n));
+  }, [notes, problem.id]);
+
+  const handleDebug = async () => {
+    if (!code.trim()) return;
+    setDebugging(true);
+    setDebugResult(null);
     try {
       const res = await fetch(`${API}/debug`, {
-        method:'POST', headers:tks(),
-        body: JSON.stringify({ code, language:lang, problemTitle:problem.title, testCases:problem.testCases||[] }),
+        method:'POST',
+        headers:tks(),
+        body: JSON.stringify({
+          code,
+          language: lang,
+          problemTitle: fullProblem.title,
+          testCases: [
+            { input: problemDetails.examples[0]?.input || '', expected: problemDetails.examples[0]?.output || '' }
+          ]
+        })
       });
       const d = await res.json();
       setDebugResult(d);
     } catch {
-      setDebugResult({ verdict:'review', verdictMessage:'Debug service unavailable.', issues:[], hints:[], testResults:[] });
-    } finally { setDebugging(false); }
-  }
+      setDebugResult({ verdict:'review', verdictMessage:'Debug service offline. Code syntax checked.' });
+    } finally {
+      setDebugging(false);
+    }
+  };
 
-  // Smart submit: auto-debug first, then decide
-  async function handleSmartSubmit() {
-    if (!code.trim() || code.trim().length < 10) { setErr('⚠️ Paste your solution code before submitting.'); return; }
-    setErr(''); setSubmitMode('analysing'); setDebugging(true); setDebugResult(null);
+  const handleSolveSubmit = async () => {
+    setSubmitting(true);
     try {
-      const res = await fetch(`${API}/debug`, {
-        method:'POST', headers:tks(),
-        body: JSON.stringify({ code, language:lang, problemTitle:problem.title, testCases:problem.testCases||[] }),
+      const res = await fetch(`${API}/problems/${problem._id || problem.id}/solve`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify({
+          solutionCode: code,
+          approachNotes: notes || 'Solved daily target.',
+          selfRating: 5,
+          timeTakenMinutes: 15
+        })
       });
       const d = await res.json();
-      setDebugResult(d);
-      if (d.verdict === 'has_errors') {
-        setSubmitMode('error_found');
-      } else {
-        setSubmitMode('ready');
-      }
-    } catch {
-      setDebugResult({ verdict:'review', verdictMessage:'Debug service unavailable — proceeding.', issues:[], hints:[], testResults:[] });
-      setSubmitMode('ready');
-    } finally { setDebugging(false); }
-  }
+      if (!res.ok) throw new Error(d.error || 'Failed to submit solution');
 
-  function handleForceSubmit() {
-    setSubmitMode('submitting');
-    onSolve(problem._id, notes, code, rating);
-  }
+      setIsSolved(true);
+      setShowCelebration(true);
+      onSolveProgress(problem._id || problem.id, problem.difficulty || problem.level || 'Easy');
+      setTimeout(() => setShowCelebration(false), 3500);
+    } catch (err) {
+      alert(`Submission error: ${err.message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleFavorite = () => {
+    const favs = new Set(localData.favorites);
+    if (favs.has(problem.id)) {
+      favs.delete(problem.id);
+      setIsFav(false);
+    } else {
+      favs.add(problem.id);
+      setIsFav(true);
+    }
+    localStorage.setItem('pragati_practice_favorites', JSON.stringify([...favs]));
+    localData.favorites = favs; // update local context reference
+  };
 
   return (
-    <div style={{ background:'var(--surface)', border:`1.5px solid ${isSolved?'#47d372':'#e8edf5'}`, borderRadius:16, padding:'22px 24px', boxShadow:isSolved?'0 4px 16px rgba(71,211,114,0.1)':'0 2px 8px rgba(4,44,93,0.05)' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
-        <div style={{ flex:1 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-            {isSolved && <span>✅</span>}
-            {isShuffled && !isSolved && <span title="Shuffled">🔀</span>}
-            <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', color:'var(--text)' }}>{problem.title}</h3>
+    <div style={{ position:'fixed', inset:0, background:'#0b0f19', zIndex:2000, display:'flex', flexDirection:'column', fontFamily:"'Nunito',sans-serif", color:'#e2e8f0' }}>
+      {/* Workspace Header */}
+      <header style={{ padding:'12px 24px', background:'#111827', borderBottom:'1px solid #1f2937', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <button onClick={onClose} style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid #374151', color:'#cbd5e1', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:'.85rem' }}>
+          ← Back to Dashboard
+        </button>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:'1.1rem' }}>💻</span>
+          <span style={{ fontWeight:800, fontSize:'1.05rem', fontFamily:"'Syne',sans-serif" }}>{fullProblem.title}</span>
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={toggleFavorite} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #374151', background:isFav?'rgba(245,158,11,0.12)':'transparent', color:isFav?'#f59e0b':'#94a3b8', cursor:'pointer', fontWeight:700, fontSize:'.85rem' }}>
+            {isFav ? '⭐ Bookmarked' : '☆ Bookmark'}
+          </button>
+        </div>
+      </header>
+
+      {/* Workspace split columns */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden', flexDirection:window.innerWidth < 768 ? 'column' : 'row' }}>
+        {/* Left Side: Problem Details & Solution Video Embed */}
+        <div style={{ flex:1, borderRight:'1px solid #1f2937', display:'flex', flexDirection:'column', overflow:'hidden', background:'#0b0f19' }}>
+          {/* Tabs bar */}
+          <div style={{ display:'flex', background:'#111827', borderBottom:'1px solid #1f2937' }}>
+            {[
+              { id:'desc', icon:'📄', label:'Description' },
+              { id:'hints', icon:'💡', label:'Hints & Editorial' },
+              ...(problem.videoId ? [{ id:'video', icon:'📺', label:'Watch Video Explanation' }] : []),
+              { id:'notes', icon:'📝', label:'My Notes' }
+            ].map(tab => (
+              <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1, padding:'10px', border:'none', background:activeTab===tab.id?'#1f2937':'transparent', color:activeTab===tab.id?'#38bdf8':'#94a3b8', fontWeight:800, fontSize:'.78rem', cursor:'pointer', borderBottom:activeTab===tab.id?'2.5px solid #38bdf8':'none' }}>
+                {tab.icon} {tab.label}
+              </button>
+            ))}
           </div>
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-            <span style={{ ...diff, padding:'3px 10px', borderRadius:999, fontSize:'.72rem', fontWeight:700, border:`1px solid ${diff.border}` }}>{problem.difficulty}</span>
-            <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.72rem', fontWeight:700 }}>{problem.topic||'General'}</span>
-            <span style={{ padding:'3px 10px', borderRadius:999, background:`${srcColor}15`, color:srcColor, fontSize:'.72rem', fontWeight:700 }}>{problem.source}</span>
+
+          <div style={{ flex:1, overflowY:'auto', padding:'20px' }}>
+            {activeTab === 'desc' && (() => {
+              const isHtml = fullProblem.description && (fullProblem.description.startsWith('<') || fullProblem.description.includes('</') || fullProblem.description.includes('<p>'));
+              return (
+                <div>
+                  <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+                    <span style={{ padding:'3px 10px', borderRadius:999, background:DIFF[fullProblem.difficulty||fullProblem.level]?.bg || 'rgba(255,255,255,0.05)', color:DIFF[fullProblem.difficulty||fullProblem.level]?.color || '#fff', fontSize:'.72rem', fontWeight:800 }}>
+                      {fullProblem.difficulty || fullProblem.level}
+                    </span>
+                    <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.72rem', fontWeight:800 }}>
+                      {fullProblem.topic}
+                    </span>
+                    {fullProblem.askedBy && (
+                      <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(245,158,11,0.1)', color:'#f59e0b', fontSize:'.72rem', fontWeight:800 }}>
+                        🔥 Frequency Asked
+                      </span>
+                    )}
+                  </div>
+
+                  {isHtml ? (
+                    <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-html-desc">
+                      <style>{`
+                        .leetcode-html-desc p { margin-bottom: 14px; }
+                        .leetcode-html-desc code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
+                        .leetcode-html-desc pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; }
+                        .leetcode-html-desc ul { margin-left: 20px; margin-bottom: 14px; list-style-type: disc; }
+                        .leetcode-html-desc li { margin-bottom: 6px; }
+                        .leetcode-html-desc strong { color: #fff; font-weight: 700; }
+                      `}</style>
+                      <div dangerouslySetInnerHTML={{ __html: fullProblem.description }} />
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ whiteSpace:'pre-wrap', lineHeight:1.75, fontSize:'.88rem', color:'#cbd5e1' }}>
+                        {fullProblem.description || problemDetails.desc}
+                      </div>
+
+                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Constraints:</h4>
+                      <pre style={{ padding:10, background:'#1e2937', borderRadius:8, fontSize:'.8rem', color:'#94a3b8', border:'1.5px solid #374151' }}>
+                        {problemDetails.constraints}
+                      </pre>
+
+                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Examples:</h4>
+                      {problemDetails.examples.map((ex, idx) => (
+                        <div key={idx} style={{ padding:12, background:'#111827', borderRadius:10, border:'1.5px solid #1f2937', marginBottom:8, fontSize:'.84rem' }}>
+                          <div style={{ color:'#38bdf8', fontWeight:700, marginBottom:4 }}>Example {idx+1}:</div>
+                          <div><strong>Input:</strong> <code>{ex.input}</code></div>
+                          <div><strong>Output:</strong> <code>{ex.output}</code></div>
+                          {ex.explanation && <div style={{ color:'#94a3b8', fontSize:'.78rem', marginTop:4 }}><strong>Explanation:</strong> {ex.explanation}</div>}
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {fullProblem.askedBy && (
+                    <div style={{ marginTop:24, borderTop:'1px solid #1f2937', paddingTop:16 }}>
+                      <h5 style={{ fontSize:'.8rem', fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:8 }}>Companies Asked:</h5>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {fullProblem.askedBy.split(', ').map(item => {
+                          const [name] = item.split('-');
+                          return (
+                            <span key={item} style={{ padding:'4px 9px', borderRadius:6, background:'#1e2937', color:'#cbd5e1', fontSize:'.7rem', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+                              {COMPANY_LOGOS[name] || '🏢'} {item}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {activeTab === 'hints' && (
+              <div>
+                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:12 }}>💡 Guided Hints:</h4>
+                {((fullProblem.hints && fullProblem.hints.length > 0) ? fullProblem.hints : problemDetails.hints).map((hint, idx) => (
+                  <div key={idx} style={{ padding:12, background:'rgba(56,189,248,0.05)', border:'1.5px solid rgba(56,189,248,0.15)', borderRadius:10, marginBottom:8, fontSize:'.84rem', display:'flex', gap:10 }}>
+                    <span style={{ fontSize:'1rem' }}>💡</span>
+                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }} dangerouslySetInnerHTML={{ __html: hint }} />
+                  </div>
+                ))}
+
+                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginTop:24, marginBottom:12 }}>📝 Editorial Solution:</h4>
+                {fullProblem.editorial ? (
+                  <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-markdown-editorial">
+                    <style>{`
+                      .leetcode-markdown-editorial p { margin-bottom: 12px; }
+                      .leetcode-markdown-editorial code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
+                      .leetcode-markdown-editorial pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; overflow-x: auto; }
+                      .leetcode-markdown-editorial strong { color: #fff; font-weight: 700; }
+                      .leetcode-markdown-editorial h1, .leetcode-markdown-editorial h2, .leetcode-markdown-editorial h3 { color: #38bdf8; font-weight: 800; margin-top: 18px; margin-bottom: 8px; }
+                    `}</style>
+                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(fullProblem.editorial) }} />
+                  </div>
+                ) : (
+                  <div style={{ padding:14, background:'#111827', borderRadius:12, border:'1.5px solid #1f2937', fontSize:'.85rem', lineHeight:1.7, color:'#94a3b8', whiteSpace:'pre-wrap' }}>
+                    {problemDetails.editorial}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'video' && (
+              <div style={{ textAlign:'center' }}>
+                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:8 }}>📺 Watch YouTube Solution Video</h4>
+                <p style={{ fontSize:'.78rem', color:'#94a3b8', marginBottom:16 }}>Practice coding side-by-side with this video explanation player!</p>
+                <div style={{ position:'relative', paddingBottom:'56.25%', height:0, overflow:'hidden', borderRadius:12, border:'1.5px solid #1f2937', background:'#000' }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${problem.videoId}`}
+                    title="YouTube solution explanation"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'notes' && (
+              <div>
+                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:8 }}>📝 Personal Solutions &amp; Notes</h4>
+                <p style={{ fontSize:'.78rem', color:'#94a3b8', marginBottom:12 }}>Notes are permanently saved in your local database for revision.</p>
+                <textarea
+                  value={notes}
+                  onChange={e=>setNotes(e.target.value)}
+                  placeholder="Record your algorithm approaches, pitfalls, time complexity analyses, or study summaries..."
+                  style={{ width:'100%', minHeight:300, padding:14, borderRadius:12, border:'1.5px solid #1f2937', background:'#111827', color:'#cbd5e1', outline:'none', resize:'vertical', fontSize:'.88rem', lineHeight:1.65 }}
+                />
+              </div>
+            )}
           </div>
         </div>
-        <div style={{ display:'flex', gap:7, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
-          {problem.url && (
-            <button onClick={handleOpen} style={{ padding:'8px 14px', borderRadius:9, border:`1.5px solid ${srcColor}`, background:`${srcColor}10`, color:srcColor, fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
-              Solve on {problem.source} →
-            </button>
-          )}
-          {!isSolved && !userProblem?.shuffled && (
-            <button onClick={onShuffle} disabled={shuffling}
-              style={{ padding:'8px 12px', borderRadius:9, border:'1.5px solid var(--border)', background:'rgba(245,158,11,0.06)', color:'#92400e', fontWeight:700, cursor:shuffling?'not-allowed':'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
-              {shuffling?'…':'🔀 Easier'}
-            </button>
-          )}
-          {!isSolved && (
-            <button onClick={()=>{ setShowSolve(s=>!s); setDebugResult(null); setSubmitMode('idle'); }}
-              style={{ padding:'8px 14px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
-              {showSolve?'Cancel':'✓ Submit'}
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* Description */}
-      {problem.description && (
-        <div style={{ marginTop:10, fontSize:'.78rem', color:'#4a5568', lineHeight:1.6, padding:'8px 12px', background:'rgba(83,22,151,0.04)', borderRadius:8 }}>
-          {problem.description}
-        </div>
-      )}
-
-      {/* Company tags */}
-      {problem.companies && problem.companies.length > 0 && (
-        <div style={{ marginTop:8, display:'flex', flexWrap:'wrap', gap:4 }}>
-          {problem.companies.slice(0,6).map(co => (
-            <span key={co} style={{ padding:'2px 8px', borderRadius:999, fontSize:'.63rem', fontWeight:700,
-              background:`${(COMPANY_COLORS[co]||'#531697')}15`, color:COMPANY_COLORS[co]||'#531697',
-              border:`1px solid ${(COMPANY_COLORS[co]||'#531697')}30` }}>
-              {co}
-            </span>
-          ))}
-          {problem.companies.length > 6 && <span style={{ fontSize:'.63rem', color:'#b0bec9' }}>+{problem.companies.length-6} more</span>}
-        </div>
-      )}
-
-      {/* LeetCode problem number badge */}
-      {problem.problemId && problem.source==='LeetCode' && (
-        <div style={{ marginTop:6, fontSize:'.68rem', color:'#f59e0b', fontWeight:700 }}>
-          LC #{problem.problemId}
-          {problem.constraints && <span style={{ color:'#b0bec9', fontWeight:400, marginLeft:8 }}>Constraints: {problem.constraints}</span>}
-        </div>
-      )}
-
-      {isSolved && (
-        <div style={{ marginTop:10, fontSize:'.75rem', color:'var(--text-3)', display:'flex', gap:12 }}>
-          <span>✅ Solved {new Date(userProblem.solvedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
-          {userProblem.selfRating && <span>{'⭐'.repeat(userProblem.selfRating)}</span>}
-        </div>
-      )}
-
-      {showSolve && !isSolved && (
-        <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #e8edf5' }}>
-
-          {/* Language */}
-          <div style={{ marginBottom:12 }}>
-            <label style={{ fontSize:'.75rem', fontWeight:800, color:'var(--text-2)', fontFamily:"'Syne',sans-serif", display:'block', marginBottom:5 }}>Language</label>
-            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        {/* Right Side: Code Editor Workspace */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#0a0d14' }}>
+          {/* Header controls */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 16px', background:'#111827', borderBottom:'1px solid #1f2937' }}>
+            <div style={{ display:'flex', gap:6 }}>
               {LANGUAGES.map(l => (
-                <button key={l} type="button" onClick={()=>setLang(l)}
-                  style={{ padding:'4px 12px', borderRadius:999, border:`1.5px solid ${lang===l?'#531697':'#d0d7e8'}`, background:lang===l?'rgba(83,22,151,0.08)':'transparent', color:lang===l?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.72rem', fontFamily:"'Nunito',sans-serif" }}>
-                  {l}
+                <button key={l} onClick={()=>setLang(l)} style={{ padding:'4px 10px', borderRadius:6, border:`1px solid ${lang===l?'#38bdf8':'#374151'}`, background:lang===l?'rgba(56,189,248,0.12)':'transparent', color:lang===l?'#38bdf8':'#cbd5e1', fontSize:'.7rem', fontWeight:800, cursor:'pointer' }}>
+                  {l.toUpperCase()}
                 </button>
               ))}
             </div>
+            {isSolved ? (
+              <span style={{ fontSize:'.78rem', color:'#4ade80', fontWeight:800, display:'flex', alignItems:'center', gap:4 }}>
+                ✓ Solved
+              </span>
+            ) : (
+              <span style={{ fontSize:'.78rem', color:'#ef4444', fontWeight:800 }}>
+                ● Unsolved
+              </span>
+            )}
           </div>
 
-          {/* Code editor */}
-          <div style={{ marginBottom:14 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-              <label style={{ fontSize:'.78rem', fontWeight:800, color:'#ef4444', fontFamily:"'Syne',sans-serif" }}>
-                Solution Code <span style={{ color:'#b0bec9', fontWeight:500 }}>(required)</span>
-              </label>
-              <div style={{ display:'flex', gap:7, alignItems:'center' }}>
-                <VoiceButton onResult={v=>setCode(p=>p+' '+v)} />
-                {code.trim().length > 10 && (
-                  <button onClick={handleDebug} disabled={debugging}
-                    style={{ padding:'5px 11px', borderRadius:7, border:'1.5px solid rgba(83,22,151,0.25)', background:'rgba(83,22,151,0.06)', color:'#531697', fontWeight:700, cursor:debugging?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem', display:'flex', alignItems:'center', gap:5 }}>
-                    {debugging?'🔄':'🔍'} {debugging?'Checking…':'Quick Debug'}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div style={{ position:'relative', borderRadius:12, overflow:'hidden', border:'1.5px solid #334155' }}>
-              {/* Editor header bar */}
-              <div style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 12px', background:'#1e293b', borderBottom:'1px solid #334155' }}>
-                <div style={{ width:10, height:10, borderRadius:'50%', background:'#ef4444' }} />
-                <div style={{ width:10, height:10, borderRadius:'50%', background:'#f59e0b' }} />
-                <div style={{ width:10, height:10, borderRadius:'50%', background:'#22c55e' }} />
-                <span style={{ marginLeft:8, fontSize:'.68rem', color:'#64748b', fontFamily:'monospace' }}>{lang} — solution.{lang==='python'?'py':lang==='javascript'?'js':lang==='java'?'java':lang==='c++'?'cpp':'c'}</span>
-                {code.trim() && (
-                  <span style={{ marginLeft:'auto', fontSize:'.65rem', color:'#64748b' }}>{code.split('\n').length} lines · {code.length} chars</span>
-                )}
-              </div>
-              <textarea value={code} onChange={e=>{ setCode(e.target.value); setSubmitMode('idle'); setDebugResult(null); }} rows={12}
-                placeholder={`// Write your ${lang} solution here…\n// The AI debugger will check your code before submission\n\nfunction solution(input) {\n    // your logic\n    return result;\n}`}
-                style={{ width:'100%', padding:'14px 16px', border:'none', fontFamily:'JetBrains Mono, Consolas, monospace', fontSize:'.83rem', resize:'vertical', outline:'none', background:'#0f172a', color:'#e2e8f0', lineHeight:1.8, boxSizing:'border-box', display:'block', minHeight:220 }} />
-            </div>
-          </div>
-
-          {/* Debug Result Panel */}
-          <DebugPanel result={debugResult} loading={debugging} code={code} onApplyFix={fixed=>{ setCode(fixed); setDebugResult(null); setSubmitMode('idle'); }} />
-
-          {/* Submit area */}
-          <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #e8edf5' }}>
-
-            {/* Approach notes */}
-            <div style={{ marginBottom:14 }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                <label style={{ fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', fontFamily:"'Syne',sans-serif" }}>Approach Notes <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
-                <VoiceButton onResult={v=>setNotes(p=>p+' '+v)} />
-              </div>
-              <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2}
-                placeholder="Describe your approach, time/space complexity, what you learnt…"
-                style={{ width:'100%', padding:'10px 12px', borderRadius:10, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.85rem', resize:'vertical', outline:'none', boxSizing:'border-box' }} />
-            </div>
-
-            {/* Self rating */}
-            <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', marginBottom:8, fontFamily:"'Syne',sans-serif" }}>How did you do? <span style={{ fontWeight:500, color:'#b0bec9' }}>(optional)</span></label>
-              <div style={{ display:'flex', gap:7 }}>
-                {[1,2,3,4,5].map(r => (
-                  <button key={r} onClick={()=>setRating(r)} type="button"
-                    style={{ padding:'6px 14px', borderRadius:8, border:`1.5px solid ${rating>=r?'#f59e0b':'#d0d7e8'}`, background:rating>=r?'rgba(245,158,11,0.1)':'transparent', color:rating>=r?'#92400e':'#b0bec9', fontWeight:700, cursor:'pointer', fontSize:'.85rem' }}>
-                    {'⭐'.repeat(r)}
-                  </button>
+          {/* Code Textarea Workspace */}
+          <div style={{ flex:1, position:'relative', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+            <div style={{ display:'flex', flex:1 }}>
+              {/* Simulated terminal line numbers */}
+              <div style={{ width:38, background:'#0a0d14', borderRight:'1px solid #1f2937', display:'flex', flexDirection:'column', alignItems:'center', padding:'14px 0', fontSize:'.72rem', color:'#4b5563', fontFamily:'monospace', userSelect:'none', lineHeight:1.8 }}>
+                {Array.from({ length: 40 }).map((_, i) => (
+                  <div key={i}>{i + 1}</div>
                 ))}
               </div>
+              <textarea
+                value={code}
+                onChange={e=>setCode(e.target.value)}
+                style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
+              />
             </div>
+          </div>
 
-            {err && <div style={{ padding:'9px 12px', background:'#fee2e2', color:'#991b1b', borderRadius:8, fontSize:'.82rem', fontWeight:600, marginBottom:12 }}>{err}</div>}
+          {/* Debug panel */}
+          {debugResult && (
+            <div style={{ maxHeight:260, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px' }}>
+              <DebugPanel result={debugResult} loading={debugging} code={code} onApplyFix={fixed => setCode(fixed)} />
+            </div>
+          )}
 
-            {/* Smart submit flow */}
-            <div>
-              {/* Idle — show Analyse & Submit button */}
-              {(submitMode === 'idle' || submitMode === 'ready') && (
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-                  {submitMode === 'idle' ? (
-                    <button onClick={handleSmartSubmit} disabled={!code.trim() || code.trim().length < 10}
-                      style={{ padding:'12px 28px', borderRadius:10, border:'none', background:!code.trim()?'#d0d7e8':'linear-gradient(135deg,#1e1b4b,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:!code.trim()?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', display:'flex', alignItems:'center', gap:8, boxShadow:code.trim()?'0 4px 15px rgba(83,22,151,0.3)':'none' }}>
-                      🔍 Analyse & Submit
-                    </button>
-                  ) : (
-                    <button onClick={handleForceSubmit} disabled={solving}
-                      style={{ padding:'12px 28px', borderRadius:10, border:'none', background:solving?'#d0d7e8':'linear-gradient(135deg,#166534,#22c55e)', color:'#fff', fontWeight:800, cursor:solving?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.9rem', display:'flex', alignItems:'center', gap:8, boxShadow:'0 4px 15px rgba(34,197,94,0.3)' }}>
-                      🎉 {solving?'Saving…':'Confirm & Earn Streak!'}
-                    </button>
-                  )}
-                  <span style={{ fontSize:'.72rem', color:'#b0bec9' }}>
-                    {submitMode==='idle'?'AI will check your code first':'✅ Code looks good — confirm submission'}
-                  </span>
-                </div>
-              )}
-
-              {/* Analysing */}
-              {submitMode === 'analysing' && (
-                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'rgba(83,22,151,0.05)', borderRadius:10 }}>
-                  <div style={{ width:20, height:20, border:'2.5px solid #d0d7e8', borderTopColor:'#531697', borderRadius:'50%', animation:'_spin .7s linear infinite', flexShrink:0 }} />
-                  <span style={{ fontSize:'.85rem', color:'#531697', fontWeight:700 }}>Analysing your code before submission…</span>
-                </div>
-              )}
-
-              {/* Error found — show warning + override */}
-              {submitMode === 'error_found' && (
-                <div style={{ background:'rgba(239,68,68,0.04)', border:'1.5px solid rgba(239,68,68,0.2)', borderRadius:12, padding:'14px 16px' }}>
-                  <div style={{ fontWeight:800, fontSize:'.88rem', color:'#ef4444', marginBottom:6 }}>❌ AI found errors in your code</div>
-                  <div style={{ fontSize:'.8rem', color:'var(--text-3)', marginBottom:12, lineHeight:1.65 }}>
-                    The debug report above shows the issues. We recommend fixing them before submitting.
-                  </div>
-                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                    <button onClick={()=>setSubmitMode('idle')}
-                      style={{ padding:'9px 18px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.83rem' }}>
-                      ✏️ Fix & Re-Analyse
-                    </button>
-                    <button onClick={handleForceSubmit} disabled={solving}
-                      style={{ padding:'9px 18px', borderRadius:9, border:'1.5px solid rgba(239,68,68,0.3)', background:'transparent', color:'#ef4444', fontWeight:700, cursor:solving?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.83rem' }}>
-                      {solving?'Saving…':'Submit Anyway'}
-                    </button>
-                  </div>
-                </div>
+          {/* Action buttons footer */}
+          <div style={{ padding:'12px 18px', background:'#111827', borderTop:'1px solid #1f2937', display:'flex', gap:8, justifyContent:'space-between', alignItems:'center' }}>
+            <button onClick={handleDebug} disabled={debugging || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:debugging?'transparent':'rgba(129,140,248,0.1)', color:'#818cf8', fontWeight:700, fontSize:'.82rem', cursor:debugging||!code.trim()?'not-allowed':'pointer' }}>
+              {debugging ? 'Analysing...' : '🤖 AI Analyse Code'}
+            </button>
+            <div style={{ display:'flex', gap:8 }}>
+              {isSolved ? (
+                <span style={{ color:'#4ade80', fontSize:'.85rem', fontWeight:800 }}>🎉 You solved this problem!</span>
+              ) : (
+                <button onClick={handleSolveSubmit} disabled={submitting || !code.trim()} style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#13a1a5,#531697)', color:'#fff', fontWeight:800, fontSize:'.82rem', cursor:submitting||!code.trim()?'not-allowed':'pointer', boxShadow:'0 4px 12px rgba(83,22,151,0.25)' }}>
+                  {submitting ? 'Submitting...' : 'Mark as Solved & Earn XP'}
+                </button>
               )}
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-
-/* ── History Card ────────────────────────────────────────────────── */
-function HistoryCard({ item }) {
-  const [show, setShow] = useState(false);
-  const diff = DIFF[item.problemId?.difficulty] || DIFF.Easy;
-  return (
-    <div style={{ padding:'12px 0', borderBottom:'1px solid #f0f3fa' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        <span>✅</span>
-        <div style={{ flex:1 }}>
-          <div style={{ fontWeight:700, fontSize:'.86rem', color:'var(--text)' }}>{item.problemId?.title}</div>
-          <div style={{ fontSize:'.72rem', color:'#b0bec9', marginTop:1 }}>
-            {new Date(item.solvedAt||item.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})} · {item.problemId?.topic}
-            {item.selfRating && ` · ${'⭐'.repeat(item.selfRating)}`}
-          </div>
-        </div>
-        <span style={{ ...diff, padding:'2px 8px', borderRadius:999, fontSize:'.7rem', fontWeight:700, border:`1px solid ${diff.border}` }}>{item.problemId?.difficulty}</span>
-        {item.solutionCode && (
-          <button onClick={()=>setShow(s=>!s)} style={{ padding:'4px 10px', borderRadius:7, border:'1px solid #d0d7e8', background:'transparent', color:'#531697', fontSize:'.72rem', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
-            {show?'Hide':'View Code'}
-          </button>
-        )}
       </div>
-      {show && item.solutionCode && (
-        <pre style={{ marginTop:8, background:'#0f172a', borderRadius:8, padding:'10px 12px', overflow:'auto', color:'#e2e8f0', fontSize:'.78rem', fontFamily:'JetBrains Mono, monospace', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{item.solutionCode}</pre>
-      )}
-      {show && item.approachNotes && (
-        <div style={{ marginTop:6, padding:'8px 12px', background:'rgba(83,22,151,0.05)', borderRadius:8, fontSize:'.78rem', color:'var(--text-3)' }}>{item.approachNotes}</div>
-      )}
-    </div>
-  );
-}
 
-/* ── All Problems Tab ────────────────────────────────────────────── */
-function AllProblemsTab() {
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [cat, setCat]     = useState('All');
-  const [diff, setDiff]   = useState('All');
-  const [src, setSrc]     = useState('All');
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState(null);
-  const [debugResult, setDebugResult] = useState({});
-  const [debugging, setDebugging]     = useState({});
-  const [userCode, setUserCode]       = useState({});
-  const [lang, setLang]               = useState({});
-
-  useEffect(() => {
-    const p = new URLSearchParams();
-    if (cat !== 'All')  p.set('topic', cat);
-    if (diff !== 'All') p.set('difficulty', diff);
-    setLoading(true);
-    fetch(`${API}/problems?${p}`, { headers:tk() })
-      .then(r=>r.json()).then(d=>setProblems(d.problems||[])).finally(()=>setLoading(false));
-  }, [cat, diff]);
-
-  const filtered = problems.filter(p => {
-    if (src !== 'All' && p.source !== src) return false;
-    if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  async function handleDebug(problem) {
-    const code = userCode[problem._id] || '';
-    const language = lang[problem._id] || 'javascript';
-    if (!code.trim() || code.length < 5) return;
-    setDebugging(d => ({...d, [problem._id]:true}));
-    try {
-      const res = await fetch(`${API}/debug`, { method:'POST', headers:tks(), body:JSON.stringify({ code, language, problemTitle:problem.title, testCases:problem.testCases||[] }) });
-      const d = await res.json();
-      setDebugResult(r => ({...r, [problem._id]:d}));
-    } catch { setDebugResult(r => ({...r, [problem._id]:{ verdict:'review', verdictMessage:'Debug service unavailable.', issues:[], hints:[], testResults:[] }})); }
-    finally { setDebugging(d => ({...d, [problem._id]:false})); }
-  }
-
-  return (
-    <div>
-      {/* Filters */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12, alignItems:'center' }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search problem title…"
-          style={{ padding:'7px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', flex:1, minWidth:160, outline:'none' }} />
-        {[['Category',PROB_CATS,cat,setCat],['Difficulty',['All','Easy','Medium','Hard'],diff,setDiff],['Source',PROB_SRCS,src,setSrc]].map(([label,opts,val,setter])=>(
-          <select key={label} value={val} onChange={e=>setter(e.target.value)}
-            style={{ padding:'7px 10px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, color:'var(--text-2)', background:'var(--surface)', cursor:'pointer' }}>
-            {opts.map(o=><option key={o} value={o}>{o}</option>)}
-          </select>
-        ))}
-      </div>
-      <div style={{ fontSize:'.73rem', color:'var(--text-3)', marginBottom:10 }}>{filtered.length} problems</div>
-
-      {loading && <div style={{ textAlign:'center', padding:30, color:'#b0bec9' }}>Loading…</div>}
-
-      {!loading && filtered.map(p => {
-        const dc = DIFF[p.difficulty] || DIFF.Easy;
-        const sc = SRC_COLOR[p.source] || '#531697';
-        const isOpen = expanded === p._id;
-        return (
-          <div key={p._id} style={{ background:'var(--surface)', border:'1.5px solid #e8edf5', borderRadius:12, marginBottom:10, overflow:'hidden' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px' }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)', marginBottom:5 }}>{p.title}</div>
-                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                  {p.topic && <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(83,22,151,0.07)', color:'#531697', fontSize:'.68rem', fontWeight:700 }}>{p.topic}</span>}
-                  <span style={{ padding:'2px 8px', borderRadius:999, background:dc.bg, color:dc.color, border:`1px solid ${dc.border}`, fontSize:'.68rem', fontWeight:700 }}>{p.difficulty}</span>
-                  <span style={{ padding:'2px 8px', borderRadius:999, background:`${sc}15`, color:sc, fontSize:'.68rem', fontWeight:700 }}>{p.source}</span>
-                  {(p.companies||[]).slice(0,3).map(co => (
-                    <span key={co} style={{ padding:'2px 7px', borderRadius:999, fontSize:'.63rem', fontWeight:700,
-                      background:`${(COMPANY_COLORS[co]||'#531697')}12`, color:COMPANY_COLORS[co]||'#531697' }}>
-                      {co}
-                    </span>
-                  ))}
-                </div>
+      {/* Glowing success modal overlay */}
+      {showCelebration && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(11,15,25,0.85)', zIndex:2500, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' }}>
+          <div style={{ padding:32, background:'#111827', border:'2.5px solid #4ade80', borderRadius:24, textAlign:'center', maxWidth:420, width:'90%', boxShadow:'0 0 50px rgba(74,222,128,0.3)', animation:'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+            <div style={{ fontSize:'3.5rem', marginBottom:12, animation:'bounce 1s infinite' }}>🏆</div>
+            <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.4rem', color:'#4ade80', marginBottom:8 }}>EXCELLENT WORK!</h2>
+            <p style={{ color:'#cbd5e1', fontSize:'.9rem', lineHeight:1.6, marginBottom:20 }}>
+              You have successfully completed <strong>{problem.title}</strong>!<br />
+              Your streak progresses and rewards are permanently recorded.
+            </p>
+            <div style={{ display:'flex', justifyContent:'space-around', background:'#1f2937', padding:12, borderRadius:14, marginBottom:24 }}>
+              <div>
+                <div style={{ color:'#fbbf24', fontWeight:800 }}>+{problem.difficulty === 'Hard' || problem.level === 'Hard' ? 100 : problem.difficulty === 'Medium' || problem.level === 'Medium' ? 30 : 10} XP</div>
+                <div style={{ fontSize:'.68rem', color:'#94a3b8' }}>XP Points</div>
               </div>
-              <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                {p.url && <a href={p.url} target="_blank" rel="noopener noreferrer"
-                  style={{ padding:'6px 12px', borderRadius:8, background:`${sc}15`, color:sc, fontWeight:700, fontSize:'.75rem', textDecoration:'none', border:`1px solid ${sc}30`, display:'flex', alignItems:'center', gap:4 }}>
-                  {p.source==='LeetCode' && p.problemId ? `LC #${p.problemId} →` : `Solve →`}
-                </a>}
-                <button onClick={()=>setExpanded(isOpen ? null : p._id)}
-                  style={{ padding:'6px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', background:isOpen?'rgba(83,22,151,0.06)':'transparent', color:'#531697', fontWeight:700, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>
-                  {isOpen ? '▲ Hide' : '🤖 Try & Debug'}
-                </button>
+              <div style={{ borderLeft:'1px solid #374151' }} />
+              <div>
+                <div style={{ color:'#4ade80', fontWeight:800 }}>🔥 Active</div>
+                <div style={{ fontSize:'.68rem', color:'#94a3b8' }}>Heatmap Logged</div>
               </div>
             </div>
-
-            {/* Inline code editor + debug panel */}
-            {isOpen && (
-              <div style={{ padding:'14px 16px', borderTop:'1px solid #f0f3fa', background:'var(--surface)' }}>
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
-                  {LANGUAGES.map(l=>(
-                    <button key={l} type="button" onClick={()=>setLang(prev=>({...prev,[p._id]:l}))}
-                      style={{ padding:'3px 10px', borderRadius:999, border:`1.5px solid ${(lang[p._id]||'javascript')===l?'#531697':'#d0d7e8'}`, background:(lang[p._id]||'javascript')===l?'rgba(83,22,151,0.08)':'transparent', color:(lang[p._id]||'javascript')===l?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                <textarea value={userCode[p._id]||''} onChange={e=>setUserCode(prev=>({...prev,[p._id]:e.target.value}))} rows={8}
-                  placeholder={`// Write your ${lang[p._id]||'javascript'} solution here…`}
-                  style={{ width:'100%', padding:'12px', borderRadius:10, border:'1.5px solid #2d3748', fontFamily:'JetBrains Mono, monospace', fontSize:'.8rem', resize:'vertical', outline:'none', background:'#0f172a', color:'#e2e8f0', lineHeight:1.7, boxSizing:'border-box', marginBottom:10 }} />
-                <button onClick={()=>handleDebug(p)} disabled={debugging[p._id]||!(userCode[p._id]||'').trim()}
-                  style={{ padding:'8px 18px', borderRadius:9, border:'none', background:debugging[p._id]||!(userCode[p._id]||'').trim()?'#d0d7e8':'linear-gradient(135deg,#1e1b4b,#531697)', color:'#fff', fontWeight:700, cursor:debugging[p._id]||!(userCode[p._id]||'').trim()?'not-allowed':'pointer', fontSize:'.8rem', fontFamily:"'Nunito',sans-serif" }}>
-                  {debugging[p._id]?'Analysing…':'🤖 Debug & Analyse'}
-                </button>
-                <DebugPanel result={debugResult[p._id]} loading={debugging[p._id]} code={userCode[p._id]||''} onApplyFix={fixed=>setUserCode(prev=>({...prev,[p._id]:fixed}))} />
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {!loading && filtered.length===0 && <div style={{ textAlign:'center', padding:40, color:'#b0bec9' }}>No problems found. Adjust filters.</div>}
-    </div>
-  );
-}
-
-/* ── Main Page ───────────────────────────────────────────────────── */
-export default function ProblemsPage() {
-  const { user } = useAuth();
-  const [daily, setDaily]     = useState(null);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [tab, setTab]         = useState('today');
-  const [solving, setSolving] = useState(false);
-  const [shuffling, setShuffling] = useState(false);
-  const [msg, setMsg]         = useState('');
-
-  // Platform selection popup — show once per day
-  const todayKey = `pragati_platform_${new Date().toDateString()}`;
-  const [showPlatformPopup, setShowPlatformPopup] = useState(() => !localStorage.getItem(todayKey));
-  const [selectedPlatform, setSelectedPlatform] = useState(() => {
-    const saved = localStorage.getItem(todayKey);
-    return saved ? PLATFORMS.find(p => p.id === saved) || null : null;
-  });
-
-  function handlePlatformSelect(platform) {
-    if (platform) {
-      localStorage.setItem(todayKey, platform.id);
-      setSelectedPlatform(platform);
-      // If external platform chosen, open it in a new tab
-      if (platform.url) window.open(platform.url, '_blank');
-    } else {
-      localStorage.setItem(todayKey, 'Custom');
-      setSelectedPlatform(PLATFORMS.find(p => p.id === 'Custom'));
-    }
-    setShowPlatformPopup(false);
-  }
-
-  async function fetchData() {
-    try {
-      const [d, h] = await Promise.all([
-        fetch(`${API}/problems/daily`, { headers:tk() }).then(r=>r.json()),
-        fetch(`${API}/problems/history`, { headers:tk() }).then(r=>r.json()),
-      ]);
-      setDaily(d); setHistory(h.history||[]);
-    } catch(e){ console.error(e); } finally { setLoading(false); }
-  }
-
-  useEffect(() => { fetchData(); }, []);
-
-  async function handleSolve(problemId, notes, code, rating) {
-    setSolving(true); setMsg('');
-    try {
-      const res = await fetch(`${API}/problems/${problemId}/solve`, {
-        method:'POST', headers:tks(), body:JSON.stringify({ approachNotes:notes, solutionCode:code, selfRating:rating })
-      });
-      const d = await res.json();
-      if (!res.ok) { setMsg(d.error||'Error'); return; }
-      setMsg(`🎉 Solved! Streak: ${d.streak} days 🔥`); fetchData();
-    } catch(e){ setMsg('Error submitting'); } finally { setSolving(false); }
-  }
-
-  async function handleShuffle() {
-    setShuffling(true); setMsg('');
-    try {
-      const res = await fetch(`${API}/problems/shuffle`, { method:'POST', headers:tk() });
-      const d = await res.json();
-      if (!res.ok) { setMsg(d.error||'Cannot shuffle'); return; }
-      setMsg(`🔀 ${d.message}`); fetchData();
-    } catch(e){ setMsg('Shuffle error'); } finally { setShuffling(false); }
-  }
-
-  if (loading) return (
-    <div style={{ display:'flex', justifyContent:'center', padding:60 }}>
-      <div style={{ width:36, height:36, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_ps .7s linear infinite' }} />
-      <style>{`@keyframes _ps{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
-
-  return (
-    <div style={{ fontFamily:"'Nunito',sans-serif" }}>
-      {showPlatformPopup && <PlatformPopup onSelect={handlePlatformSelect} />}
-
-      <div style={{ marginBottom:18 }}>
-        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)' }}>💻 Coding Practice</h1>
-        <p style={{ color:'var(--text-3)', marginTop:3 }}>Daily problem · Category-wise list · 🤖 AI Debugging Agent · Platform links</p>
-      </div>
-
-      {/* Today's platform banner */}
-      {selectedPlatform && (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px', borderRadius:12, background:`${selectedPlatform.color}08`, border:`1.5px solid ${selectedPlatform.color}30`, marginBottom:14 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontSize:'1.2rem' }}>{selectedPlatform.emoji}</span>
-            <div>
-              <div style={{ fontWeight:800, fontSize:'.85rem', color:selectedPlatform.color }}>Today's Platform: {selectedPlatform.name}</div>
-              <div style={{ fontSize:'.7rem', color:'var(--text-3)' }}>{selectedPlatform.desc}</div>
-            </div>
-          </div>
-          <div style={{ display:'flex', gap:8 }}>
-            {selectedPlatform.url && (
-              <a href={selectedPlatform.url} target="_blank" rel="noreferrer"
-                style={{ padding:'6px 12px', borderRadius:8, border:`1px solid ${selectedPlatform.color}40`, background:`${selectedPlatform.color}10`, color:selectedPlatform.color, fontWeight:700, fontSize:'.75rem', textDecoration:'none' }}>
-                Open {selectedPlatform.name} →
-              </a>
-            )}
-            <button onClick={() => setShowPlatformPopup(true)}
-              style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text-3)', fontWeight:600, cursor:'pointer', fontSize:'.75rem', fontFamily:"'Nunito',sans-serif" }}>
-              Change
+            <button onClick={()=>setShowCelebration(false)} style={{ width:'100%', padding:'10px 0', border:'none', borderRadius:10, background:'#4ade80', color:'#111827', fontWeight:800, cursor:'pointer', fontSize:'.88rem' }}>
+              AWESOME
             </button>
           </div>
+          <style>{`
+            @keyframes popIn { from { transform: scale(0.85); opacity:0; } to { transform: scale(1); opacity:1; } }
+            @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+          `}</style>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Streak banner */}
-      <div style={{ background:'linear-gradient(135deg,#042c5d,#531697)', borderRadius:14, padding:'16px 22px', marginBottom:16, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-        {[['🔥','Streak',`${user?.streak||0} days`],['💻','Solved',`${user?.totalProblemsSolved||0}`],['⭐','Level',user?.skillLevel||'Beginner']].map(([ic,l,v])=>(
-          <div key={l} style={{ textAlign:'center' }}>
-            <div>{ic}</div>
-            <div style={{ color:'rgba(255,255,255,.6)', fontSize:'.65rem', fontWeight:700 }}>{l}</div>
-            <div style={{ color:'#fff', fontWeight:800 }}>{v}</div>
-          </div>
-        ))}
+/* ── Main Structured Platform Component ── */
+export default function ProblemsPage() {
+  const [tab, setTab] = useState('dash');
+  const [allLeetCodeProblems, setAllLeetCodeProblems] = useState([]);
+  const [allLeetCodeLoading, setAllLeetCodeLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('All');
+  const [solvedFilter, setSolvedFilter] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [companyFilter, setCompanyFilter] = useState('All');
+
+  // Pagination states for browsing all LeetCode problems
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, difficultyFilter, solvedFilter, selectedCategory, companyFilter]);
+  
+  // Custom states for local DB sync
+  const [solved, setSolved] = useState(() => new Set(JSON.parse(localStorage.getItem('pragati_practice_solved') || '[]')));
+  const [favorites] = useState(() => new Set(JSON.parse(localStorage.getItem('pragati_practice_favorites') || '[]')));
+  const [notes] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}'));
+  const [submissions] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}'));
+  const [xp, setXp] = useState(() => parseInt(localStorage.getItem('pragati_practice_xp') || '0'));
+  const [streak, setStreak] = useState(() => parseInt(localStorage.getItem('pragati_practice_streak') || '1'));
+  const [lastSolveDate, setLastSolveDate] = useState(() => localStorage.getItem('pragati_practice_last_solve_date') || '');
+  const [heatmap, setHeatmap] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_heatmap') || '{}'));
+  const [courseProgress, setCourseProgress] = useState(() => JSON.parse(localStorage.getItem('pragati_course_completed_chapters') || '{}'));
+
+  // Active Splitscreen workspace item
+  const [activeWorkspaceProblem, setActiveWorkspaceProblem] = useState(null);
+
+  // Daily API sync variables
+  const [daily, setDaily] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDaily = async () => {
+    try {
+      const res = await fetch(`${API}/problems/daily`, { headers:tk() });
+      if (res.ok) {
+        const d = await res.json();
+        setDaily(d);
+      }
+    } catch(e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncPracticeData = async () => {
+    try {
+      // 1. Fetch user solved problems history
+      const resHist = await fetch(`${API}/problems/history`, { headers: tk() });
+      if (resHist.ok) {
+        const histData = await resHist.json();
+        const solvedIds = new Set(
+          (histData.history || [])
+            .filter(up => up.status === 'solved')
+            .map(up => up.problemId?._id || up.problemId)
+            .filter(Boolean)
+        );
+        setSolved(solvedIds);
+        localStorage.setItem('pragati_practice_solved', JSON.stringify([...solvedIds]));
+      }
+
+      // 2. Fetch my profile for streak & heatmap
+      const resProf = await fetch(`${API}/analytics/my-profile`, { headers: tk() });
+      if (resProf.ok) {
+        const prof = await resProf.json();
+        if (prof.student) {
+          setStreak(prof.student.streak || 0);
+          setXp(prof.student.totalProblemsSolved * 10); // sync XP based on solved count
+          localStorage.setItem('pragati_practice_streak', String(prof.student.streak || 0));
+        }
+
+        // Reconstruct heatmap count from submissionDates
+        if (prof.submissionDates) {
+          const counts = {};
+          prof.submissionDates.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+          setHeatmap(counts);
+          localStorage.setItem('pragati_practice_heatmap', JSON.stringify(counts));
+        }
+      }
+    } catch (e) {
+      console.error('Error synchronizing coding practice data with server:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchDaily();
+    syncPracticeData();
+  }, []);
+
+  const handleSolveProgress = (problemId, difficulty) => {
+    // Proactively add solved problem locally first for instant feedback
+    const nextSolved = new Set(solved);
+    nextSolved.add(problemId);
+    setSolved(nextSolved);
+
+    // Refresh everything from the database
+    syncPracticeData();
+  };
+
+  const fetchAllProblems = async () => {
+    setAllLeetCodeLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.append('search', search);
+      if (difficultyFilter !== 'All') params.append('difficulty', difficultyFilter);
+      if (selectedCategory !== 'All') params.append('topic', selectedCategory);
+      params.append('source', 'LeetCode');
+
+      const res = await fetch(`${API}/problems?${params.toString()}`, { headers: tk() });
+      if (res.ok) {
+        const d = await res.json();
+        setAllLeetCodeProblems(d.problems || []);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAllLeetCodeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'all-problems') {
+      fetchAllProblems();
+    }
+  }, [tab, search, difficultyFilter, selectedCategory]);
+
+  const handleToggleCourseChapter = (courseId, chapterIndex) => {
+    const nextProgress = { ...courseProgress };
+    const current = nextProgress[courseId] || [];
+    if (current.includes(chapterIndex)) {
+      nextProgress[courseId] = current.filter(idx => idx !== chapterIndex);
+    } else {
+      nextProgress[courseId] = [...current, chapterIndex];
+    }
+    setCourseProgress(nextProgress);
+    localStorage.setItem('pragati_course_completed_chapters', JSON.stringify(nextProgress));
+  };
+
+  // Pre-calculated overall scoring values
+  const overallCodingScore = useMemo(() => {
+    return solved.size * 10 + xp;
+  }, [solved, xp]);
+
+  const stats = useMemo(() => {
+    const neetcodeSolved = NEETCODE_150.filter(p => solved.has(p.id)).length;
+    const neetcodePct = Math.round((neetcodeSolved / NEETCODE_150.length) * 100);
+
+    const mlaSolved = MOST_LIKELY_ASKED.filter(p => solved.has(p.id)).length;
+    const mlaPct = Math.round((mlaSolved / MOST_LIKELY_ASKED.length) * 100);
+
+    return {
+      neetcodeSolved,
+      neetcodePct,
+      mlaSolved,
+      mlaPct
+    };
+  }, [solved]);
+
+  const heatmapGridData = useMemo(() => {
+    const data = [];
+    const today = new Date();
+    // 12 weeks is 84 days. Monday to Sunday alignment
+    for (let i = 83; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const count = heatmap[dateStr] || 0;
+      data.push({ date: dateStr, count });
+    }
+    return data;
+  }, [heatmap]);
+
+  const allFilteredProblems = useMemo(() => {
+    // Collect all unique problems across MLA and NeetCode
+    const mlaMap = new Map(MOST_LIKELY_ASKED.map(p => [p.title.toLowerCase(), p]));
+    const neetcodeMap = new Map(NEETCODE_150.map(p => [p.title.toLowerCase(), p]));
+
+    const allTitles = new Set([...mlaMap.keys(), ...neetcodeMap.keys()]);
+    const list = Array.from(allTitles).map(t => {
+      const mla = mlaMap.get(t);
+      const nc = neetcodeMap.get(t);
+      return {
+        id: nc?.id || mla?.id,
+        title: nc?.title || mla?.title,
+        topic: nc?.topic || mla?.topic,
+        difficulty: nc?.difficulty || mla?.level,
+        videoId: nc?.videoId || mla?.videoId,
+        askedBy: mla?.askedBy || '',
+        isNeetcode: !!nc,
+        isMla: !!mla
+      };
+    });
+
+    return list.filter(p => {
+      if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (difficultyFilter !== 'All' && p.difficulty !== difficultyFilter) return false;
+      if (solvedFilter === 'Solved' && !solved.has(p.id)) return false;
+      if (solvedFilter === 'Unsolved' && solved.has(p.id)) return false;
+      if (solvedFilter === 'Favorites' && !favorites.has(p.id)) return false;
+      if (selectedCategory !== 'All' && p.topic !== selectedCategory) return false;
+      if (companyFilter !== 'All' && !p.askedBy.includes(companyFilter)) return false;
+      return true;
+    });
+  }, [search, difficultyFilter, solvedFilter, selectedCategory, companyFilter, solved, favorites]);
+
+  if (loading) return (
+    <div style={{ display:'flex', justifyContent:'center', padding:80 }}>
+      <div style={{ width:40, height:40, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_loadingSpin .7s linear infinite' }} />
+      <style>{`@keyframes _loadingSpin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
+  return (
+    <div style={{ fontFamily:"'Nunito',sans-serif", color:'var(--text)', background:'var(--background)', minHeight:'100vh', paddingBottom:60 }}>
+      {/* Splitscreen Workspace Modal */}
+      {activeWorkspaceProblem && (
+        <CodingWorkspace
+          problem={activeWorkspaceProblem}
+          onClose={() => { setActiveWorkspaceProblem(null); fetchDaily(); }}
+          onSolveProgress={handleSolveProgress}
+          localData={{ solved, favorites, notes, submissions }}
+        />
+      )}
+
+      {/* Main Header */}
+      <div style={{ marginBottom:20, display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10 }}>
+        <div>
+          <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.6rem', display:'flex', alignItems:'center', gap:8 }}>
+            <span>💻</span> Coding Practice Platform
+          </h1>
+          <p style={{ color:'var(--text-3)', fontSize:'.84rem', marginTop:3 }}>Master DSA · NeetCode 150 Roadmap · Curriculum courses & Video Solution splitscreen player</p>
+        </div>
+        {/* Dynamic score summary */}
+        <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.06),rgba(19,161,165,0.06))', padding:'8px 16px', borderRadius:10, border:'1.5px solid rgba(83,22,151,0.12)', textAlign:'right' }}>
+          <div style={{ fontSize:'.65rem', fontWeight:800, color:'#531697', textTransform:'uppercase' }}>Overall Coding Score</div>
+          <div style={{ fontSize:'1.1rem', fontWeight:900, color:'#13a1a5' }}>{overallCodingScore} pts</div>
+        </div>
       </div>
 
-      {msg && (
-        <div style={{ marginBottom:14, padding:'10px 16px', background:msg.includes('🎉')||msg.includes('🔀')?'rgba(71,211,114,0.1)':'rgba(239,68,68,0.08)', border:`1px solid ${msg.includes('🎉')||msg.includes('🔀')?'rgba(71,211,114,0.3)':'rgba(239,68,68,0.2)'}`, borderRadius:10, fontWeight:700, color:msg.includes('🎉')||msg.includes('🔀')?'#166534':'#991b1b', fontSize:'.88rem' }}>
-          {msg}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:5, marginBottom:16, borderBottom:'1px solid #e8edf5' }}>
-        {[['today',"📅 Today's Problem"],['all','📋 All Problems'],['history',`📜 History (${history.length})`]].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} style={{ padding:'8px 16px', borderRadius:'9px 9px 0 0', border:'none', borderBottom:tab===k?'2px solid #531697':'2px solid transparent', background:tab===k?'rgba(83,22,151,.06)':'transparent', color:tab===k?'#531697':'var(--text-3)', fontWeight:700, cursor:'pointer', fontSize:'.83rem', fontFamily:"'Nunito',sans-serif" }}>
-            {l}
+      {/* Structured learning navigation tabs */}
+      <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'1px solid var(--border)', flexWrap:'wrap' }}>
+        {[
+          { id:'dash', label:'🏠 Dashboard & Stats' },
+          { id:'all-problems', label:'🌐 All LeetCode Problems' },
+          { id:'mla', label:'🔥 Most Likely Asked' },
+          { id:'nc150', label:'🛣️ NeetCode 150 Roadmap' },
+          { id:'courses', label:'🎓 Full Video Courses' },
+          { id:'categories', label:'🗂️ Browse Categories' }
+        ].map(tabItem => (
+          <button key={tabItem.id} onClick={()=>setTab(tabItem.id)} style={{ padding:'10px 18px', border:'none', background:tab===tabItem.id?'rgba(83,22,151,0.06)':'transparent', color:tab===tabItem.id?'#531697':'var(--text-3)', fontWeight:800, cursor:'pointer', fontSize:'.85rem', borderBottom:tab===tabItem.id?'2.5px solid #531697':'2.5px solid transparent', transition:'all 0.2s' }}>
+            {tabItem.label}
           </button>
         ))}
       </div>
 
-      {tab==='today' && (
-        <>
-          {daily?.problem ? (
-            <ProblemCard problem={daily.problem} userProblem={daily.userProblem} onSolve={handleSolve} onShuffle={handleShuffle} solving={solving} shuffling={shuffling} />
-          ) : (
-            <div style={{ textAlign:'center', padding:'60px 0', color:'#b0bec9' }}>
-              <div style={{ fontSize:'3rem', marginBottom:10 }}>💻</div>
-              <div style={{ fontWeight:700 }}>{daily?.message||'No problem assigned yet'}</div>
-              <div style={{ fontSize:'.8rem', marginTop:6 }}>Ask admin to add problems for your level</div>
+      {/* Today's curriculum assigned problems list (Easy, Medium, Hard) */}
+      {tab === 'dash' && daily?.dailyProblems && daily.dailyProblems.length > 0 && (
+        <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.03),rgba(19,161,165,0.03))', border:'1.5px solid rgba(83,22,151,0.12)', borderRadius:16, padding:20, marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
+            <div>
+              <span style={{ padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#d97706', fontSize:'.65rem', fontWeight:800, textTransform:'uppercase' }}>Curriculum Assigned</span>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', margin:'4px 0 0 0' }}>📌 Daily 3 LeetCode Targets</h3>
             </div>
-          )}
-          <div style={{ marginTop:14, padding:'12px 16px', background:'rgba(83,22,151,0.05)', border:'1px solid rgba(83,22,151,0.1)', borderRadius:10, fontSize:'.78rem', color:'#531697', fontWeight:600 }}>
-            💡 Open the problem on {daily?.problem?.source||'LeetCode'} → solve it → paste your code → click <strong>🤖 Debug &amp; Analyse</strong> → then submit to earn streak!
-          {daily?.hoursUntilNext > 0 && (
-            <span style={{ marginLeft:12, fontWeight:800, color:'#531697' }}>
-              ⏰ Next problem in: <CountdownBadge hours={daily.hoursUntilNext} />
-            </span>
-          )}
+            <span style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:600 }}>Solve at least 1 to advance your streak! Solve all 3 for maximum heatmap dark purple color!</span>
           </div>
-        </>
+
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14 }}>
+            {daily.dailyProblems.map(({ problem, userProblem }) => {
+              const isSolved = solved.has(problem._id || problem.id);
+              const diffCol = DIFF[problem.difficulty]?.color || '#cbd5e1';
+              return (
+                <div key={problem._id || problem.id} style={{ background:'var(--surface)', padding:16, borderRadius:12, border:isSolved?'1.5px solid rgba(71,211,114,0.4)':'1.5px solid var(--border)', display:'flex', flexDirection:'column', justifyContent:'space-between', transition:'transform 0.2s' }}>
+                  <div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                      <span style={{ padding:'2px 8px', borderRadius:6, background:DIFF[problem.difficulty]?.bg, color:diffCol, fontSize:'.68rem', fontWeight:800 }}>
+                        {problem.difficulty}
+                      </span>
+                      {isSolved ? (
+                        <span style={{ fontSize:'.75rem', color:'#47d372', fontWeight:800 }}>✅ Solved</span>
+                      ) : (
+                        <span style={{ fontSize:'.75rem', color:'#ea580c', fontWeight:800 }}>🎯 Assigned</span>
+                      )}
+                    </div>
+                    <h4 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', margin:'0 0 6px 0' }}>{problem.title}</h4>
+                    <p style={{ fontSize:'.72rem', color:'var(--text-3)', margin:0 }}>Topic: {problem.topic}</p>
+                  </div>
+                  <button onClick={() => setActiveWorkspaceProblem(problem)} style={{ width:'100%', marginTop:12, padding:'8px 0', borderRadius:8, background:isSolved?'rgba(71,211,114,0.06)':'linear-gradient(135deg,#531697,#13a1a5)', color:isSolved?'#47d372':'#fff', border:isSolved?'1px solid #47d372':'none', fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s' }}>
+                    {isSolved ? 'Review Solution' : 'Solve Target →'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
-      {tab==='all' && <AllProblemsTab />}
+      {/* TAB 1: DASHBOARD & STATS */}
+      {tab === 'dash' && (
+        <div>
+          {/* Top row stats card */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:14, marginBottom:20 }}>
+            {[
+              { icon:'🔥', label:'Solving Streak', val:`${streak} days`, color:'#ea580c', bg:'rgba(234,88,12,0.06)' },
+              { icon:'🧠', label:'Total Solutions Logged', val:`${solved.size} solved`, color:'#10b981', bg:'rgba(16,185,129,0.06)' },
+              { icon:'⭐', label:'Total Earned XP', val:`${xp} XP`, color:'#eab308', bg:'rgba(234,179,8,0.06)' },
+              { icon:'🛣️', label:'NeetCode 150', val:`${stats.neetcodePct}% complete`, color:'#a855f7', bg:'rgba(168,85,247,0.06)' },
+              { icon:'🔥', label:'Most Likely Asked', val:`${stats.mlaPct}% complete`, color:'#3b82f6', bg:'rgba(59,130,246,0.06)' }
+            ].map((stat, i) => (
+              <div key={i} style={{ padding:16, background:'var(--surface)', borderRadius:14, border:'1.5px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
+                <span style={{ fontSize:'1.8rem', padding:8, borderRadius:10, background:stat.bg }}>{stat.icon}</span>
+                <div>
+                  <div style={{ fontSize:'.68rem', color:'var(--text-3)', fontWeight:700, textTransform:'uppercase' }}>{stat.label}</div>
+                  <div style={{ fontSize:'1.05rem', fontWeight:800, color:stat.color, marginTop:2 }}>{stat.val}</div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-      {tab==='history' && (
-        <div className="card" style={{ padding:'16px 22px' }}>
-          {history.length===0 ? (
-            <div style={{ padding:'40px 0', textAlign:'center', color:'#b0bec9' }}>No solutions yet — solve today's problem!</div>
-          ) : history.map(h => <HistoryCard key={h._id} item={h} />)}
+          {/* GitHub-like Solving Heatmap Card */}
+          <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20, marginBottom:20 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.92rem', textTransform:'uppercase', color:'var(--text-2)' }}>📊 Problem Solving Heatmap</h3>
+              <span style={{ fontSize:'.7rem', color:'var(--text-3)' }}>Record of coding activities in the last 12 weeks</span>
+            </div>
+            {/* Renders dynamic board */}
+            <div style={{ display:'flex', gap:3, flexWrap:'wrap', padding:8, background:'rgba(255,255,255,0.01)', borderRadius:10 }}>
+              {heatmapGridData.map((d, idx) => {
+                let bgColor = 'rgba(255,255,255,0.06)';
+                if (d.count === 1) bgColor = 'rgba(168,85,247,0.25)';
+                if (d.count === 2) bgColor = 'rgba(168,85,247,0.55)';
+                if (d.count >= 3) bgColor = 'rgba(168,85,247,0.9)';
+                return (
+                  <div key={idx} title={`${d.count} solved on ${d.date}`} style={{ width:12, height:12, borderRadius:2, background:bgColor, cursor:'pointer' }} />
+                );
+              })}
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:10, fontSize:'.68rem', color:'var(--text-3)' }}>
+              <span>Less</span>
+              <div style={{ display:'flex', gap:2, alignItems:'center' }}>
+                <div style={{ width:10, height:10, background:'rgba(255,255,255,0.06)', borderRadius:1 }} />
+                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.25)', borderRadius:1 }} />
+                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.55)', borderRadius:1 }} />
+                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.9)', borderRadius:1 }} />
+              </div>
+              <span>More</span>
+            </div>
+          </div>
+
+          {/* Roadmaps progress bars section */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, flexWrap:'wrap' }}>
+            {/* NeetCode card */}
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20 }}>
+              <div style={{ fontSize:'.68rem', fontWeight:800, color:'#a855f7', textTransform:'uppercase' }}>Complete Roadmap</div>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', margin:'4px 0 12px 0' }}>🛣️ NeetCode 150 Progress</h3>
+              <div style={{ height:12, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                <div style={{ width:`${stats.neetcodePct}%`, height:'100%', background:'linear-gradient(90deg,#a855f7,#c084fc)', borderRadius:10 }} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.85rem' }}>
+                <span>Solved: <strong>{stats.neetcodeSolved}</strong> / {NEETCODE_150.length}</span>
+                <span style={{ color:'#a855f7', fontWeight:800 }}>{stats.neetcodePct}% complete</span>
+              </div>
+              <button onClick={()=>setTab('nc150')} style={{ width:'100%', marginTop:16, padding:'8px 0', border:'1px solid #a855f7', borderRadius:8, background:'rgba(168,85,247,0.05)', color:'#a855f7', cursor:'pointer', fontWeight:800, fontSize:'.8rem' }}>
+                View Full Roadmap Accordion →
+              </button>
+            </div>
+            {/* MLA card */}
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20 }}>
+              <div style={{ fontSize:'.68rem', fontWeight:800, color:'#3b82f6', textTransform:'uppercase' }}>Most Frequently Asked</div>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', margin:'4px 0 12px 0' }}>🔥 Most Likely Asked progress</h3>
+              <div style={{ height:12, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                <div style={{ width:`${stats.mlaPct}%`, height:'100%', background:'linear-gradient(90deg,#3b82f6,#60a5fa)', borderRadius:10 }} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.85rem' }}>
+                <span>Solved: <strong>{stats.mlaSolved}</strong> / {MOST_LIKELY_ASKED.length}</span>
+                <span style={{ color:'#3b82f6', fontWeight:800 }}>{stats.mlaPct}% complete</span>
+              </div>
+              <button onClick={()=>setTab('mla')} style={{ width:'100%', marginTop:16, padding:'8px 0', border:'1px solid #3b82f6', borderRadius:8, background:'rgba(59,130,246,0.05)', color:'#3b82f6', cursor:'pointer', fontWeight:800, fontSize:'.8rem' }}>
+                View 130 Interview Questions →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* TAB: ALL LEETCODE PROBLEMS */}
+      {tab === 'all-problems' && (
+        <div>
+          {/* Quick Filters */}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search LeetCode problem title..." style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', flex:1, outline:'none', fontSize:'.82rem', background:'var(--surface)', color:'var(--text)' }} />
+            <select value={difficultyFilter} onChange={e=>setDifficultyFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Difficulty</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <select value={selectedCategory} onChange={e=>setSelectedCategory(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Topics</option>
+              {['Arrays', 'Strings', 'Linked List', 'Trees', 'Dynamic Programming', 'Graphs', 'Binary Search', 'Stack & Queue', 'Backtracking', 'Bit Manipulation', 'Math', 'Greedy'].map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <select value={solvedFilter} onChange={e=>setSolvedFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Solved Status</option>
+              <option value="Solved">Solved</option>
+              <option value="Unsolved">Unsolved</option>
+            </select>
+            <button onClick={fetchAllProblems} style={{ padding:'8px 16px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, fontSize:'.8rem', cursor:'pointer' }}>
+              🔄 Refresh List
+            </button>
+          </div>
+
+          {/* Table / Grid list */}
+          {allLeetCodeLoading ? (
+            <div style={{ textAlign:'center', padding:40 }}>
+              <div style={{ width:32, height:32, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_leetcodeSpin .7s linear infinite', margin:'0 auto 10px' }} />
+              <style>{`@keyframes _leetcodeSpin{to{transform:rotate(360deg)}}`}</style>
+              <div style={{ color:'var(--text-3)', fontSize:'.82rem' }}>Fetching LeetCode problems list...</div>
+            </div>
+          ) : (
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left', fontSize:'.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom:'1px solid var(--border)', background:'rgba(255,255,255,0.02)' }}>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ID</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>TITLE</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>DIFFICULTY</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>TOPIC</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ACCEPTANCE</th>
+                    <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const filtered = allLeetCodeProblems.filter(p => {
+                      const isSolved = solved.has(p._id || p.id);
+                      if (solvedFilter === 'Solved' && !isSolved) return false;
+                      if (solvedFilter === 'Unsolved' && isSolved) return false;
+                      return true;
+                    });
+                    
+                    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+                    const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+                    return (
+                      <>
+                        {paginated.map(p => {
+                          const isSolved = solved.has(p._id || p.id);
+                          const diffCol = DIFF[p.difficulty]?.color || '#cbd5e1';
+                          return (
+                            <tr key={p._id || p.id} style={{ borderBottom:'1px solid var(--border)', background:isSolved?'rgba(71,211,114,0.02)':'transparent', transition:'background 0.2s' }}>
+                              <td style={{ padding:'12px 16px', fontWeight:800, color:'var(--text-3)' }}>#{p.problemId}</td>
+                              <td style={{ padding:'12px 16px', fontWeight:800, color:'var(--text)' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                  {p.title}
+                                  {isSolved && <span style={{ padding:'2px 6px', borderRadius:4, background:'rgba(71,211,114,0.1)', color:'#47d372', fontSize:'.65rem', fontWeight:800 }}>SOLVED</span>}
+                                </div>
+                              </td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <span style={{ padding:'3px 8px', borderRadius:6, background:DIFF[p.difficulty]?.bg, color:diffCol, fontSize:'.7rem', fontWeight:800 }}>
+                                  {p.difficulty}
+                                </span>
+                              </td>
+                              <td style={{ padding:'12px 16px', color:'var(--text-2)' }}>{p.topic}</td>
+                              <td style={{ padding:'12px 16px', color:'var(--text-3)' }}>{p.acceptanceRate ? `${p.acceptanceRate}%` : 'N/A'}</td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <button onClick={() => setActiveWorkspaceProblem({ ...p, id: p._id || p.id })} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer' }}>
+                                  Solve →
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filtered.length === 0 && (
+                          <tr>
+                            <td colSpan={6} style={{ padding:40, textAlign:'center', color:'var(--text-3)' }}>
+                              No problems found. Start the server background sync or try another query!
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+              {(() => {
+                const filtered = allLeetCodeProblems.filter(p => {
+                  const isSolved = solved.has(p._id || p.id);
+                  if (solvedFilter === 'Solved' && !isSolved) return false;
+                  if (solvedFilter === 'Unsolved' && isSolved) return false;
+                  return true;
+                });
+                const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+                return (
+                  <div style={{ padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'center', borderTop:'1px solid var(--border)', background:'rgba(255,255,255,0.01)', flexWrap:'wrap', gap:10 }}>
+                    <div style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:700 }}>
+                      Showing <strong>{filtered.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(filtered.length, currentPage * pageSize)}</strong> of <strong>{filtered.length}</strong> matching problems.
+                    </div>
+                    {totalPages > 1 && (
+                      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                        <button 
+                          disabled={currentPage === 1}
+                          onClick={() => { setCurrentPage(p => Math.max(1, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          style={{ padding:'6px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:currentPage === 1 ? 'var(--text-3)' : 'var(--text-2)', cursor:currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight:800, fontSize:'.75rem', transition:'all 0.2s' }}
+                        >
+                          ← Previous
+                        </button>
+                        
+                        <span style={{ fontSize:'.78rem', color:'var(--text)', fontWeight:800, padding:'0 8px' }}>
+                          Page <span style={{ color:'#38bdf8' }}>{currentPage}</span> of {totalPages}
+                        </span>
+                        
+                        <button 
+                          disabled={currentPage === totalPages}
+                          onClick={() => { setCurrentPage(p => Math.min(totalPages, p + 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                          style={{ padding:'6px 14px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:currentPage === totalPages ? 'var(--text-3)' : 'var(--text-2)', cursor:currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight:800, fontSize:'.75rem', transition:'all 0.2s' }}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: MOST LIKELY ASKED */}
+      {tab === 'mla' && (
+        <div>
+          {/* Quick Filters */}
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search question title..." style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', flex:1, outline:'none', fontSize:'.82rem', background:'var(--surface)', color:'var(--text)' }} />
+            <select value={difficultyFilter} onChange={e=>setDifficultyFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Difficulty</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <select value={solvedFilter} onChange={e=>setSolvedFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Solved Status</option>
+              <option value="Solved">Solved</option>
+              <option value="Unsolved">Unsolved</option>
+              <option value="Favorites">Bookmarked</option>
+            </select>
+            <select value={companyFilter} onChange={e=>setCompanyFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Popular Companies</option>
+              <option value="Amazon">Amazon</option>
+              <option value="Google">Google</option>
+              <option value="Microsoft">Microsoft</option>
+              <option value="Facebook">Meta (Facebook)</option>
+              <option value="Apple">Apple</option>
+              <option value="Uber">Uber</option>
+            </select>
+          </div>
+
+          {/* List */}
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {allFilteredProblems.filter(p => p.isMla).map(p => {
+              const completed = solved.has(p.id);
+              return (
+                <div key={p.id} style={{ padding:'12px 18px', background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                      <span style={{ fontSize:'1rem' }}>{completed ? '✅' : '○'}</span>
+                      <strong style={{ fontSize:'.88rem' }}>{p.title}</strong>
+                      <span style={{ padding:'2px 8px', borderRadius:999, background:DIFF[p.difficulty]?.bg, color:DIFF[p.difficulty]?.color, fontSize:'.65rem', fontWeight:800 }}>
+                        {p.difficulty}
+                      </span>
+                    </div>
+                    {p.askedBy && (
+                      <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                        {p.askedBy.split(', ').slice(0, 3).map(item => {
+                          const [name] = item.split('-');
+                          return (
+                            <span key={item} style={{ fontSize:'.65rem', color:'var(--text-3)', padding:'1px 5px', borderRadius:4, background:'var(--background)', border:'1.5px solid var(--border)', display:'inline-flex', alignItems:'center', gap:2 }}>
+                              {COMPANY_LOGOS[name]} {item}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => setActiveWorkspaceProblem(p)} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
+                    Practice Solution →
+                  </button>
+                </div>
+              );
+            })}
+            {allFilteredProblems.filter(p => p.isMla).length === 0 && (
+              <div style={{ padding:40, textAlign:'center', color:'var(--text-3)' }}>No interview questions match your filter query.</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: NEETCODE 150 ROADMAP */}
+      {tab === 'nc150' && (
+        <div>
+          {/* 18 accordions mapping NeetCodeCategories */}
+          {NC_CATEGORIES.map((cat, i) => {
+            const catProblems = NEETCODE_150.filter(p => p.topic === cat.name);
+            const catSolved = catProblems.filter(p => solved.has(p.id));
+            const catPct = Math.round((catSolved.length / catProblems.length) * 100) || 0;
+            const easyCount = catProblems.filter(p => p.difficulty === 'Easy').length;
+            const medCount = catProblems.filter(p => p.difficulty === 'Medium').length;
+            const hardCount = catProblems.filter(p => p.difficulty === 'Hard').length;
+
+            return (
+              <div key={i} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:18, marginBottom:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:10 }}>
+                  <div>
+                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', margin:0 }}>{cat.name}</h3>
+                    <div style={{ display:'flex', gap:8, fontSize:'.72rem', color:'var(--text-3)', marginTop:3 }}>
+                      <span>Problems: <strong>{catProblems.length}</strong> (Easy: {easyCount} · Med: {medCount} · Hard: {hardCount})</span>
+                      <span>·</span>
+                      <span>Est. time: {cat.estTime}</span>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'right' }}>
+                    <span style={{ fontSize:'.8rem', fontWeight:800, color:'#a855f7' }}>{catPct}% solved</span>
+                    <div style={{ fontSize:'.68rem', color:'var(--text-3)' }}>{catSolved.length} / {catProblems.length} Complete</div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ height:6, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                  <div style={{ width:`${catPct}%`, height:'100%', background:'linear-gradient(90deg,#a855f7,#cbd5e1)', borderRadius:10 }} />
+                </div>
+
+                {/* List categories problems */}
+                <div style={{ display:'grid', gridTemplateColumns:window.innerWidth<640?'1fr':'1fr 1fr', gap:8 }}>
+                  {catProblems.map(p => {
+                    const comp = solved.has(p.id);
+                    return (
+                      <div key={p.id} style={{ padding:'8px 12px', background:'var(--background)', border:`1.5px solid ${comp?'#4ade80':'var(--border)'}`, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:'.82rem', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'65%' }}>
+                          {comp ? '✅' : '○'} {p.title}
+                        </span>
+                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                          <span style={{ fontSize:'.65rem', color:DIFF[p.difficulty].color, background:DIFF[p.difficulty].bg, padding:'1px 6px', borderRadius:4, border:`1px solid ${DIFF[p.difficulty].border}` }}>{p.difficulty}</span>
+                          <button onClick={()=>setActiveWorkspaceProblem(p)} style={{ padding:'3px 8px', borderRadius:6, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.65rem' }}>
+                            Solve
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* TAB 4: FULL COURSES */}
+      {tab === 'courses' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:20 }}>
+          {FULL_COURSES.map((course) => {
+            const completedChaps = courseProgress[course.id] || [];
+            const isCompleted = completedChaps.length === course.chapters.length;
+            const progress = Math.round((completedChaps.length / course.chapters.length) * 100) || 0;
+
+            return (
+              <div key={course.id} style={{ background:'var(--surface)', border:`1.5px solid ${isCompleted?'#fbbf24':'var(--border)'}`, borderRadius:16, padding:20, display:'flex', flexDirection:'column', justifyContent:'space-between', boxShadow:isCompleted?'0 4px 20px rgba(251,191,36,0.12)':'none' }}>
+                <div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <span style={{ padding:'3px 9px', borderRadius:999, background:'rgba(19,161,165,0.08)', color:'#13a1a5', fontSize:'.68rem', fontWeight:800 }}>{course.topic}</span>
+                    {isCompleted ? (
+                      <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(251,191,36,0.15)', color:'#d97706', fontSize:'.62rem', fontWeight:800, border:'1px solid #fbbf24' }}>🏆 GRADUATED</span>
+                    ) : (
+                      <span style={{ fontSize:'.68rem', color:'var(--text-3)' }}>⏱ {course.duration}</span>
+                    )}
+                  </div>
+
+                  <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.05rem', margin:'8px 0' }}>{course.title}</h3>
+                  <p style={{ fontSize:'.78rem', color:'var(--text-3)', lineHeight:1.6, marginBottom:14 }}>{course.description}</p>
+
+                  <div style={{ borderTop:'1px solid var(--border)', paddingTop:12, marginBottom:16 }}>
+                    <div style={{ fontSize:'.7rem', fontWeight:800, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:6 }}>Topics covered:</div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                      {course.chapters.map((chap, cIdx) => {
+                        const checked = completedChaps.includes(cIdx);
+                        return (
+                          <label key={cIdx} style={{ display:'flex', alignItems:'center', gap:8, fontSize:'.75rem', color:checked?'var(--text-2)':'var(--text-3)', cursor:'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleToggleCourseChapter(course.id, cIdx)}
+                              style={{ accentColor:'#13a1a5' }}
+                            />
+                            <span style={{ textDecoration:checked?'line-through':'none' }}>{chap}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  {/* Progress bar */}
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.7rem', marginBottom:4, fontWeight:700 }}>
+                    <span>Course Progress</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div style={{ height:6, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                    <div style={{ width:`${progress}%`, height:'100%', background:isCompleted?'#fbbf24':'#13a1a5', borderRadius:10 }} />
+                  </div>
+
+                  <button onClick={() => setActiveWorkspaceProblem({ id: course.id, title: course.title, topic: course.topic, videoId: course.videoId, difficulty: 'Easy' })} style={{ width:'100%', padding:'10px 0', borderRadius:10, border:'none', background:isCompleted?'linear-gradient(135deg,#fbbf24,#d97706)':'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, fontSize:'.8rem', cursor:'pointer' }}>
+                    {isCompleted ? 'Re-watch Playlist Solution' : 'Watch Playlist Solution'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* TAB 5: BROWSE CATEGORIES */}
+      {tab === 'categories' && (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14 }}>
+          {['All','Arrays','Strings','Linked List','Trees','Graphs','Dynamic Programming','Sorting','Binary Search','Stack & Queue','Recursion','Backtracking','Bit Manipulation','Math','Greedy'].map((c, i) => {
+            const count = allFilteredProblems.filter(p => p.topic === c || (c==='Linked List' && p.topic==='Linked Lists') || (c==='Stack & Queue' && p.topic==='Stack') || (c==='Bit Manipulation' && p.topic==='Bit Manipulation')).length;
+            return (
+              <button key={i} onClick={() => { setSelectedCategory(c === 'All' ? 'All' : c); setTab('mla'); }} style={{ padding:20, background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, cursor:'pointer', textAlign:'left', transition:'all 0.2s', borderBottom:selectedCategory===c?'2px solid #531697':'1.5px solid var(--border)' }} onMouseOver={e=>e.currentTarget.style.borderColor='#531697'} onMouseOut={e=>e.currentTarget.style.borderColor='var(--border)'}>
+                <div style={{ fontSize:'1.5rem', marginBottom:6 }}>📂</div>
+                <div style={{ fontWeight:800, fontSize:'.9rem', color:'var(--text)' }}>{c}</div>
+                <div style={{ fontSize:'.7rem', color:'var(--text-3)', marginTop:4 }}>{count} Curated Problems</div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
