@@ -10,9 +10,9 @@ const SKILL_COL = { Beginner:'#f59e0b', Intermediate:'#531697', Expert:'#47d372'
 const MEDALS = ['🥇','🥈','🥉'];
 
 function DeptChart({ students, dm = false }) {
-  const cardBrd = dm ? '#2d3a52' : '#f0f3fa';
   const txt = dm ? '#e2e8f0' : 'var(--text)';
-  const muted = dm ? '#64748b' : 'var(--text-3)';
+  const sub = dm ? '#94a3b8' : 'var(--text-3)';
+  const secBg = dm ? '#111827' : '#f8f9fc';
   const depts = {};
   students.forEach(s => {
     if (!s.department) return;
@@ -41,7 +41,8 @@ function DeptChart({ students, dm = false }) {
   );
 }
 
-function ScoreHistogram({ students }) {
+function ScoreHistogram({ students, dm = false }) {
+  const muted = dm ? '#64748b' : '#b0bec9';
   const buckets = Array.from({length:10},(_,i)=>({
     lo:i*10, hi:(i+1)*10,
     count:students.filter(s=>(s.totalScore||0)>=i*10&&(s.totalScore||0)<(i+1)*10).length

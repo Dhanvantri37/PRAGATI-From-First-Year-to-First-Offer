@@ -3,6 +3,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
+  const [form, setForm]       = useState({ email: '', password: '' });
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState({});
+  const { login } = useAuth();
+  
   const [mode, setMode] = useState('login'); // 'login' or 'forgot'
   const [forgotMsg, setForgotMsg] = useState('');
 

@@ -10,6 +10,63 @@ const Lbl = ({ children, req }) => <label style={{ display:'block', fontSize:'.7
 const Msg = ({ msg }) => msg ? <div style={{ padding:'10px 14px', borderRadius:8, fontSize:'.82rem', fontWeight:600, margin:'10px 0', background:msg.startsWith('✅')?'#dcfce7':'#fee2e2', color:msg.startsWith('✅')?'#166534':'#991b1b' }}>{msg}</div> : null;
 
 function Section({ title, children }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius:16, padding:'22px 24px', marginBottom:20, boxShadow:'0 2px 8px rgba(4,44,93,0.05)' }}>
+      <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', marginBottom:16, color:'var(--text)' }}>{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function AddCompanyForm({ onAdded }) {
+  const [form, setForm] = useState({ name:'', sector:'IT Services', status:'expected', ctc:'', website:'', logoUrl:'', roles:'', recruitmentRounds:'', aptitudePatterns:'', interviewPatterns:'', difficulty:'Easy', minCGPA:'6.0', prepTips:'', jdText:'' });
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+  const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const TA = (rows=3) => ({ ...inp, height:rows*28, resize:'none' });
+  async function submit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) { setMsg('❌ Company name is required'); return; }
+    setLoading(true); setMsg('');
+    try {
+      await axios.post(`${API}/companies`, {
+        ...form,
+        roles: form.roles.split('\n').filter(Boolean),
+        recruitmentRounds: form.recruitmentRounds.split('\n').filter(Boolean),
+        eligibilityCriteria: { minCGPA:Number(form.minCGPA), allowedBranches:['CSE','CSAIML','IT','ECE'], backlogs:false }
+      }, { headers:tk() });
+      setMsg('✅ Company added!');
+      setForm(f=>({...f,name:'',logoUrl:'',roles:'',recruitmentRounds:'',aptitudePatterns:'',interviewPatterns:'',prepTips:'',jdText:'',website:''}));
+      onAdded();
+    } catch(err){ setMsg('❌ '+( err.response?.data?.error||err.message)); }
+    finally { setLoading(false); }
+  }
+  return (
+    <form onSubmit={submit}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+        <div style={{ gridColumn:'1/-1' }}><Lbl req>Company Name</Lbl><input style={inp} value={form.name} onChange={set('name')} placeholder="TCS, Infosys, Zensar…" required/></div>
+        <div><Lbl>Sector</Lbl><select style={inp} value={form.sector} onChange={set('sector')}>{['IT Services','IT Product','FinTech','EdTech','Core Engineering','Consulting','Banking','Healthcare','Other'].map(s=><option key={s}>{s}</option>)}</select></div>
+        <div><Lbl>Status</Lbl><select style={inp} value={form.status} onChange={set('status')}><option value="expected">Expected</option><option value="upcoming">Upcoming</option><option value="visited">Visited</option></select></div>
+        <div><Lbl>CTC Range</Lbl><input style={inp} value={form.ctc} onChange={set('ctc')} placeholder="4–8 LPA"/></div>
+        <div><Lbl>Min CGPA</Lbl><input style={inp} type="number" step="0.1" min="0" max="10" value={form.minCGPA} onChange={set('minCGPA')}/></div>
+        <div><Lbl>Difficulty</Lbl><select style={inp} value={form.difficulty} onChange={set('difficulty')}><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
+        <div><Lbl>Company Website</Lbl><input style={inp} type="url" value={form.website} onChange={set('website')} placeholder="https://www.company.com"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Company Logo URL</Lbl><input style={inp} type="url" value={form.logoUrl} onChange={set('logoUrl')} placeholder="https://example.com/logo.png"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Roles (one per line)</Lbl><textarea style={TA(2)} value={form.roles} onChange={set('roles')} placeholder="Software Engineer&#10;Data Analyst"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Recruitment Rounds (one per line)</Lbl><textarea style={TA(3)} value={form.recruitmentRounds} onChange={set('recruitmentRounds')} placeholder="Online Aptitude Test&#10;Technical Interview&#10;HR Interview"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Aptitude Pattern</Lbl><textarea style={TA(2)} value={form.aptitudePatterns} onChange={set('aptitudePatterns')} placeholder="Sections, timing, topics…"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Interview Pattern</Lbl><textarea style={TA(2)} value={form.interviewPatterns} onChange={set('interviewPatterns')} placeholder="Technical and HR round description…"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Prep Tips</Lbl><textarea style={TA(2)} value={form.prepTips} onChange={set('prepTips')} placeholder="Key resources, books, strategies…"/></div>
+        <div style={{ gridColumn:'1/-1' }}><Lbl>Job Description (optional — for skill matching)</Lbl><textarea style={TA(3)} value={form.jdText} onChange={set('jdText')} placeholder="Paste JD text for AI-powered skill matching…"/></div>
+      </div>
+      <Msg msg={msg}/>
+      <button type="submit" disabled={loading} style={{ padding:'11px 24px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>
+        {loading?'Adding…':'🏢 Add Company'}
+      </button>
+    </form>
+  );
+}
+
 function BulkAptitudeUpload({ onAdded }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
