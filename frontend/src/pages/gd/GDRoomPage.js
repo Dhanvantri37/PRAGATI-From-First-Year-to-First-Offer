@@ -546,8 +546,10 @@ export default function GDRoomPage() {
         .gd-side-panel { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #13203a; border-left: 1px solid #2a3a5a; overflow: hidden; }
         @media (max-width: 768px) {
           .gd-main-body { flex-direction: column; }
-          .gd-side-panel { width: 100%; border-left: none; border-top: 1px solid #2a3a5a; flex: 1; min-height: 250px; }
+          .gd-side-panel { width: 100%; border-left: none; border-top: 1px solid #2a3a5a; flex: 1; min-height: 200px; max-height: 50%; }
+          .gd-video-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; grid-template-rows: auto !important; }
         }
+
       `}</style>
       {/* BODY */}
       <div className="gd-main-body">
@@ -556,8 +558,8 @@ export default function GDRoomPage() {
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
 
           {/* Video grid */}
-          <div style={{ flex:1, overflow:'hidden', minHeight:0, padding:'8px 8px 0' }}>
-            <div style={{
+          <div style={{ flex:1, overflow:'auto', minHeight:0, padding:'8px 8px 0' }}>
+            <div className="gd-video-grid" style={{
               display: 'grid',
               gap: 12,
               width: '100%',
