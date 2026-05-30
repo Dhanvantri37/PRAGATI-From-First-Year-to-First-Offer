@@ -9,6 +9,7 @@ function registerCompileSocket(io) {
     let currentProcess = null;
     let runDir = null;
     let timeoutId = null;
+    const MAX_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
     const cleanup = () => {
       if (currentProcess) {
@@ -27,6 +28,16 @@ function registerCompileSocket(io) {
         }
         runDir = null;
       }
+    };
+
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (currentProcess) {
+          socket.emit('output', `\n\n[Time Limit Exceeded (${MAX_TIMEOUT_MS / 1000} seconds)]`);
+          cleanup();
+        }
+      }, MAX_TIMEOUT_MS);
     };
 
     socket.on('disconnect', () => {
@@ -106,13 +117,8 @@ function registerCompileSocket(io) {
           cleanup();
         });
 
-        // 30 seconds max execution time
-        timeoutId = setTimeout(() => {
-          if (currentProcess) {
-            socket.emit('output', '\n\n[Time Limit Exceeded (30 seconds)]');
-            cleanup();
-          }
-        }, 30000);
+        // Initialize idle timeout
+        resetTimeout();
 
       } catch (err) {
         socket.emit('error', 'Failed to start execution: ' + err.message);
@@ -123,6 +129,7 @@ function registerCompileSocket(io) {
     socket.on('input', (data) => {
       if (currentProcess && currentProcess.stdin && currentProcess.stdin.writable) {
         currentProcess.stdin.write(data + '\n');
+        resetTimeout(); // Reset the timeout every time user interacts
       }
     });
   });
