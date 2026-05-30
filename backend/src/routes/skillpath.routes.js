@@ -98,20 +98,34 @@ router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1
     if (!resumeUrl) return res.status(400).json({ error: 'No resume found. Upload your resume (PDF).' });
 
     let mlData;
-    if (jdFileBuffer && !jdText.trim()) {
-      const form = new FormData();
-      const resumeResp = await axios.get(resumeUrl, { responseType:'arraybuffer', timeout:30000 });
-      form.append('resume', Buffer.from(resumeResp.data), { filename:'resume.pdf', contentType:'application/pdf' });
-      form.append('job_description', jdFileBuffer, { filename:'jd.pdf', contentType:'application/pdf' });
-      const mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze-file`, form, { headers:form.getHeaders(), timeout:90000 });
-      mlData = mlResp.data;
-    } else {
-      const form = new FormData();
-      form.append('resume_url', resumeUrl);
-      form.append('jd_text', jdText);
-      form.append('user_id', req.user._id.toString());
-      const mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze`, form, { headers:form.getHeaders(), timeout:90000 });
-      mlData = mlResp.data;
+    let mlResp;
+    let attempts = 0;
+    while (attempts < 3) {
+      try {
+        attempts++;
+        if (jdFileBuffer && !jdText.trim()) {
+          const form = new FormData();
+          const resumeResp = await axios.get(resumeUrl, { responseType:'arraybuffer', timeout:30000 });
+          form.append('resume', Buffer.from(resumeResp.data), { filename:'resume.pdf', contentType:'application/pdf' });
+          form.append('job_description', jdFileBuffer, { filename:'jd.pdf', contentType:'application/pdf' });
+          mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze-file`, form, { headers:form.getHeaders(), timeout:90000 });
+        } else {
+          const form = new FormData();
+          form.append('resume_url', resumeUrl);
+          form.append('jd_text', jdText);
+          form.append('user_id', req.user._id.toString());
+          mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze`, form, { headers:form.getHeaders(), timeout:90000 });
+        }
+        mlData = mlResp.data;
+        break; // Success, exit retry loop
+      } catch (err) {
+        if (err.response?.status === 429 && attempts < 3) {
+          console.warn(`[SkillPath] ML Service 429 on attempt ${attempts}, retrying...`);
+          await new Promise(r => setTimeout(r, 2000 * attempts)); // Backoff: 2s, 4s
+        } else {
+          throw err; // Not a 429 or max attempts reached
+        }
+      }
     }
 
     const skill_gap = mlData.skill_gap || {};
@@ -139,6 +153,10 @@ router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1
     res.json({ message:'Analysis complete', result:dbResult, fullAnalysis:mlData });
   } catch (err) {
     if (err.code==='ECONNREFUSED'||err.code==='ECONNABORTED') return res.status(503).json({ error:'AI service unavailable. Try again shortly.' });
+    if (err.response?.status === 429) {
+      console.warn('[SkillPath] ML Service Rate Limit Hit (429).');
+      return res.status(429).json({ error: 'The AI analysis service is currently busy. Please wait a moment and try again.' });
+    }
     console.error('SkillPath error:', err.message);
     res.status(500).json({ error: err.response?.data?.detail || err.message });
   }

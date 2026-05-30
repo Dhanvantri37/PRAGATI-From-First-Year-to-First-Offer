@@ -180,12 +180,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Demo hint box */}
-          <div style={{ marginTop: 14, padding: '11px 16px', background: 'rgba(19,161,165,0.06)', border: '1px solid rgba(19,161,165,0.15)', borderRadius: 10, fontSize: '.73rem', color: 'var(--text-2)' }}>
-            <div style={{ fontWeight: 700, color: '#0d7a7e', marginBottom: 4 }}>🔑 Demo Credentials</div>
-            <div>admin@pragati.edu · faculty@pragati.edu · student@pragati.edu</div>
-            <div style={{ marginTop: 2, color: 'var(--text-3)' }}>Password: <strong>Admin@123 / Faculty@123 / Student@123</strong></div>
-          </div>
+
         </div>
       </div>
 

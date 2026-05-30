@@ -95,7 +95,27 @@ router.post('/admin-create', authenticate, authorize('admin'), async (req, res) 
     
     // Send email
     const subject = 'Welcome to PRAGATI - Your Account Credentials';
-    const text = `Dear ${name},
+    let text;
+    if (role === 'faculty') {
+      text = `Dear ${name},
+
+Welcome to PRAGATI.
+
+Your faculty account has been created successfully. Please use the credentials provided below to access the platform:
+
+Email ID: ${email}
+Password: ${password}
+
+Portal Link: https://pragati-career-readiness-platform.vercel.app
+
+For security reasons, please change your password after your first login.
+
+If you face any issues while logging in, please contact the administrator.
+
+Regards,
+Team PRAGATI`;
+    } else {
+      text = `Dear ${name},
 
 Greetings from Team PRAGATI.
 
@@ -118,6 +138,7 @@ If you face any login or access issues, please contact the PRAGATI support/admin
 
 Best Regards,
 Team PRAGATI`;
+    }
     await sendEmail(email, subject, text);
     
     res.status(201).json({ message: 'User created', user, password });
@@ -148,7 +169,28 @@ router.post('/admin-create-bulk', authenticate, authorize('admin'), async (req, 
         await user.save();
         
         const subject = 'Welcome to PRAGATI - Your Account Credentials';
-        const text = `Dear ${u.name || 'Student'},
+        let text;
+        const role = u.role || 'student';
+        if (role === 'faculty') {
+          text = `Dear ${u.name || 'Faculty'},
+
+Welcome to PRAGATI.
+
+Your faculty account has been created successfully. Please use the credentials provided below to access the platform:
+
+Email ID: ${u.email}
+Password: ${password}
+
+Portal Link: https://pragati-career-readiness-platform.vercel.app
+
+For security reasons, please change your password after your first login.
+
+If you face any issues while logging in, please contact the administrator.
+
+Regards,
+Team PRAGATI`;
+        } else {
+          text = `Dear ${u.name || 'Student'},
 
 Greetings from Team PRAGATI.
 
@@ -171,6 +213,7 @@ If you face any login or access issues, please contact the PRAGATI support/admin
 
 Best Regards,
 Team PRAGATI`;
+        }
         await sendEmail(u.email, subject, text);
         
         createdUsers.push({ email: u.email, password });
