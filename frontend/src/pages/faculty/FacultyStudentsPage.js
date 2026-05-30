@@ -466,6 +466,21 @@ export default function FacultyStudentsPage() {
       </div>
 
       {/* Student list */}
+      <style>{`
+        .faculty-student-card {
+          display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+          background: #fff; border-radius: 12px; border: 1px solid #f0f3fa;
+          box-shadow: 0 1px 4px rgba(4,44,93,0.04); cursor: pointer; transition: all .15s;
+        }
+        .faculty-student-card:hover { border-color: rgba(83,22,151,0.2); box-shadow: 0 4px 16px rgba(83,22,151,0.08); }
+        .faculty-student-info { flex: 1; min-width: 0; }
+        .faculty-student-metrics { display: flex; gap: 16px; align-items: center; flex-shrink: 0; }
+        @media (max-width: 768px) {
+          .faculty-student-card { flex-wrap: wrap; align-items: flex-start; }
+          .faculty-student-info { flex: 1 1 calc(100% - 100px); }
+          .faculty-student-metrics { width: 100%; margin-top: 8px; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+        }
+      `}</style>
       {loading ? (
         <div style={{ textAlign:'center', padding:40 }}>
           <div style={{ width:36, height:36, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_sp .7s linear infinite', margin:'0 auto 10px' }}/>
@@ -484,11 +499,7 @@ export default function FacultyStudentsPage() {
             const medals = ['🥇','🥈','🥉'];
             const globalRank = students.findIndex(x=>x._id===s._id);
             return (
-              <div key={s._id}
-                style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'#fff', borderRadius:12, border:'1px solid #f0f3fa', boxShadow:'0 1px 4px rgba(4,44,93,0.04)', cursor:'pointer', transition:'all .15s' }}
-                onClick={()=>setSelected(s)}
-                onMouseOver={e=>{e.currentTarget.style.borderColor='rgba(83,22,151,0.2)';e.currentTarget.style.boxShadow='0 4px 16px rgba(83,22,151,0.08)';}}
-                onMouseOut={e=>{e.currentTarget.style.borderColor='#f0f3fa';e.currentTarget.style.boxShadow='0 1px 4px rgba(4,44,93,0.04)';}}>
+              <div key={s._id} className="faculty-student-card" onClick={()=>setSelected(s)}>
                 {/* Rank */}
                 <div style={{ width:36, textAlign:'center', flexShrink:0 }}>
                   {globalRank<3
@@ -500,7 +511,7 @@ export default function FacultyStudentsPage() {
                   {s.name?.charAt(0)}
                 </div>
                 {/* Info */}
-                <div style={{ flex:1, minWidth:0 }}>
+                <div className="faculty-student-info">
                   <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                     <span style={{ fontWeight:700, fontSize:'.88rem', color:'var(--text)' }}>{s.name}</span>
                     <span style={{ padding:'1px 7px', borderRadius:999, background:sc+'18', color:sc, fontSize:'.62rem', fontWeight:800 }}>{s.skillLevel||'Beginner'}</span>
@@ -510,7 +521,7 @@ export default function FacultyStudentsPage() {
                   </div>
                 </div>
                 {/* Metrics */}
-                <div style={{ display:'flex', gap:16, alignItems:'center', flexShrink:0 }}>
+                <div className="faculty-student-metrics">
                   <div style={{ textAlign:'center' }}>
                     <div style={{ fontSize:'.6rem', color:'#b0bec9', fontWeight:700 }}>STREAK</div>
                     <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'#f59e0b' }}>🔥{s.streak||0}d</div>

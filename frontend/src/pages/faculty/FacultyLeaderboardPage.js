@@ -272,8 +272,9 @@ export default function FacultyLeaderboardPage() {
               )}
 
               {/* Table */}
-              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', overflow:'hidden' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'10px 16px', background:'#f8f9fc', borderBottom:'1px solid #e8edf5', fontSize:'.62rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em' }}>
+              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', overflowX:'auto' }}>
+                <div style={{ minWidth: 600 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'10px 16px', background:'#f8f9fc', borderBottom:'1px solid #e8edf5', fontSize:'.62rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em' }}>
                   {['RANK','STUDENT','SCORE','STREAK','SOLVED','APT%','LEVEL'].map((h,i)=>(
                     <div key={h} style={{ textAlign:i>1?'center':'left' }}>{h}</div>
                   ))}
@@ -325,6 +326,7 @@ export default function FacultyLeaderboardPage() {
                     No students match this filter
                   </div>
                 )}
+                </div>
               </div>
             </>
           )}
