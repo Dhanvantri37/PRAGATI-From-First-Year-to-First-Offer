@@ -581,7 +581,8 @@ export default function GDRoomPage() {
         .gd-side-panel { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #13203a; border-left: 1px solid #2a3a5a; overflow: hidden; }
         @media (max-width: 768px) {
           .gd-side-panel {
-            width: 220px; /* Narrower width to fit beside video on mobile */
+            width: 50% !important; /* Exactly half screen on mobile to split side-by-side */
+            min-width: 0 !important;
           }
           .gd-video-grid { grid-template-columns: 1fr !important; grid-template-rows: auto !important; }
         }
@@ -737,16 +738,17 @@ function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
   const [tab, setTab] = React.useState('captions');
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden', minWidth: 0 }}>
       {/* Tabs */}
-      <div style={{ display:'flex', borderBottom:'1px solid #2a3a5a', flexShrink:0 }}>
+      <div className="gd-tabs-container" style={{ display:'flex', borderBottom:'1px solid #2a3a5a', flexShrink:0, overflowX:'auto', minWidth:0 }}>
+
         {[['captions','📝 Live'],['chat','💬 Chat'],['people','👥 People'],['stats','📈 Stats']].map(([id, lbl]) => (
           <button key={id} onClick={() => setTab(id)} style={{
-            flex:1, padding:'9px 2px', border:'none', background:'transparent',
+            flex: '1 0 auto', padding:'9px 8px', border:'none', background:'transparent',
             color: tab === id ? '#13a1a5' : '#4a5a7a',
             fontWeight:700, cursor:'pointer', fontSize:'.65rem',
             borderBottom: tab === id ? '2px solid #13a1a5' : '2px solid transparent',
-            fontFamily:"'Nunito',sans-serif", transition:'color .15s',
+            fontFamily:"'Nunito',sans-serif", transition:'color .15s', whiteSpace: 'nowrap'
           }}>{lbl}</button>
         ))}
       </div>
