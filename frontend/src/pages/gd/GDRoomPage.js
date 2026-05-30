@@ -348,7 +348,7 @@ export default function GDRoomPage() {
     if (isMobile) {
       if (!localStreamRef.current) return;
       try {
-        const mr = new MediaRecorder(localStreamRef.current, { mimeType: 'audio/webm' });
+        const mr = new MediaRecorder(localStreamRef.current);
         mediaRecorderRef.current = mr;
         mr.ondataavailable = (e) => {
           if (e.data.size > 0 && shouldSpeakRef.current) {
@@ -406,7 +406,8 @@ export default function GDRoomPage() {
   }
 
   async function startSpeaking() {
-    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (!isMobile && !('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       alert('Speech recognition needs Chrome or Edge.'); return;
     }
     if (isMuted) { alert('Unmute your mic first.'); return; }
@@ -633,64 +634,6 @@ export default function GDRoomPage() {
             </div>
           </div>
 
-          {/* Controls bar */}
-          <div style={{
-            flexShrink:0, height:68,
-            display:'flex', justifyContent:'flex-start', alignItems:'center', gap:8,
-            background:'#131f35', borderTop:'1px solid #2a3a5a', padding:'0 10px',
-            overflowX: 'auto', flexWrap: 'nowrap'
-          }}>
-            <ControlButton icon={isMuted   ? '🔇' : '🎙️'} label={isMuted  ? 'Unmute'      : 'Mute'}       active={isMuted}  color="#ef4444" onClick={toggleMic} />
-            <ControlButton icon={isCamOff  ? '📷' : '📹'} label={isCamOff ? 'Start Video' : 'Stop Video'} active={isCamOff} color="#ef4444" onClick={toggleCam} />
-
-            {sessionState === 'active' && (
-              <button
-                onClick={toggleSpeaking}
-                style={{
-                  padding:'8px 18px', borderRadius:22, border:'none',
-                  background: isSpeaking ? '#ef4444' : 'rgba(83,22,151,0.75)',
-                  color:'#fff', fontWeight:800, cursor:'pointer',
-                  fontFamily:"'Nunito',sans-serif", fontSize:'.8rem',
-                  animation: isSpeaking ? 'gdpulse 1s ease-in-out infinite' : 'none',
-                  display:'flex', alignItems:'center', gap:6,
-                  boxShadow: isSpeaking ? '0 0 0 6px rgba(239,68,68,0.25)' : '0 3px 12px rgba(83,22,151,0.35)',
-                  userSelect:'none', WebkitUserSelect:'none',
-                  whiteSpace: 'nowrap',
-                }}>
-                {isSpeaking ? '⏹ Stop Mic' : '🎤 Click to Speak'}
-              </button>
-            )}
-
-            {sessionState === 'active' && (moderatorVoice.isPlaying || participantVoice.isPlaying) && !isSpeaking && (
-              <button
-                onClick={async () => {
-                  stopAllVoice();
-                  emit('interrupt-ai', { roomCode: code, userId: user?._id });
-                  if (isMuted) {
-                    setIsMuted(false);
-                    setRTCMuted(false);
-                    emit('media-status', { roomCode: code, userId: user?._id, isMuted: false });
-                  }
-                  await startSpeaking();
-                }}
-                style={{
-                  padding:'8px 18px', borderRadius:22, border:'none',
-                  background: '#ef4444',
-                  color:'#fff', fontWeight:800, cursor:'pointer',
-                  fontFamily:"'Nunito',sans-serif", fontSize:'.8rem',
-                  animation: 'gdpulse 1s ease-in-out infinite',
-                  display:'flex', alignItems:'center', gap:6,
-                  boxShadow: '0 0 0 6px rgba(239,68,68,0.35)',
-                  userSelect:'none', WebkitUserSelect:'none',
-                  whiteSpace: 'nowrap',
-                }}>
-                🛑 Interrupt AI & Speak
-              </button>
-            )}
-
-            <ControlButton icon="💬" label={showChat ? 'Hide Chat' : 'Chat'} active={showChat} color="#13a1a5" onClick={() => setShowChat(s => !s)} />
-            <ControlButton icon="📴" label="Leave" active danger color="#ef4444" onClick={() => { stopAllVoice(); nav('/dashboard/gd'); }} />
-          </div>
           <style>{`@keyframes gdpulse{0%,100%{opacity:1}50%{opacity:.55}}`}</style>
         </div>
 
@@ -712,6 +655,65 @@ export default function GDRoomPage() {
             />
           </div>
         )}
+      </div>
+
+      {/* Controls bar (Full Width Bottom) */}
+      <div style={{
+        flexShrink:0, height:68, width: '100%',
+        display:'flex', justifyContent:'flex-start', alignItems:'center', gap:8,
+        background:'#131f35', borderTop:'1px solid #2a3a5a', padding:'0 10px',
+        overflowX: 'auto', flexWrap: 'nowrap'
+      }}>
+        <ControlButton icon={isMuted   ? '🔇' : '🎙️'} label={isMuted  ? 'Unmute'      : 'Mute'}       active={isMuted}  color="#ef4444" onClick={toggleMic} />
+        <ControlButton icon={isCamOff  ? '📷' : '📹'} label={isCamOff ? 'Start Video' : 'Stop Video'} active={isCamOff} color="#ef4444" onClick={toggleCam} />
+
+        {sessionState === 'active' && (
+          <button
+            onClick={toggleSpeaking}
+            style={{
+              padding:'8px 18px', borderRadius:22, border:'none',
+              background: isSpeaking ? '#ef4444' : 'rgba(83,22,151,0.75)',
+              color:'#fff', fontWeight:800, cursor:'pointer',
+              fontFamily:"'Nunito',sans-serif", fontSize:'.8rem',
+              animation: isSpeaking ? 'gdpulse 1s ease-in-out infinite' : 'none',
+              display:'flex', alignItems:'center', gap:6,
+              boxShadow: isSpeaking ? '0 0 0 6px rgba(239,68,68,0.25)' : '0 3px 12px rgba(83,22,151,0.35)',
+              userSelect:'none', WebkitUserSelect:'none',
+              whiteSpace: 'nowrap',
+            }}>
+            {isSpeaking ? '⏹ Stop Mic' : '🎤 Click to Speak'}
+          </button>
+        )}
+
+        {sessionState === 'active' && (moderatorVoice.isPlaying || participantVoice.isPlaying) && !isSpeaking && (
+          <button
+            onClick={async () => {
+              stopAllVoice();
+              emit('interrupt-ai', { roomCode: code, userId: user?._id });
+              if (isMuted) {
+                setIsMuted(false);
+                setRTCMuted(false);
+                emit('media-status', { roomCode: code, userId: user?._id, isMuted: false });
+              }
+              await startSpeaking();
+            }}
+            style={{
+              padding:'8px 18px', borderRadius:22, border:'none',
+              background: '#ef4444',
+              color:'#fff', fontWeight:800, cursor:'pointer',
+              fontFamily:"'Nunito',sans-serif", fontSize:'.8rem',
+              animation: 'gdpulse 1s ease-in-out infinite',
+              display:'flex', alignItems:'center', gap:6,
+              boxShadow: '0 0 0 6px rgba(239,68,68,0.35)',
+              userSelect:'none', WebkitUserSelect:'none',
+              whiteSpace: 'nowrap',
+            }}>
+            🛑 Interrupt AI & Speak
+          </button>
+        )}
+
+        <ControlButton icon="💬" label={showChat ? 'Hide Chat' : 'Chat'} active={showChat} color="#13a1a5" onClick={() => setShowChat(s => !s)} />
+        <ControlButton icon="📴" label="Leave" active danger color="#ef4444" onClick={() => { stopAllVoice(); nav('/dashboard/gd'); }} />
       </div>
     </div>
   );
