@@ -253,6 +253,19 @@ export default function GDRoomPage() {
           stopAllVoice();
           break;
 
+        case 'forward-speech': {
+          const text = data.text;
+          if (!text) break;
+          const words  = text.split(/\s+/).length;
+          const filler = countFillers(text);
+          const secs = 4; // approx chunk length
+          setMyStats(s => ({ ...s, wordCount: s.wordCount + words, fillerWords: s.fillerWords + filler, speakingTime: s.speakingTime + secs }));
+          emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: filler, speakingTime: secs } });
+          setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
+          setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+          break;
+        }
+
         case 'evaluation-ready':
           setEvalData(data);
           break;
@@ -325,11 +338,31 @@ export default function GDRoomPage() {
     }
   }, [sessionState, sessionTimer]);
 
-  // ── STT — click-to-toggle continuous recognition ──────────────────────────
   const shouldSpeakRef = useRef(false);
+  const mediaRecorderRef = useRef(null);
 
   function _startRecSession() {
     if (!shouldSpeakRef.current) return;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      if (!localStreamRef.current) return;
+      try {
+        const mr = new MediaRecorder(localStreamRef.current, { mimeType: 'audio/webm' });
+        mediaRecorderRef.current = mr;
+        mr.ondataavailable = (e) => {
+          if (e.data.size > 0 && shouldSpeakRef.current) {
+            e.data.arrayBuffer().then(buf => {
+              emit('audio-chunk', { roomCode: code, userId: user._id, audioBuffer: buf, language: room?.language === 'Hindi' ? 'hi' : 'en' });
+            });
+          }
+        };
+        mr.onstop = () => { if (shouldSpeakRef.current) setTimeout(_startRecSession, 200); };
+        mr.start(4000); // 4 second chunks
+      } catch (err) { console.error('MediaRecorder failed', err); }
+      return;
+    }
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     try { recognitionRef.current?.abort(); } catch {}
@@ -393,7 +426,9 @@ export default function GDRoomPage() {
   function stopSpeaking() {
     shouldSpeakRef.current = false;
     try { recognitionRef.current?.stop(); } catch {}
+    try { mediaRecorderRef.current?.stop(); } catch {}
     recognitionRef.current = null;
+    mediaRecorderRef.current = null;
     setIsSpeaking(false);
     emit('active-speaker', { roomCode: code, userId: user._id, speaking: false });
   }
@@ -542,14 +577,20 @@ export default function GDRoomPage() {
       )}
 
       <style>{`
-        .gd-main-body { flex: 1; display: flex; overflow: hidden; min-height: 0; flex-direction: row; }
+        .gd-main-body { flex: 1; display: flex; overflow: hidden; min-height: 0; flex-direction: row; position: relative; }
         .gd-side-panel { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #13203a; border-left: 1px solid #2a3a5a; overflow: hidden; }
         @media (max-width: 768px) {
-          .gd-main-body { flex-direction: column; }
-          .gd-side-panel { width: 100%; border-left: none; border-top: 1px solid #2a3a5a; flex: 1; min-height: 200px; max-height: 50%; }
+          .gd-main-body { flex-direction: row; }
+          .gd-side-panel {
+            position: absolute;
+            right: 0; top: 0; bottom: 68px; /* Leave controls visible */
+            width: 85%; max-width: 340px;
+            z-index: 50; height: auto;
+            border-left: 1px solid #2a3a5a; border-top: none;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+          }
           .gd-video-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; grid-template-rows: auto !important; }
         }
-
       `}</style>
       {/* BODY */}
       <div className="gd-main-body">
@@ -600,9 +641,9 @@ export default function GDRoomPage() {
           {/* Controls bar */}
           <div style={{
             flexShrink:0, height:68,
-            display:'flex', justifyContent:'center', alignItems:'center', gap:8,
+            display:'flex', justifyContent:'flex-start', alignItems:'center', gap:8,
             background:'#131f35', borderTop:'1px solid #2a3a5a', padding:'0 10px',
-            overflowX: 'auto',
+            overflowX: 'auto', flexWrap: 'nowrap'
           }}>
             <ControlButton icon={isMuted   ? '🔇' : '🎙️'} label={isMuted  ? 'Unmute'      : 'Mute'}       active={isMuted}  color="#ef4444" onClick={toggleMic} />
             <ControlButton icon={isCamOff  ? '📷' : '📹'} label={isCamOff ? 'Start Video' : 'Stop Video'} active={isCamOff} color="#ef4444" onClick={toggleCam} />
