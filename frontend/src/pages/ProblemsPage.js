@@ -600,6 +600,9 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                 }}
                 style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
               />
+            </div>
+          </div>
+
           {/* Compile panel - Interactive Terminal */}
           {runResult && (
             <div style={{ maxHeight:250, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px', background:'#020617', color:'#4ade80', fontSize:'.8rem', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
