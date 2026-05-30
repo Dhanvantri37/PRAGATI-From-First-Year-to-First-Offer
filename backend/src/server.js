@@ -28,6 +28,7 @@ const drivesRoutes       = require('./routes/drives.routes');
 const gdRoutes           = require('./routes/gd.routes');
 const GDRoom             = require('./models/GDRoom.model');
 const { registerGDSocket } = require('./utils/gdSocket');
+const { registerCompileSocket } = require('./utils/compileSocket');
 
 const app = express();
 
@@ -105,6 +106,7 @@ app.set('io', io);
 
 // GD WebSocket namespace
 registerGDSocket(io, GDRoom);
+registerCompileSocket(io);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {

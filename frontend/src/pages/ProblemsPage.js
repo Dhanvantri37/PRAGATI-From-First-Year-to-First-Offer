@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { io } from 'socket.io-client';
 import {
   MOST_LIKELY_ASKED,
   NEETCODE_150,
@@ -181,7 +182,17 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   const [runResult, setRunResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [customInput, setCustomInput] = useState('');
+  
+  // Interactive Terminal State
+  const [terminalOutput, setTerminalOutput] = useState('');
+  const [terminalInput, setTerminalInput] = useState('');
+  const socketRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect();
+    };
+  }, []);
 
   // Live state for fetched LeetCode descriptions & hints
   const [fullProblem, setFullProblem] = useState(problem);
@@ -276,23 +287,64 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
     }
   };
 
-  const handleRunCode = async () => {
+  const handleRunCode = () => {
     if (!code.trim()) return;
     setRunning(true);
-    setRunResult(null);
-    try {
-      const res = await fetch(`${API}/compile`, {
-        method:'POST',
-        headers:tks(),
-        body: JSON.stringify({ code, language: lang, input: customInput })
-      });
-      const d = await res.json();
-      setRunResult(d);
-    } catch {
-      setRunResult({ output: 'Error connecting to compiler service.' });
-    } finally {
-      setRunning(false);
+    setTerminalOutput('');
+    setRunResult(true);
+
+    if (socketRef.current) {
+      socketRef.current.disconnect();
     }
+
+    const socketUrl = API.replace('/api', '');
+    const socket = io(socketUrl + '/compile', { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('start_execution', { code, language: lang });
+    });
+
+    socket.on('output', (data) => {
+      setTerminalOutput(prev => prev + data);
+    });
+
+    socket.on('execution_finished', (msg) => {
+      setTerminalOutput(prev => prev + msg);
+      setRunning(false);
+      socket.disconnect();
+      socketRef.current = null;
+    });
+
+    socket.on('error', (err) => {
+      setTerminalOutput(prev => prev + '\n[Error: ' + err + ']');
+      setRunning(false);
+      socket.disconnect();
+      socketRef.current = null;
+    });
+
+    socket.on('disconnect', () => {
+      setRunning(false);
+    });
+  };
+
+  const handleTerminalInput = (e) => {
+    if (e.key === 'Enter') {
+      if (socketRef.current) {
+        socketRef.current.emit('input', terminalInput);
+        setTerminalOutput(prev => prev + terminalInput + '\n');
+        setTerminalInput('');
+      }
+    }
+  };
+
+  const stopExecution = () => {
+    if (socketRef.current) {
+      socketRef.current.emit('stop_execution');
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    setRunning(false);
   };
 
   const handleSolveSubmit = async () => {
@@ -548,28 +600,28 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                 }}
                 style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
               />
-            </div>
-          </div>
-
-          {/* Custom Input panel */}
-          <div style={{ borderTop:'1px solid #1f2937', background:'#0f172a', padding:'8px 16px' }}>
-            <div style={{ fontSize:'.75rem', fontWeight:800, color:'#94a3b8', marginBottom:6 }}>⌨️ Custom STDIN Input</div>
-            <textarea
-              value={customInput}
-              onChange={e => setCustomInput(e.target.value)}
-              placeholder="Enter input here if your code requires it..."
-              style={{ width:'100%', minHeight:60, padding:10, borderRadius:8, border:'1px solid #374151', background:'#1e293b', color:'#cbd5e1', fontSize:'.8rem', fontFamily:'monospace', outline:'none', resize:'vertical' }}
-            />
-          </div>
-
-          {/* Compile panel */}
+          {/* Compile panel - Interactive Terminal */}
           {runResult && (
-            <div style={{ maxHeight:200, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px', background:'#020617', color:'#4ade80', fontSize:'.8rem', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
+            <div style={{ maxHeight:250, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px', background:'#020617', color:'#4ade80', fontSize:'.8rem', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
                 <strong style={{ color:'#94a3b8' }}>Execution Output:</strong>
-                <button onClick={()=>setRunResult(null)} style={{ background:'transparent', border:'none', color:'#ef4444', cursor:'pointer' }}>✖</button>
+                <button onClick={()=>{ setRunResult(null); stopExecution(); }} style={{ background:'transparent', border:'none', color:'#ef4444', cursor:'pointer' }}>✖</button>
               </div>
-              {runResult.output}
+              <div>{terminalOutput || 'Waiting for output...'}</div>
+              {running && (
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, borderTop:'1px dashed #334155', paddingTop:8 }}>
+                  <span style={{ color:'#38bdf8' }}>❯</span>
+                  <input
+                    value={terminalInput}
+                    onChange={e => setTerminalInput(e.target.value)}
+                    onKeyDown={handleTerminalInput}
+                    placeholder="Type input and press Enter..."
+                    style={{ flex:1, background:'transparent', border:'none', color:'#f8fafc', outline:'none', fontFamily:'monospace', fontSize:'.8rem' }}
+                    autoFocus
+                  />
+                  <button onClick={stopExecution} style={{ background:'rgba(239,68,68,0.2)', color:'#f87171', border:'none', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:'.7rem', fontWeight:800 }}>Stop</button>
+                </div>
+              )}
             </div>
           )}
 
