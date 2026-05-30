@@ -54,7 +54,14 @@ router.get('/', authenticate, async (req, res) => {
     }
     const filter = {};
     if (role) filter.role = role;
-    if (department) filter.department = department;
+    
+    // Department-scoped admin logic
+    if (req.user.role === 'admin' && req.user.department !== 'All') {
+      filter.department = req.user.department;
+    } else if (department) {
+      filter.department = department;
+    }
+
     const users = await User.find(filter).sort({ createdAt: -1 });
     res.json({ users });
   } catch (err) {
@@ -85,7 +92,13 @@ router.delete('/profile', authenticate, async (req, res) => {
 // POST /api/users/admin-create — admin only
 router.post('/admin-create', authenticate, authorize('admin'), async (req, res) => {
   try {
-    const { name, email, role, department } = req.body;
+    let { name, email, role, department } = req.body;
+    
+    // Department-scoped admin restriction
+    if (req.user.role === 'admin' && req.user.department !== 'All') {
+      department = req.user.department;
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'Email already exists' });
     
@@ -99,7 +112,7 @@ router.post('/admin-create', authenticate, authorize('admin'), async (req, res) 
     if (role === 'admin') {
       text = `Dear ${name},
 
-Welcome to PRAGATI.
+Welcome to PRAGATI!.
 
 Your administrator account has been created successfully. Please use the credentials provided below to access the platform:
 
@@ -176,29 +189,35 @@ router.post('/admin-create-bulk', authenticate, authorize('admin'), async (req, 
     const createdUsers = [];
     const errors = [];
 
-    for (const u of users) {
+    for (let u of users) {
       try {
-        const existingUser = await User.findOne({ email: u.email });
+        let { email, name, role, department } = u;
+
+        // Department-scoped admin restriction for bulk
+        if (req.user.role === 'admin' && req.user.department !== 'All') {
+          department = req.user.department;
+        }
+
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
-          errors.push({ email: u.email, error: 'Email already exists' });
+          errors.push({ email, error: 'Email already exists' });
           continue;
         }
         
         const password = Math.random().toString(36).slice(-8);
-        const user = new User({ name: u.name, email: u.email, password, role: u.role || 'student', department: u.department, isProfileComplete: false });
+        const user = new User({ name, email, password, role: role || 'student', department, isProfileComplete: false });
         await user.save();
         
         const subject = 'Welcome to PRAGATI - Your Account Credentials';
         let text;
-        const role = u.role || 'student';
         if (role === 'admin') {
-          text = `Dear ${u.name || 'Admin'},
+          text = `Dear ${name || 'Admin'},
 
 Welcome to PRAGATI.
 
 Your administrator account has been created successfully. Please use the credentials provided below to access the platform:
 
-Email ID: ${u.email}
+Email ID: ${email}
 Password: ${password}
 
 Portal Link: https://pragati-career-readiness-platform.vercel.app
@@ -210,13 +229,13 @@ As an administrator, you now have access to manage users, monitor platform usage
 Regards,
 Team PRAGATI`;
         } else if (role === 'faculty') {
-          text = `Dear ${u.name || 'Faculty'},
+          text = `Dear ${name || 'Faculty'},
 
 Welcome to PRAGATI.
 
 Your faculty account has been created successfully. Please use the credentials provided below to access the platform:
 
-Email ID: ${u.email}
+Email ID: ${email}
 Password: ${password}
 
 Portal Link: https://pragati-career-readiness-platform.vercel.app
@@ -230,14 +249,14 @@ If you face any issues while logging in, please contact the administrator.
 Regards,
 Team PRAGATI`;
         } else {
-          text = `Dear ${u.name || 'Student'},
+          text = `Dear ${name || 'Student'},
 
 Greetings from Team PRAGATI.
 
 Your PRAGATI account has been successfully created. You can now access the platform using the credentials provided below.
 
 Login Details:
-Email ID: ${u.email}
+Email ID: ${email}
 Password: ${password}
 
 Login Portal: https://pragati-career-readiness-platform.vercel.app

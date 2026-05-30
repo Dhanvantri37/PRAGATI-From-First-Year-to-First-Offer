@@ -1218,11 +1218,6 @@ function MobileBottomNav({ role, dm }) {
   const location = useLocation();
   const navigate = useNavigate();
   const containerRef = useRef(null);
-  const draggedRef = useRef(false);
-  const startXRef = useRef(0);
-  const touchingRef = useRef(false);
-  const scrollEndTimeoutRef = useRef(null);
-  const clickedIndexRef = useRef(null); // Ref to track clicked item and prevent path-change race snaps
 
   const links = role === 'admin' ? NAV_ADMIN : role === 'faculty' ? NAV_FACULTY : NAV_STUDENT;
 
@@ -1235,235 +1230,87 @@ function MobileBottomNav({ role, dm }) {
     ];
   }, [links]);
 
-  // Real-time high-performance 2D dynamic cylindrical wheel scroll calculations
-  const updateTransforms = () => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const containerMid = el.scrollLeft + el.clientWidth / 2;
-    const halfWidth = el.clientWidth / 2;
-    const items = el.querySelectorAll('.pragati-bottom-nav-item');
-
-    items.forEach((item) => {
-      const itemMid = item.offsetLeft + item.clientWidth / 2;
-      const offset = itemMid - containerMid;
-      const distance = halfWidth > 0 ? offset / halfWidth : 0;
-      
-      // Exact original 2D styling values for gorgeous, warp-free flat layout:
-      const scale = Math.max(0.82, 1.32 - Math.abs(distance) * 0.5); 
-      const rotate = distance * 22; // Beautiful original 2D rotation angle
-      const translateY = Math.pow(Math.abs(distance), 1.8) * 26 - 18; // Classic curved rises
-      const opacity = Math.max(0.48, 1.0 - Math.abs(distance) * 0.58);
-
-      item.style.setProperty('--nav-scale', scale);
-      item.style.setProperty('--nav-rot', `${rotate}deg`);
-      item.style.setProperty('--nav-ty', `${translateY}px`);
-      item.style.setProperty('--nav-op', opacity);
-    });
-  };
-
-  // Seamless scroll teleportation looping:
-  // ONLY run teleportation when user is NOT actively dragging to prevent touch momentum interruptions or visual stutters mid-swipe!
-  const checkLoopBounds = () => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const singleSetWidth = el.scrollWidth / 3;
-    const buffer = el.clientWidth / 2; // Allow scroll offset to enter Set 0 and Set 2 up to half the screen width for perfect centering
-    let adjusted = false;
-
-    // If user scrolls too far right into Set 2, teleport back to the middle Set 1
-    if (el.scrollLeft >= (singleSetWidth * 2) - buffer) {
-      el.scrollLeft -= singleSetWidth;
-      adjusted = true;
-    }
-    // If user scrolls too far left into Set 0, teleport forward to the middle Set 1
-    else if (el.scrollLeft < singleSetWidth - buffer) {
-      el.scrollLeft += singleSetWidth;
-      adjusted = true;
-    }
-
-    if (adjusted) {
-      updateTransforms();
-    }
-  };
-
-  // Listen to container scroll, resize, and perform layout calculations
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    let frameId;
-    const handleScroll = () => {
-      cancelAnimationFrame(frameId);
-      frameId = requestAnimationFrame(() => {
-        // Safe looping boundary checks — ONLY run teleportation when user is NOT actively dragging
-        if (!touchingRef.current) {
-          checkLoopBounds();
-        }
-        updateTransforms();
-        
-        // Loop boundary verification when scrolling decelerates and stops
-        clearTimeout(scrollEndTimeoutRef.current);
-        scrollEndTimeoutRef.current = setTimeout(() => {
-          if (!touchingRef.current) {
-            checkLoopBounds();
-          }
-        }, 120);
-      });
-    };
-
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    window.addEventListener('resize', handleScroll);
-    
-    // Initial delay call to position items correctly in the middle set
-    const initialTimer = setTimeout(() => {
-      // Pre-scroll to the middle set (Set 1) so buffers are filled
-      const singleSetWidth = el.scrollWidth / 3;
-      el.scrollLeft = singleSetWidth;
-      updateTransforms();
-    }, 120);
-
-    return () => {
-      el.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
-      cancelAnimationFrame(frameId);
-      clearTimeout(initialTimer);
-      clearTimeout(scrollEndTimeoutRef.current);
-    };
-  }, [links]); // Recalculate when role-based links change
-
-  // Center the active menu item perfectly upon path change, keeping it in the current set loop
+  // Center the active menu item perfectly upon path change
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     const timer = setTimeout(() => {
+      // Find the active element in the middle set (set 1)
+      const activeEls = el.querySelectorAll('.pragati-bottom-nav-item.active-center');
       let targetEl = null;
-
-      if (clickedIndexRef.current !== null) {
-        // If navigation was triggered by clicking a bottom nav item, the click handler has already
-        // initiated a smooth scroll to the mapped Set 1 item. We just clear the ref and let it animate naturally!
-        clickedIndexRef.current = null;
-        updateTransforms();
-        return;
-      }
-
-      // Otherwise (external navigation), find the active element closest to the current viewport center
-      const activeEls = el.querySelectorAll('.active-center');
-      if (activeEls.length > 0) {
-        const containerMid = el.scrollLeft + el.clientWidth / 2;
-        let minDistance = Infinity;
-
-        activeEls.forEach((activeEl) => {
-          const itemMid = activeEl.offsetLeft + activeEl.clientWidth / 2;
-          const distance = Math.abs(itemMid - containerMid);
-          if (distance < minDistance) {
-            minDistance = distance;
-            targetEl = activeEl;
-          }
-        });
-      }
+      
+      activeEls.forEach(el => {
+        if (el.getAttribute('data-set') === '1') targetEl = el;
+      });
+      
+      if (!targetEl && activeEls.length > 0) targetEl = activeEls[0];
 
       if (targetEl) {
         const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
-        // Only run instant positioning if there is a real layout deviation
-        if (Math.abs(el.scrollLeft - targetScrollLeft) > 2) {
-          el.scrollTo({ left: targetScrollLeft, behavior: 'auto' });
-        }
-        updateTransforms();
+        el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
       }
     }, 150);
 
     return () => clearTimeout(timer);
   }, [location.pathname, links]);
 
-  // Touch gesture support to ease scrolling responsiveness and prevent click-drags on mobile
-  const handleTouchStart = (e) => {
-    touchingRef.current = true;
-    draggedRef.current = false;
-    startXRef.current = e.touches ? e.touches[0].clientX : e.clientX;
-    
-    const el = containerRef.current;
-    if (el) {
-      el.style.scrollBehavior = 'auto'; // Disable smooth during drag for native pixel response
-      // Instantly halt any active programmatic smooth scroll/snapping animations on finger down
-      el.scrollTo({ left: el.scrollLeft, behavior: 'auto' });
+  // Handle loop boundaries for infinite scroll feel
+  const handleScroll = (e) => {
+    const el = e.target;
+    const singleSetWidth = el.scrollWidth / 3;
+    const buffer = el.clientWidth / 2;
+
+    if (el.scrollLeft >= (singleSetWidth * 2) - buffer) {
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft -= singleSetWidth;
+      el.style.scrollBehavior = 'smooth';
+    } else if (el.scrollLeft < singleSetWidth - buffer) {
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft += singleSetWidth;
+      el.style.scrollBehavior = 'smooth';
     }
   };
 
-  const handleTouchMove = (e) => {
-    const currentX = e.touches ? e.touches[0].clientX : e.clientX;
-    const deltaX = Math.abs(currentX - startXRef.current);
-    if (deltaX > 8) {
-      draggedRef.current = true; // Swipe detected, intercept accidental navigation click
-    }
-  };
-
-  const handleTouchEnd = () => {
-    touchingRef.current = false;
+  useEffect(() => {
     const el = containerRef.current;
-    if (el) el.style.scrollBehavior = 'smooth'; // Restore smooth transitions
-    
-    // Teleport once finger is released to keep it within safe middle bounds
-    checkLoopBounds();
-  };
+    if (!el) return;
+    const initialTimer = setTimeout(() => {
+      const singleSetWidth = el.scrollWidth / 3;
+      el.style.scrollBehavior = 'auto';
+      el.scrollLeft = singleSetWidth;
+      el.style.scrollBehavior = 'smooth';
+    }, 50);
+    return () => clearTimeout(initialTimer);
+  }, [links]);
 
   return (
     <div className={`pragati-bottom-nav-wrapper${dm ? ' dark' : ''}`}>
-      {/* Curved background cut-out and cyber neon border outline arch */}
-      <div className="bottom-nav-curve-bg" />
-      <div className="bottom-nav-neon-arch" />
+      <div className="bottom-nav-curve-bg">
+        <div className="bottom-nav-cutout" />
+      </div>
 
       <nav
         ref={containerRef}
         className="pragati-bottom-nav-scroll"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onScroll={handleScroll}
       >
         {tripledLinks.map((l, idx) => {
           const isHomeActive = l.to === '/dashboard' && (location.pathname === '/dashboard' || location.pathname === '/dashboard/');
           const isProblemsActive = l.to === '/dashboard/problems' && location.pathname.startsWith('/dashboard/practice');
           const isPathActive = isHomeActive || isProblemsActive || (l.to !== '/dashboard' && location.pathname.startsWith(l.to));
           
-          // The active centerpiece highlight class is added in all sets so whichever set copy is in front is styled active
-          const isActive = isPathActive;
-
           return (
             <NavLink
               key={`${l.to}-${l.set}-${idx}`}
               to={l.to}
               end={l.to === '/dashboard'}
+              data-set={l.set}
               onClick={(e) => {
-                if (draggedRef.current) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  return;
-                }
-                
-                // Prevent standard route link default transition to coordinate smooth snap scrolls safely
                 e.preventDefault();
-
-                // Map the clicked index to its counterpart in Set 1 (middle set) to avoid boundary glitches
-                const N = links.length;
-                const mappedIdx = N + (idx % N);
-                clickedIndexRef.current = mappedIdx; 
-
-                const el = containerRef.current;
-                if (el) {
-                  const items = el.querySelectorAll('.pragati-bottom-nav-item');
-                  const targetEl = items[mappedIdx];
-                  if (targetEl) {
-                    const targetScrollLeft = targetEl.offsetLeft - (el.clientWidth / 2) + (targetEl.clientWidth / 2);
-                    el.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-                  }
-                }
-
-                // Navigate programmatically using local React Router
                 navigate(l.to);
               }}
-              className={`pragati-bottom-nav-item${isActive ? ' active-center' : ''}`}
+              className={`pragati-bottom-nav-item${isPathActive ? ' active-center' : ''}`}
             >
               <div className="nav-item-icon-wrapper">
                 <span className="nav-item-icon">{l.icon}</span>

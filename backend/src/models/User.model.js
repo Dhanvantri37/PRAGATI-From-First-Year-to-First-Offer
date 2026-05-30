@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   department: {
     type: String,
-    enum: ['CSE', 'CSAIML', 'IT', 'ECE', 'Mechanical', 'Civil', 'Other'],
+    enum: ['All', 'CSE', 'CSAIML', 'IT', 'ECE', 'Mechanical', 'Civil', 'Other'],
     required: true
   },
   year: {

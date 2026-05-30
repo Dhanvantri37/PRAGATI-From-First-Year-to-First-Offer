@@ -43,7 +43,7 @@ function AddCompanyForm({ onAdded }) {
   }
   return (
     <form onSubmit={submit}>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="admin-form-grid">
         <div style={{ gridColumn:'1/-1' }}><Lbl req>Company Name</Lbl><input style={inp} value={form.name} onChange={set('name')} placeholder="TCS, Infosys, Zensar…" required/></div>
         <div><Lbl>Sector</Lbl><select style={inp} value={form.sector} onChange={set('sector')}>{['IT Services','IT Product','FinTech','EdTech','Core Engineering','Consulting','Banking','Healthcare','Other'].map(s=><option key={s}>{s}</option>)}</select></div>
         <div><Lbl>Status</Lbl><select style={inp} value={form.status} onChange={set('status')}><option value="expected">Expected</option><option value="upcoming">Upcoming</option><option value="visited">Visited</option></select></div>
@@ -145,6 +145,7 @@ function CreateUserForm({ onAdded }) {
         <div><Lbl req>Email</Lbl><input style={inp} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} required/></div>
         <div><Lbl req>Department</Lbl>
           <select style={inp} value={form.department} onChange={e=>setForm(f=>({...f,department:e.target.value}))} required>
+            {form.role === 'admin' && <option value="All">All (Super Admin)</option>}
             <option value="CSE">CSE</option>
             <option value="CSAIML">CSAIML</option>
             <option value="IT">IT</option>
@@ -155,7 +156,10 @@ function CreateUserForm({ onAdded }) {
           </select>
         </div>
         <div><Lbl>Role</Lbl>
-          <select style={inp} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+          <select style={inp} value={form.role} onChange={e=>{
+            const newRole = e.target.value;
+            setForm(f=>({...f, role: newRole, department: (newRole !== 'admin' && f.department === 'All') ? 'CSE' : f.department }));
+          }}>
             <option value="student">Student</option>
             <option value="faculty">Faculty</option>
             <option value="admin">Admin</option>
@@ -314,7 +318,7 @@ function UsersTable({ refreshKey }) {
           {admins.map(u=>(
             <div key={u._id} style={{ padding:'10px 16px', borderRadius:10, background:'rgba(83,22,151,0.06)', border:'1px solid rgba(83,22,151,0.12)', display:'flex', alignItems:'center', gap:12 }}>
               <div>
-                <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name}</div>
+                <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name} <span style={{ fontSize:'.7rem', background:'#eef2ff', padding:'2px 6px', borderRadius:4, color:'#4f46e5', marginLeft:6 }}>{u.department}</span></div>
                 <div style={{ fontSize:'.72rem', color:'var(--text-3)' }}>{u.email}</div>
               </div>
               <button onClick={()=>deleteUser(u._id)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.06)', color:'#991b1b', fontWeight:700, cursor:'pointer', fontSize:'.7rem', fontFamily:"'Nunito',sans-serif" }}>Delete</button>
