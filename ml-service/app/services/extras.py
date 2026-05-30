@@ -96,6 +96,13 @@ def compute_ats_score(
 
     total = kw_score + section_score + quant_score + verb_score + length_score
 
+    # Penalize junk/random text (e.g. gets 0 on keywords but scores 40 on length/verbs)
+    if kw_score < 5:
+        total = min(total, 25)
+    # Boost good resumes that have great keyword match but fail on formatting nitpicks
+    elif kw_score >= 25 and section_score >= 15:
+        total = min(100, total + 15)
+
     # ── Breakdown detail ──────────────────────────────────────────────────────
     missing_critical = [
         s["skill"] for s in required_skills

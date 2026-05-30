@@ -3,6 +3,7 @@ const axios  = require('axios');
 const FormData = require('form-data');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+const pdfParse = require('pdf-parse');
 const { SkillpathResult } = require('../models/index');
 const User = require('../models/User.model');
 const { authenticate } = require('../middleware/auth.middleware');
@@ -77,7 +78,7 @@ function parseJSON(text) {
 // ── POST /api/skillpath/analyze ───────────────────────────────────────────────
 router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1 }, { name:'jdFile', maxCount:1 }]), async (req, res) => {
   try {
-    const jdText = req.body?.jdText || req.body?.jd_text || '';
+    let jdText = req.body?.jdText || req.body?.jd_text || '';
     const jobTitle = req.body?.jobTitle || '';
     const companyId = req.body?.companyId || null;
     const jdFileBuffer = req.files?.jdFile?.[0]?.buffer;
@@ -85,7 +86,18 @@ router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1
     const hasJD = (jdText && jdText.trim().length >= 10) || jdFileBuffer;
     if (!hasJD) return res.status(400).json({ error: 'Job description required — paste text or upload PDF' });
 
+    if (jdFileBuffer && !jdText.trim()) {
+      try {
+        const jdPdf = await pdfParse(jdFileBuffer);
+        jdText = jdPdf.text;
+      } catch (e) {
+        console.warn('Failed to parse JD PDF:', e.message);
+      }
+    }
+
     let resumeUrl = req.user.resumeUrl;
+    let resumeBufferToParse = resumeFileBuffer;
+
     if (resumeFileBuffer) {
       const up = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream({ folder:'pragati/resumes', resource_type:'raw' },
@@ -97,52 +109,150 @@ router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1
     }
     if (!resumeUrl) return res.status(400).json({ error: 'No resume found. Upload your resume (PDF).' });
 
-    let mlData;
-    let mlResp;
-    let attempts = 0;
-    while (attempts < 3) {
-      try {
-        attempts++;
-        if (jdFileBuffer && !jdText.trim()) {
-          const form = new FormData();
-          const resumeResp = await axios.get(resumeUrl, { responseType:'arraybuffer', timeout:30000 });
-          form.append('resume', Buffer.from(resumeResp.data), { filename:'resume.pdf', contentType:'application/pdf' });
-          form.append('job_description', jdFileBuffer, { filename:'jd.pdf', contentType:'application/pdf' });
-          mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze-file`, form, { headers:form.getHeaders(), timeout:90000 });
-        } else {
-          const form = new FormData();
-          form.append('resume_url', resumeUrl);
-          form.append('jd_text', jdText);
-          form.append('user_id', req.user._id.toString());
-          mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze`, form, { headers:form.getHeaders(), timeout:90000 });
-        }
-        mlData = mlResp.data;
-        break; // Success, exit retry loop
-      } catch (err) {
-        if (err.response?.status === 429 && attempts < 3) {
-          console.warn(`[SkillPath] ML Service 429 on attempt ${attempts}, retrying...`);
-          await new Promise(r => setTimeout(r, 2000 * attempts)); // Backoff: 2s, 4s
-        } else {
-          throw err; // Not a 429 or max attempts reached
+    // ── NATIVE AI PIPELINE (Primary) ──
+    let mlData = null;
+    try {
+      if (!resumeBufferToParse) {
+        const resumeResp = await axios.get(resumeUrl, { responseType: 'arraybuffer', timeout: 30000 });
+        resumeBufferToParse = Buffer.from(resumeResp.data);
+      }
+      const resumePdf = await pdfParse(resumeBufferToParse);
+      let rawResumeText = resumePdf.text || '';
+      
+      // Privacy Protection: Extract and redact
+      const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
+      const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+      
+      const emails = rawResumeText.match(emailRegex) || [];
+      const phones = rawResumeText.match(phoneRegex) || [];
+      
+      const candidateProfile = {
+        name: req.user.name,
+        email: emails[0] || req.user.email,
+        phone: phones[0] || '',
+        linkedin: (rawResumeText.match(/linkedin\.com\/in\/[a-zA-Z0-9_-]+/i) || [])[0] || '',
+        github: (rawResumeText.match(/github\.com\/[a-zA-Z0-9_-]+/i) || [])[0] || ''
+      };
+
+      let anonymizedText = rawResumeText.replace(emailRegex, '[REDACTED_EMAIL]').replace(phoneRegex, '[REDACTED_PHONE]');
+
+      const prompt = `You are an expert ATS (Applicant Tracking System) and tech recruiter. Analyze this resume against the job description.
+Be STRICT with ATS scoring. A bad/irrelevant resume must score < 30. A good one 70-100.
+Do NOT hallucinate. Use only the provided text.
+
+Resume:
+${anonymizedText}
+
+Job Description:
+${jdText}
+
+Return ONLY valid JSON exactly matching this structure:
+{
+  "ats_score": number (0-100),
+  "target_role": "Detected role or domain",
+  "candidate_profile": { "domain": "Software/IT", "secondary": "Student/Fresher" },
+  "ats_breakdown": {
+    "keyword_match": { "score": number, "max": 35, "label": "Keyword Relevance" },
+    "section_presence": { "score": number, "max": 25, "label": "Section Completeness" },
+    "formatting": { "score": number, "max": 10, "label": "Formatting" },
+    "skill_relevance": { "score": number, "max": 20, "label": "Skill Relevance" },
+    "experience_clarity": { "score": number, "max": 10, "label": "Experience Clarity" }
+  },
+  "skills_tech_stack": {
+    "languages": [{"name": "Python", "level": "strong|weak"}],
+    "frameworks": [{"name": "React", "level": "strong|weak"}],
+    "tools": [{"name": "Git", "level": "strong|weak"}]
+  },
+  "work_experience": { "detected": boolean, "roles": [{"title":"...","quality":"Good|Poor"}] },
+  "projects_detected": [{"name":"...","description":"...","ats_impact": number (0-100)}],
+  "keyword_analysis": {
+    "found": ["..."],
+    "missing": ["..."],
+    "recommended_to_add": ["..."]
+  },
+  "ats_issues": [{"issue":"...","severity":"High|Medium|Low"}],
+  "ai_suggestions": [{"suggestion":"...","details":["..."]}],
+  "skill_gaps": [{"skill":"...","importance":"critical|important","current_level":"none"}],
+  "learning_pathway": [
+    {"phase": 1, "phase_name": "...", "duration_weeks": 2, "modules": [
+      {"skill_addressed": "...", "title": "...", "estimated_hours": 10, "resources": [{"name":"...","url":"..."}]}
+    ]}
+  ]
+}`;
+
+      const rawJson = await callAI(prompt, 3000);
+      const parsed = parseJSON(rawJson);
+      
+      if (parsed && typeof parsed.ats_score === 'number') {
+        mlData = parsed;
+        // Inject the locally extracted personal info back into the profile for the frontend
+        mlData.candidate_profile = { ...mlData.candidate_profile, ...candidateProfile };
+        
+        // Normalize for the rest of the existing code
+        mlData.overall_readiness_score = mlData.ats_score;
+        mlData.parsed_skills = [];
+        Object.values(mlData.skills_tech_stack || {}).forEach(arr => {
+          if(Array.isArray(arr)) arr.forEach(s => mlData.parsed_skills.push(s.name));
+        });
+      } else {
+        console.warn('[SkillPath] Native AI failed to return valid JSON, falling back to ML service');
+      }
+    } catch (err) {
+      console.warn('[SkillPath] Native AI pipeline error:', err.message);
+    }
+
+    // ── FALLBACK TO ML SERVICE ──
+    if (!mlData) {
+      let mlResp;
+      let attempts = 0;
+      while (attempts < 3) {
+        try {
+          attempts++;
+          if (jdFileBuffer && !jdText.trim()) {
+            const form = new FormData();
+            const resumeResp = await axios.get(resumeUrl, { responseType:'arraybuffer', timeout:30000 });
+            form.append('resume', Buffer.from(resumeResp.data), { filename:'resume.pdf', contentType:'application/pdf' });
+            form.append('job_description', jdFileBuffer, { filename:'jd.pdf', contentType:'application/pdf' });
+            mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze-file`, form, { headers:form.getHeaders(), timeout:90000 });
+          } else {
+            const form = new FormData();
+            form.append('resume_url', resumeUrl);
+            form.append('jd_text', jdText);
+            form.append('user_id', req.user._id.toString());
+            mlResp = await axios.post(`${process.env.ML_SERVICE_URL}/analyze`, form, { headers:form.getHeaders(), timeout:90000 });
+          }
+          mlData = mlResp.data;
+          break; // Success, exit retry loop
+        } catch (err) {
+          if (err.response?.status === 429 && attempts < 3) {
+            console.warn(`[SkillPath] ML Service 429 on attempt ${attempts}, retrying...`);
+            await new Promise(r => setTimeout(r, 2000 * attempts)); // Backoff: 2s, 4s
+          } else {
+            throw err; // Not a 429 or max attempts reached
+          }
         }
       }
     }
 
     const skill_gap = mlData.skill_gap || {};
+    const missing_skills_arr = mlData.keyword_analysis?.missing || skill_gap.missing_skills || skill_gap.missingSkills || (mlData.skill_gaps||[]).map(g=>g.skill);
+    const matched_skills_arr = mlData.keyword_analysis?.found || skill_gap.matched_skills || skill_gap.matchedSkills || mlData.strengths || [];
+
     const dbResult = await SkillpathResult.create({
       userId: req.user._id, resumeUrl,
       jobTitle: mlData.target_role || jobTitle || 'Job Analysis', companyId: companyId || null,
       jdText: jdText || '[PDF job description]',
       atsScore: mlData.ats_score || 0, atsBreakdown: mlData.ats_breakdown || {},
-      eligibilityPercent: mlData.eligibility_percent || mlData.overall_readiness_score || 0,
+      eligibilityPercent: mlData.eligibility_percent || mlData.overall_readiness_score || mlData.ats_score || 0,
       eligibilityReason: mlData.eligibility_reason || '',
       skillGapAnalysis: {
-        matchedSkills: skill_gap.matched_skills || skill_gap.matchedSkills || mlData.strengths || [],
-        missingSkills: skill_gap.missing_skills || skill_gap.missingSkills || (mlData.skill_gaps||[]).map(g=>g.skill),
+        matchedSkills: matched_skills_arr,
+        missingSkills: missing_skills_arr,
         weakAreas: skill_gap.weak_areas || skill_gap.weakAreas || [],
       },
       proficiencyLevel: mlData.proficiency_level || 'Beginner',
-      recommendations: mlData.recommendations || [], parsedSkills: mlData.parsed_skills || [],
+      recommendations: mlData.recommendations || mlData.ai_suggestions || [], 
+      parsedSkills: mlData.parsed_skills || [],
     });
 
     await User.findByIdAndUpdate(req.user._id, {

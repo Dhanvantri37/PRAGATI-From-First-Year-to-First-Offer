@@ -69,7 +69,7 @@ function FileZone({ label, icon, file, onFile, accept, hint }) {
 /*  ANALYSIS RESULTS VIEW                                               */
 /* ─────────────────────────────────────────────────────────────────── */
 function AnalysisResults({ dbResult, full, onNewAnalysis }) {
-  const [tab, setTab] = useState('overview'); // overview | gaps | pathway
+  const [tab, setTab] = useState('swot'); // swot | overview | gaps | pathway
 
   /* resolve fields from both DB result and full ML response */
   const ats       = Number(dbResult?.atsScore       ?? full?.ats_score       ?? 0);
@@ -118,6 +118,7 @@ function AnalysisResults({ dbResult, full, onNewAnalysis }) {
   const levelColor  = { Beginner:'#f59e0b',Intermediate:'#531697',Expert:'#47d372' };
 
   const TABS = [
+    { id:'swot',     label:'🧑‍💻 Personal SWOT' },
     { id:'overview', label:'📊 Overview' },
     { id:'gaps',     label:`🔍 Skill Gaps ${richGaps.length?`(${richGaps.length})`:''}` },
     { id:'pathway',  label:`🗺️ Learning Path ${pathway.length?`(${pathway.length} phases)`:''}` },
@@ -154,6 +155,133 @@ function AnalysisResults({ dbResult, full, onNewAnalysis }) {
           </button>
         ))}
       </div>
+
+      {/* ── SWOT TAB ── */}
+      {tab==='swot' && (
+        <div style={{ display:'flex',flexDirection:'column',gap:16 }}>
+          {/* Header row */}
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 2fr 1fr',gap:14 }}>
+            <div className="card" style={{ padding:'20px',textAlign:'center' }}>
+              <AtsRing score={ats}/>
+              <div style={{ marginTop:10,fontSize:'.7rem',color:'#7a8ba8',fontWeight:700 }}>ATS SCORE</div>
+            </div>
+            <div className="card" style={{ padding:'20px' }}>
+              <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>🧑‍💼 Candidate Profile</div>
+              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,fontSize:'.8rem' }}>
+                <div><span style={{ color:'#7a8ba8' }}>Email:</span> <strong>{full?.candidate_profile?.email || 'N/A'}</strong></div>
+                <div><span style={{ color:'#7a8ba8' }}>Phone:</span> <strong>{full?.candidate_profile?.phone || 'N/A'}</strong></div>
+                <div><span style={{ color:'#7a8ba8' }}>LinkedIn:</span> <strong>{full?.candidate_profile?.linkedin || 'N/A'}</strong></div>
+                <div><span style={{ color:'#7a8ba8' }}>GitHub:</span> <strong>{full?.candidate_profile?.github || 'N/A'}</strong></div>
+              </div>
+            </div>
+            <div className="card" style={{ padding:'20px' }}>
+              <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>🎯 Detected Domain</div>
+              <div style={{ fontSize:'1.1rem',fontWeight:800,color:'#531697' }}>{full?.target_role || jobTitle}</div>
+              <div style={{ fontSize:'.75rem',color:'#7a8ba8',marginTop:4 }}>{full?.candidate_profile?.domain || 'Software/IT'}</div>
+            </div>
+          </div>
+
+          {/* Breakdown & Skills */}
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1.5fr',gap:14 }}>
+            <div className="card" style={{ padding:'20px' }}>
+              <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>📊 Score Breakdown</div>
+              {(() => {
+                const breakdown = atsBreak?.breakdown || {};
+                if(Object.keys(breakdown).length > 0) {
+                  const BAR_COLORS = ['linear-gradient(90deg,#531697,#13a1a5)','linear-gradient(90deg,#13a1a5,#47d372)','linear-gradient(90deg,#f59e0b,#13a1a5)','linear-gradient(90deg,#6366f1,#531697)','linear-gradient(90deg,#ec4899,#f59e0b)'];
+                  return Object.entries(breakdown).map(([k,v],i) => (
+                    <Bar key={k} label={v?.label || k} val={typeof v==='object'?v.score:v} max={typeof v==='object'?v.max:10} color={BAR_COLORS[i%BAR_COLORS.length]}/>
+                  ));
+                }
+                return <div style={{ color:'#7a8ba8',fontSize:'.8rem' }}>Run Native AI analysis to see detailed breakdown</div>;
+              })()}
+            </div>
+            <div className="card" style={{ padding:'20px' }}>
+              <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>💡 Skills & Tech Stack</div>
+              {full?.skills_tech_stack ? (
+                <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
+                  {Object.entries(full.skills_tech_stack).map(([cat, arr]) => (
+                    <div key={cat}>
+                      <div style={{ fontSize:'.75rem',fontWeight:700,color:'#3d4e6b',marginBottom:6,textTransform:'capitalize' }}>{cat}</div>
+                      <div style={{ display:'flex',flexWrap:'wrap',gap:6 }}>
+                        {(arr||[]).map(s => (
+                          <span key={s.name} style={{ padding:'4px 10px',borderRadius:999,fontSize:'.7rem',fontWeight:700,background:s.level==='strong'?'rgba(71,211,114,0.1)':'rgba(245,158,11,0.1)',color:s.level==='strong'?'#166534':'#92400e',border:`1px solid ${s.level==='strong'?'rgba(71,211,114,0.2)':'rgba(245,158,11,0.2)'}` }}>
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : <div style={{ color:'#7a8ba8',fontSize:'.8rem' }}>No categorized skills extracted</div>}
+            </div>
+          </div>
+
+          {/* Keywords Analysis */}
+          {full?.keyword_analysis && (
+            <div className="card" style={{ padding:'20px' }}>
+              <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>🔑 Keywords Analysis</div>
+              <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:14 }}>
+                <div>
+                  <div style={{ fontSize:'.75rem',fontWeight:700,color:'#166534',marginBottom:6 }}>Found Keywords</div>
+                  <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
+                    {(full.keyword_analysis.found||[]).map(k=><span key={k} style={{ padding:'3px 8px',borderRadius:6,background:'#dcfce7',color:'#166534',fontSize:'.7rem' }}>{k}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:'.75rem',fontWeight:700,color:'#991b1b',marginBottom:6 }}>Missing Keywords</div>
+                  <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
+                    {(full.keyword_analysis.missing||[]).map(k=><span key={k} style={{ padding:'3px 8px',borderRadius:6,background:'#fee2e2',color:'#991b1b',fontSize:'.7rem' }}>{k}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:'.75rem',fontWeight:700,color:'#0369a1',marginBottom:6 }}>Recommended to Add</div>
+                  <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
+                    {(full.keyword_analysis.recommended_to_add||[]).map(k=><span key={k} style={{ padding:'3px 8px',borderRadius:6,border:'1px dashed #0369a1',color:'#0369a1',fontSize:'.7rem' }}>{k}</span>)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Work Experience & Issues */}
+          <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:14 }}>
+            {full?.work_experience && (
+              <div className="card" style={{ padding:'20px' }}>
+                <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>💼 Work Experience & Projects</div>
+                <div style={{ fontSize:'.8rem',color:'#3d4e6b',marginBottom:10 }}><strong>Experience Detected:</strong> {full.work_experience.detected?'Yes':'No'}</div>
+                {(full.work_experience.roles||[]).map((r,i) => (
+                  <div key={i} style={{ marginBottom:6,fontSize:'.75rem',background:'#f0f3fa',padding:'6px 10px',borderRadius:6 }}>
+                    <strong>{r.title}</strong> - Quality: <span style={{ color:r.quality==='Good'?'#166534':'#991b1b' }}>{r.quality}</span>
+                  </div>
+                ))}
+                {(full.projects_detected||[]).map((p,i) => (
+                  <div key={i} style={{ marginTop:8,fontSize:'.75rem',background:'rgba(83,22,151,0.05)',padding:'8px 10px',borderRadius:6 }}>
+                    <strong>{p.name}</strong> - ATS Impact: {p.ats_impact}/100<br/>
+                    <span style={{ color:'#7a8ba8' }}>{p.description}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {full?.ats_issues && (
+              <div className="card" style={{ padding:'20px' }}>
+                <div style={{ fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:'.9rem',marginBottom:14,color:'#0f1a2e' }}>⚠️ ATS Issues & Suggestions</div>
+                {(full.ats_issues||[]).map((iss,i)=>(
+                  <div key={i} style={{ padding:'8px 12px',borderRadius:8,background:'rgba(239,68,68,0.08)',color:'#991b1b',fontSize:'.75rem',marginBottom:8 }}>
+                    <strong>[{iss.severity}]</strong> {iss.issue}
+                  </div>
+                ))}
+                {(full.ai_suggestions||[]).map((sug,i)=>(
+                  <div key={i} style={{ padding:'8px 12px',borderRadius:8,background:'rgba(19,161,165,0.08)',color:'#0f766e',fontSize:'.75rem',marginBottom:8 }}>
+                    <strong>💡 {sug.suggestion}</strong>
+                    {(sug.details||[]).map((d,j)=><div key={j} style={{ color:'#7a8ba8',marginTop:2 }}>• {d}</div>)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── OVERVIEW TAB ── */}
       {tab==='overview' && (
