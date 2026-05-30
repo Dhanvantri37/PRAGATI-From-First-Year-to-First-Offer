@@ -427,7 +427,7 @@ export default function FacultyStudentsPage() {
           ['Active (3+ streak)', stats.active, '#f59e0b', '🔥'],
           ['Avg Score',      stats.avgScore, '#13a1a5', '📊'],
         ].map(([l,v,c,ic])=>(
-          <div key={l} style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', padding:'16px 18px', boxShadow:'0 2px 8px rgba(4,44,93,0.05)' }}>
+          <div key={l} style={{ background:'var(--surface)', borderRadius:14, border:'1px solid var(--border)', padding:'16px 18px', boxShadow:'var(--shadow-sm)' }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
               <span style={{ fontSize:'1.2rem' }}>{ic}</span>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.4rem', color:c }}>{v}</div>
@@ -448,13 +448,13 @@ export default function FacultyStudentsPage() {
           [filterSkill,  setFS, ['All','Beginner','Intermediate','Expert']],
         ].map(([val,set,opts],i)=>(
           <select key={i} value={val} onChange={e=>set(e.target.value)}
-            style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
+            style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid var(--border)', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'var(--surface)', color:'var(--text)', cursor:'pointer' }}>
             {opts.map(o=><option key={o} value={o}>{o==='All'?['All Branches','All Years','All Levels'][i]:o==='1'||o==='2'||o==='3'||o==='4'?`Year ${o}`:o}</option>)}
           </select>
         ))}
         {/* Sort */}
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
-          style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'#fff', color:'var(--text-2)', cursor:'pointer' }}>
+          style={{ padding:'8px 10px', borderRadius:9, border:'1.5px solid var(--border)', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', fontWeight:700, background:'var(--surface)', color:'var(--text)', cursor:'pointer' }}>
           {[['score','Sort: Score'],['streak','Sort: Streak'],['solved','Sort: Solved'],['apt','Sort: Aptitude'],['name','Sort: Name']].map(([v,l])=>(
             <option key={v} value={v}>{l}</option>
           ))}
@@ -469,8 +469,8 @@ export default function FacultyStudentsPage() {
       <style>{`
         .faculty-student-card {
           display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-          background: #fff; border-radius: 12px; border: 1px solid #f0f3fa;
-          box-shadow: 0 1px 4px rgba(4,44,93,0.04); cursor: pointer; transition: all .15s;
+          background: var(--surface); border-radius: 12px; border: 1px solid var(--border);
+          box-shadow: var(--shadow-sm); cursor: pointer; transition: all .15s;
         }
         .faculty-student-card:hover { border-color: rgba(83,22,151,0.2); box-shadow: 0 4px 16px rgba(83,22,151,0.08); }
         .faculty-student-info { flex: 1; min-width: 0; }
@@ -488,7 +488,7 @@ export default function FacultyStudentsPage() {
           <div style={{ color:'#b0bec9', fontSize:'.82rem' }}>Loading students…</div>
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center', padding:40, background:'#fff', borderRadius:14, border:'1px solid #e8edf5' }}>
+        <div style={{ textAlign:'center', padding:40, background:'var(--surface)', borderRadius:14, border:'1px solid var(--border)' }}>
           <div style={{ fontSize:'2.5rem', marginBottom:8 }}>🔍</div>
           <div style={{ color:'var(--text-3)', fontSize:'.85rem' }}>No students match this filter</div>
         </div>

@@ -251,7 +251,7 @@ export default function FacultyLeaderboardPage() {
                     const pc = ['#c0c0c0','#f59e0b','#cd7f32'][actualRank];
                     const sc = SKILL_COL[s.skillLevel]||'#531697';
                     return (
-                      <div key={s._id} style={{ background:'#fff', borderRadius:16, padding:'16px 12px', textAlign:'center', border:`2px solid ${pc}40`, boxShadow:`0 4px 20px ${pc}20` }}>
+                      <div key={s._id} style={{ background:'var(--surface)', borderRadius:16, padding:'16px 12px', textAlign:'center', border:`2px solid ${pc}40`, boxShadow:`0 4px 20px ${pc}20` }}>
                         <div style={{ fontSize:pi===1?'2.2rem':'1.6rem', marginBottom:8 }}>{MEDALS[actualRank]}</div>
                         <div style={{ width:48, height:48, borderRadius:13, background:`linear-gradient(135deg,${sc},#13a1a5)`, margin:'0 auto 10px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.2rem' }}>
                           {s.name?.charAt(0)}
@@ -272,9 +272,9 @@ export default function FacultyLeaderboardPage() {
               )}
 
               {/* Table */}
-              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', overflowX:'auto' }}>
+              <div style={{ background:'var(--surface)', borderRadius:14, border:'1px solid var(--border)', overflowX:'auto' }}>
                 <div style={{ minWidth: 600 }}>
-                  <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'10px 16px', background:'#f8f9fc', borderBottom:'1px solid #e8edf5', fontSize:'.62rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em' }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'10px 16px', background:'var(--bg-alt)', borderBottom:'1px solid var(--border)', fontSize:'.62rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em' }}>
                   {['RANK','STUDENT','SCORE','STREAK','SOLVED','APT%','LEVEL'].map((h,i)=>(
                     <div key={h} style={{ textAlign:i>1?'center':'left' }}>{h}</div>
                   ))}
@@ -285,8 +285,8 @@ export default function FacultyLeaderboardPage() {
                   const aptCol = (s.aptScore||0)>=70?'#47d372':(s.aptScore||0)>=45?'#f59e0b':'#ef4444';
                   return (
                     <div key={s._id}
-                      style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'11px 16px', borderBottom:'1px solid #f0f3fa', transition:'background .12s', alignItems:'center' }}
-                      onMouseOver={e=>e.currentTarget.style.background='#fafbff'}
+                      style={{ display:'grid', gridTemplateColumns:'50px 1fr 90px 72px 72px 72px 80px', padding:'11px 16px', borderBottom:'1px solid var(--border-light, var(--border))', transition:'background .12s', alignItems:'center' }}
+                      onMouseOver={e=>e.currentTarget.style.background='var(--surface-2)'}
                       onMouseOut={e=>e.currentTarget.style.background='transparent'}>
                       <div>
                         {globalRank<3
