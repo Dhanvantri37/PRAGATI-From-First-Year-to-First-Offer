@@ -46,7 +46,7 @@ export default function LoginPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to reset password');
-        setForgotMsg('✅ A new temporary password has been sent to your email.');
+        setForgotMsg('All set 🎉 We’ve sent a temporary password to your email 📩. Please check your inbox to continue ✔️');
         setTimeout(() => setMode('login'), 3000);
       } else {
         await login(form.email.trim(), form.password);

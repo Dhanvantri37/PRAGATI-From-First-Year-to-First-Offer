@@ -78,13 +78,13 @@ router.post('/forgot-password', async (req, res) => {
     await user.save();
 
     const subject = 'Your Temporary PRAGATI Password';
-    const text = `Hello ${user.name},\n\nYour temporary password is: ${tempPassword}\n\nPlease log in and change this password immediately in your Profile section.\n\nBest,\nPRAGATI Team`;
+    const text = `Hello ${user.name},\n\nYour temporary password is: ${tempPassword}\n\nPlease log in and change this password immediately in your Profile section.\n\nBest Regards,\nPRAGATI Team`;
     const html = `<div style="font-family: sans-serif;">
       <h2>Password Reset</h2>
       <p>Hello ${user.name},</p>
       <p>Your temporary password is: <strong style="font-size: 1.2rem; color: #531697;">${tempPassword}</strong></p>
       <p>Please log in and change this password immediately via your Edit Profile menu.</p>
-      <br/><p>Best,<br/>PRAGATI Team</p>
+      <br/><p>Best Regards,<br/>PRAGATI Team</p>
     </div>`;
 
     await sendEmail(user.email, subject, text, html);
