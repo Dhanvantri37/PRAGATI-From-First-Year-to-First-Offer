@@ -6,7 +6,7 @@ const { exec } = require('child_process');
 
 // POST /api/compile
 router.post('/', authenticate, async (req, res) => {
-  const { language, code } = req.body;
+  const { language, code, input } = req.body;
   if (!code) return res.status(400).json({ error: 'Code is required' });
 
   // Currently supporting 'javascript' and 'python'
@@ -14,16 +14,16 @@ router.post('/', authenticate, async (req, res) => {
   let execCommand = '';
   if (language === 'javascript' || language === 'nodejs' || language === 'js') {
     ext = 'js';
-    execCommand = 'node Solution.js';
+    execCommand = 'node Solution.js < input.txt';
   } else if (language === 'python' || language === 'python3') {
     ext = 'py';
-    execCommand = 'python3 Solution.py';
+    execCommand = 'python3 Solution.py < input.txt';
   } else if (language === 'java') {
     ext = 'java';
-    execCommand = 'java Solution.java';
+    execCommand = 'java Solution.java < input.txt';
   } else if (language === 'c++' || language === 'cpp' || language === 'c') {
     ext = 'cpp';
-    execCommand = 'g++ Solution.cpp -o Solution && ./Solution';
+    execCommand = 'g++ Solution.cpp -o Solution && ./Solution < input.txt';
   } else {
     return res.status(400).json({ error: 'Unsupported language. Supported: javascript, python, java, c++' });
   }
@@ -41,10 +41,12 @@ router.post('/', authenticate, async (req, res) => {
   }
 
   const filepath = path.join(runDir, `Solution.${ext}`);
+  const inputpath = path.join(runDir, `input.txt`);
 
   try {
     // Write code to file
     fs.writeFileSync(filepath, code);
+    fs.writeFileSync(inputpath, input || '');
 
     // Execute
     exec(execCommand, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {

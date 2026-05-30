@@ -181,6 +181,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   const [runResult, setRunResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [customInput, setCustomInput] = useState('');
 
   // Live state for fetched LeetCode descriptions & hints
   const [fullProblem, setFullProblem] = useState(problem);
@@ -283,7 +284,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
       const res = await fetch(`${API}/compile`, {
         method:'POST',
         headers:tks(),
-        body: JSON.stringify({ code, language: lang })
+        body: JSON.stringify({ code, language: lang, input: customInput })
       });
       const d = await res.json();
       setRunResult(d);
@@ -548,6 +549,17 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                 style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
               />
             </div>
+          </div>
+
+          {/* Custom Input panel */}
+          <div style={{ borderTop:'1px solid #1f2937', background:'#0f172a', padding:'8px 16px' }}>
+            <div style={{ fontSize:'.75rem', fontWeight:800, color:'#94a3b8', marginBottom:6 }}>⌨️ Custom STDIN Input</div>
+            <textarea
+              value={customInput}
+              onChange={e => setCustomInput(e.target.value)}
+              placeholder="Enter input here if your code requires it..."
+              style={{ width:'100%', minHeight:60, padding:10, borderRadius:8, border:'1px solid #374151', background:'#1e293b', color:'#cbd5e1', fontSize:'.8rem', fontFamily:'monospace', outline:'none', resize:'vertical' }}
+            />
           </div>
 
           {/* Compile panel */}
