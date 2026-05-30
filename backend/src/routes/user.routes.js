@@ -96,7 +96,25 @@ router.post('/admin-create', authenticate, authorize('admin'), async (req, res) 
     // Send email
     const subject = 'Welcome to PRAGATI - Your Account Credentials';
     let text;
-    if (role === 'faculty') {
+    if (role === 'admin') {
+      text = `Dear ${name},
+
+Welcome to PRAGATI.
+
+Your administrator account has been created successfully. Please use the credentials provided below to access the platform:
+
+Email ID: ${email}
+Password: ${password}
+
+Portal Link: https://pragati-career-readiness-platform.vercel.app
+
+For security reasons, please change your password immediately after your first login.
+
+As an administrator, you now have access to manage users, monitor platform usage, and oversee placement analytics.
+
+Regards,
+Team PRAGATI`;
+    } else if (role === 'faculty') {
       text = `Dear ${name},
 
 Welcome to PRAGATI.
@@ -109,6 +127,8 @@ Password: ${password}
 Portal Link: https://pragati-career-readiness-platform.vercel.app
 
 For security reasons, please change your password after your first login.
+
+As a faculty member, you now have access to view student performance, track placement readiness, and monitor department-level analytics.
 
 If you face any issues while logging in, please contact the administrator.
 
@@ -132,7 +152,7 @@ Important Instructions:
 • Do not share your credentials with anyone.
 • Use your registered email ID for all future communications and password recovery.
 
-PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
+As a student, PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
 
 If you face any login or access issues, please contact the PRAGATI support/admin team.
 
@@ -171,7 +191,25 @@ router.post('/admin-create-bulk', authenticate, authorize('admin'), async (req, 
         const subject = 'Welcome to PRAGATI - Your Account Credentials';
         let text;
         const role = u.role || 'student';
-        if (role === 'faculty') {
+        if (role === 'admin') {
+          text = `Dear ${u.name || 'Admin'},
+
+Welcome to PRAGATI.
+
+Your administrator account has been created successfully. Please use the credentials provided below to access the platform:
+
+Email ID: ${u.email}
+Password: ${password}
+
+Portal Link: https://pragati-career-readiness-platform.vercel.app
+
+For security reasons, please change your password immediately after your first login.
+
+As an administrator, you now have access to manage users, monitor platform usage, and oversee placement analytics.
+
+Regards,
+Team PRAGATI`;
+        } else if (role === 'faculty') {
           text = `Dear ${u.name || 'Faculty'},
 
 Welcome to PRAGATI.
@@ -184,6 +222,8 @@ Password: ${password}
 Portal Link: https://pragati-career-readiness-platform.vercel.app
 
 For security reasons, please change your password after your first login.
+
+As a faculty member, you now have access to view student performance, track placement readiness, and monitor department-level analytics.
 
 If you face any issues while logging in, please contact the administrator.
 
@@ -207,7 +247,7 @@ Important Instructions:
 • Do not share your credentials with anyone.
 • Use your registered email ID for all future communications and password recovery.
 
-PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
+As a student, PRAGATI is designed to support your placement preparation journey through AI-powered interviews, group discussions, aptitude practice, and placement resources.
 
 If you face any login or access issues, please contact the PRAGATI support/admin team.
 
