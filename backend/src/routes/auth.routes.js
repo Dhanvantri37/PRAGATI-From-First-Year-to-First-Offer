@@ -57,6 +57,43 @@ router.post('/login', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+const { sendEmail } = require('../utils/mailer');
+const crypto = require('crypto');
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Return 200 even if not found to prevent email enumeration
+      return res.json({ message: 'If an account exists, a temporary password has been sent.' });
+    }
+
+    // Generate secure 8-character temporary password
+    const tempPassword = crypto.randomBytes(4).toString('hex');
+    user.password = tempPassword;
+    await user.save();
+
+    const subject = 'Your Temporary PRAGATI Password';
+    const text = `Hello ${user.name},\n\nYour temporary password is: ${tempPassword}\n\nPlease log in and change this password immediately in your Profile section.\n\nBest,\nPRAGATI Team`;
+    const html = `<div style="font-family: sans-serif;">
+      <h2>Password Reset</h2>
+      <p>Hello ${user.name},</p>
+      <p>Your temporary password is: <strong style="font-size: 1.2rem; color: #531697;">${tempPassword}</strong></p>
+      <p>Please log in and change this password immediately via your Edit Profile menu.</p>
+      <br/><p>Best,<br/>PRAGATI Team</p>
+    </div>`;
+
+    await sendEmail(user.email, subject, text, html);
+    res.json({ message: 'If an account exists, a temporary password has been sent.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process request: ' + err.message });
+  }
+});
+
 // POST /api/auth/refresh
 router.post('/refresh', async (req, res) => {
   try {

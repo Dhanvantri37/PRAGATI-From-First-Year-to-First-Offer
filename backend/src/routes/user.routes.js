@@ -23,12 +23,19 @@ router.put('/profile', authenticate, async (req, res) => {
 router.put('/change-password', authenticate, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Both current password and new password are required' });
+    }
+    
     const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
     const valid = await user.comparePassword(currentPassword);
     if (!valid) return res.status(401).json({ error: 'Current password incorrect' });
+    
     user.password = newPassword;
     await user.save();
-    res.json({ message: 'Password updated' });
+    res.json({ message: 'Password updated successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

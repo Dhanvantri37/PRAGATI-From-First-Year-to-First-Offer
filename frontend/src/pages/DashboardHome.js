@@ -30,7 +30,12 @@ function EditProfileModal({ user, onClose, onSaved }) {
   });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [pwdForm, setPwdForm] = useState({ currentPassword: '', newPassword: '' });
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMsg, setPwdMsg] = useState('');
+
   const set = k => e => setForm(f=>({...f,[k]:e.target.value}));
+  const setPwd = k => e => setPwdForm(f=>({...f,[k]:e.target.value}));
   const INP = { style:{ width:'100%', padding:'9px 12px', borderRadius:8, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.875rem', outline:'none', background:'#fafbff', boxSizing:'border-box' } };
   const LBL = ({ children }) => <label style={{ display:'block', fontSize:'.73rem', fontWeight:700, color:'var(--text-2)', marginBottom:4, fontFamily:"'Syne',sans-serif" }}>{children}</label>;
 
@@ -47,9 +52,21 @@ function EditProfileModal({ user, onClose, onSaved }) {
     finally { setLoading(false); }
   }
 
+  async function changePassword(e) {
+    e.preventDefault(); setPwdLoading(true); setPwdMsg('');
+    try {
+      const r = await fetch(`${API}/users/change-password`, { method:'PUT', headers:{...tk(),'Content-Type':'application/json'}, body:JSON.stringify(pwdForm) });
+      const d = await r.json();
+      if(!r.ok) throw new Error(d.error||'Failed');
+      setPwdMsg('✅ Password updated!');
+      setPwdForm({ currentPassword:'', newPassword:'' });
+    } catch(err){ setPwdMsg(`❌ ${err.message}`); }
+    finally { setPwdLoading(false); }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content-responsive" style={{ maxWidth:560 }} onClick={e=>e.stopPropagation()}>
+      <div className="modal-content-responsive" style={{ maxWidth:560, maxHeight:'90vh', overflowY:'auto' }} onClick={e=>e.stopPropagation()}>
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18 }}>
           <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', color:'var(--text)' }}>✏️ Edit Profile</div>
           <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', border:'1px solid #e8edf5', background:'#f8f9fc', cursor:'pointer', fontWeight:800, color:'var(--text-3)', fontSize:'1rem' }}>×</button>
@@ -66,7 +83,7 @@ function EditProfileModal({ user, onClose, onSaved }) {
           </div>
         </div>
 
-        <form onSubmit={save}>
+        <form onSubmit={save} style={{ marginBottom: 24 }}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
             <div style={{ gridColumn:'1/-1' }}><LBL>Full Name</LBL><input {...INP} value={form.name} onChange={set('name')} placeholder="Your full name" /></div>
             <div><LBL>Department</LBL>
@@ -95,6 +112,20 @@ function EditProfileModal({ user, onClose, onSaved }) {
             {loading?'Saving…':'💾 Save Profile'}
           </button>
         </form>
+
+        <div style={{ paddingTop:20, borderTop:'1px solid #e8edf5' }}>
+          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:'1rem', color:'var(--text)', marginBottom:12 }}>🔒 Change Password</div>
+          <form onSubmit={changePassword}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr', gap:12, marginBottom:12 }}>
+              <div><LBL>Current Password</LBL><input {...INP} type="password" value={pwdForm.currentPassword} onChange={setPwd('currentPassword')} required /></div>
+              <div><LBL>New Password</LBL><input {...INP} type="password" value={pwdForm.newPassword} onChange={setPwd('newPassword')} required minLength={6} /></div>
+            </div>
+            {pwdMsg && <div style={{ marginBottom:12, padding:'9px 14px', borderRadius:8, fontSize:'.83rem', fontWeight:600, background:pwdMsg.startsWith('✅')?'#dcfce7':'#fee2e2', color:pwdMsg.startsWith('✅')?'#166534':'#991b1b' }}>{pwdMsg}</div>}
+            <button type="submit" disabled={pwdLoading} style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', background:pwdLoading?'#d0d7e8':'#042c5d', color:'#fff', fontWeight:800, fontSize:'.9rem', cursor:pwdLoading?'not-allowed':'pointer', fontFamily:"'Nunito',sans-serif" }}>
+              {pwdLoading?'Updating...':'Update Password'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

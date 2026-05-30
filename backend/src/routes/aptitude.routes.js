@@ -183,4 +183,16 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
   }
 });
 
+// Admin: POST /api/aptitude/bulk — bulk upload questions
+router.post('/bulk', authenticate, authorize('admin', 'faculty'), async (req, res) => {
+  try {
+    const { questions } = req.body;
+    if (!Array.isArray(questions)) return res.status(400).json({ error: 'Expected an array of questions' });
+    const inserted = await AptitudeQuestion.insertMany(questions);
+    res.status(201).json({ message: 'Questions added', inserted: inserted.length });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 module.exports = router;
