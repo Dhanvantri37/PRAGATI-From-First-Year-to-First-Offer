@@ -580,16 +580,10 @@ export default function GDRoomPage() {
         .gd-main-body { flex: 1; display: flex; overflow: hidden; min-height: 0; flex-direction: row; position: relative; }
         .gd-side-panel { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #13203a; border-left: 1px solid #2a3a5a; overflow: hidden; }
         @media (max-width: 768px) {
-          .gd-main-body { flex-direction: row; }
           .gd-side-panel {
-            position: absolute;
-            right: 0; top: 0; bottom: 68px; /* Leave controls visible */
-            width: 85%; max-width: 340px;
-            z-index: 50; height: auto;
-            border-left: 1px solid #2a3a5a; border-top: none;
-            box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+            width: 220px; /* Narrower width to fit beside video on mobile */
           }
-          .gd-video-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important; grid-template-rows: auto !important; }
+          .gd-video-grid { grid-template-columns: 1fr !important; grid-template-rows: auto !important; }
         }
       `}</style>
       {/* BODY */}
