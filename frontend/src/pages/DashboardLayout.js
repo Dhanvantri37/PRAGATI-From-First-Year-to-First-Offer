@@ -282,9 +282,12 @@ export default function DashboardLayout() {
     let retryTimer = null;
     let permissionDenied = false;
 
-    // Request mic permission upfront so the browser doesn't silently block
+    // Request mic permission upfront and keep the stream active to avoid Chrome "ding" loop on SR restart
     navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then(stream => { stream.getTracks().forEach(t => t.stop()); }) // immediately release
+      .then(stream => { 
+        // We do NOT stop the stream here; keeping it active in background prevents the recurring mic access sound 
+        window._dummyAudioStream = stream; 
+      }) 
       .catch(() => {}); // permission prompt handled by onerror below
 
     function startWake() {

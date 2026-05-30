@@ -94,6 +94,17 @@ router.post('/admin-create', authenticate, authorize('admin'), async (req, res) 
   try {
     let { name, email, role, department } = req.body;
     
+    // Hierarchy restrictions
+    if (req.user.role === 'admin' && (role === 'admin' || role === 'superadmin' || role === 'pragati-admin')) {
+      return res.status(403).json({ error: 'Department Admins cannot create other admins' });
+    }
+    if (req.user.role === 'superadmin' && (role === 'superadmin' || role === 'pragati-admin')) {
+      return res.status(403).json({ error: 'Super Admins cannot create Super Admins or PRAGATI Admins' });
+    }
+    if (req.user.role === 'pragati-admin' && role === 'pragati-admin') {
+      return res.status(403).json({ error: 'Cannot create additional PRAGATI Admins' });
+    }
+
     // Department-scoped admin restriction
     if (req.user.role === 'admin' && req.user.department !== 'All') {
       department = req.user.department;
@@ -192,6 +203,20 @@ router.post('/admin-create-bulk', authenticate, authorize('admin'), async (req, 
     for (let u of users) {
       try {
         let { email, name, role, department } = u;
+
+        // Hierarchy restrictions
+        if (req.user.role === 'admin' && (role === 'admin' || role === 'superadmin' || role === 'pragati-admin')) {
+          errors.push({ email, error: 'Department Admins cannot create other admins' });
+          continue;
+        }
+        if (req.user.role === 'superadmin' && (role === 'superadmin' || role === 'pragati-admin')) {
+          errors.push({ email, error: 'Super Admins cannot create Super Admins or PRAGATI Admins' });
+          continue;
+        }
+        if (req.user.role === 'pragati-admin' && role === 'pragati-admin') {
+          errors.push({ email, error: 'Cannot create additional PRAGATI Admins' });
+          continue;
+        }
 
         // Department-scoped admin restriction for bulk
         if (req.user.role === 'admin' && req.user.department !== 'All') {

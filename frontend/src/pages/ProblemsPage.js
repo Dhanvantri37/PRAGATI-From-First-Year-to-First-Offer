@@ -185,6 +185,24 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   // Live state for fetched LeetCode descriptions & hints
   const [fullProblem, setFullProblem] = useState(problem);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [disablePaste, setDisablePaste] = useState(false);
+
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('pragati_token');
+      if (t) {
+        const u = JSON.parse(atob(t.split('.')[1]));
+        if (u.department && u.department !== 'All') {
+          fetch(`${API}/settings/department/${u.department}`, { headers: tk() })
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.disablePasteInEditor) setDisablePaste(true);
+            })
+            .catch(console.warn);
+        }
+      }
+    } catch (e) { console.warn(e); }
+  }, []);
 
   useEffect(() => {
     const targetIdOrTitle = problem._id || problem.id || problem.title;
@@ -521,6 +539,12 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
               <textarea
                 value={code}
                 onChange={e=>setCode(e.target.value)}
+                onPaste={e => {
+                  if (disablePaste) {
+                    e.preventDefault();
+                    alert('⚠️ Pasting code is disabled for your department to encourage typing and practice.');
+                  }
+                }}
                 style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
               />
             </div>

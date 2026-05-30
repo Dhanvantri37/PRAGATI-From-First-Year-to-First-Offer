@@ -217,7 +217,9 @@ export default function FacultyLeaderboardPage() {
                   <div key={dept} style={{ padding:'12px 14px', borderRadius:11, border:'1px solid #e8edf5', background:rowHov }}>
                     <div style={{ fontSize:'.62rem', fontWeight:800, color:muted, marginBottom:6 }}>{dept}</div>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ width:32, height:32, borderRadius:9, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'.8rem', flexShrink:0 }}>{top.name?.charAt(0)}</div>
+                      <div style={{ width:32, height:32, borderRadius:9, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'.8rem', flexShrink:0, overflow:'hidden' }}>
+                        {top.profilePhoto ? <img src={top.profilePhoto} alt={top.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : top.name?.charAt(0)}
+                      </div>
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontWeight:700, fontSize:'.78rem', color:txt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{top.name}</div>
                         <div style={{ fontSize:'.62rem', color:muted }}>Score: <strong style={{ color:sc }}>{top.totalScore}</strong></div>
@@ -278,8 +280,8 @@ export default function FacultyLeaderboardPage() {
                     return (
                       <div key={s._id} style={{ background:'#fff', borderRadius:16, padding:'16px 12px', textAlign:'center', border:`2px solid ${pc}40`, boxShadow:`0 4px 20px ${pc}20` }}>
                         <div style={{ fontSize:pi===1?'2.2rem':'1.6rem', marginBottom:8 }}>{MEDALS[actualRank]}</div>
-                        <div style={{ width:48, height:48, borderRadius:13, background:`linear-gradient(135deg,${sc},#13a1a5)`, margin:'0 auto 10px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.2rem' }}>
-                          {s.name?.charAt(0)}
+                        <div style={{ width:48, height:48, borderRadius:13, background:`linear-gradient(135deg,${sc},#13a1a5)`, margin:'0 auto 10px', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.2rem', overflow:'hidden' }}>
+                          {s.profilePhoto ? <img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.name?.charAt(0)}
                         </div>
                         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:txt, marginBottom:3 }}>{s.name?.split(' ')[0]}</div>
                         <div style={{ fontSize:'.63rem', color:muted, marginBottom:8 }}>{s.department} · Y{s.year}</div>
@@ -318,8 +320,8 @@ export default function FacultyLeaderboardPage() {
                           : <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.75rem', color:muted }}>#{globalRank+1}</span>}
                       </div>
                       <div style={{ display:'flex', alignItems:'center', gap:9, minWidth:0 }}>
-                        <div style={{ width:34, height:34, borderRadius:9, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'.82rem', flexShrink:0 }}>
-                          {s.name?.charAt(0)}
+                        <div style={{ width:34, height:34, borderRadius:9, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:'.82rem', flexShrink:0, overflow:'hidden' }}>
+                          {s.profilePhoto ? <img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.name?.charAt(0)}
                         </div>
                         <div style={{ minWidth:0 }}>
                           <div style={{ fontWeight:700, fontSize:'.82rem', color:txt, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.name}</div>

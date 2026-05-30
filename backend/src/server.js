@@ -80,6 +80,7 @@ app.use('/api/practice',       practiceRoutes);
 app.use('/api/compile',        compileRoutes);
 app.use('/api/drives',         drivesRoutes);
 app.use('/api/gd',             gdRoutes);
+app.use('/api/settings',       require('./routes/settings.routes'));
 app.use('/api/notifications', require('./routes/notifications.routes'));
 
 // Error handler

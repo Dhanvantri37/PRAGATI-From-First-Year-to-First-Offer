@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, minlength: 6 },
   role: {
     type: String,
-    enum: ['student', 'faculty', 'admin'],
+    enum: ['student', 'faculty', 'admin', 'superadmin', 'pragati-admin'],
     default: 'student'
   },
   department: {
@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema({
   resumeParsedSkills: [String],      // extracted from resume
   profilePhoto: { type: String },
   atsScore: { type: Number, default: 0 },
+  pushSubscriptions: { type: Array, default: [] },
   // Optional social / portfolio links (shown on leaderboard)
   linkedinUrl:  { type: String, default: '' },
   githubUrl:    { type: String, default: '' },

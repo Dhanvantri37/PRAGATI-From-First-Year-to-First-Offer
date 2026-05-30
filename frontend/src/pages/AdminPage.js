@@ -123,20 +123,28 @@ function PendingNotes({ onRefresh }) {
   ));
 }
 
-function CreateUserForm({ onAdded }) {
-  const [form, setForm] = useState({ name:'', email:'', department:'CSE', role:'student' });
+function CreateUserForm({ onAdded, user }) {
+  const [form, setForm] = useState({ name:'', email:'', department:'', role:'student' });
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
   async function submit(e) {
     e.preventDefault();
+    if (!form.department) { setMsg('❌ Please select a department'); return; }
     setLoading(true); setMsg('');
     try {
       await axios.post(`${API}/users/admin-create`, form, { headers:tk() });
       setMsg('✅ User created! Password sent via email.');
-      setForm({ name:'', email:'', department:'CSE', role:'student' });
+      setForm({ name:'', email:'', department:'', role:'student' });
       onAdded();
     } catch(err) { setMsg('❌ '+(err.response?.data?.error||err.message)); }
     finally { setLoading(false); }
+  }
+  
+  // Available roles logic based on current user role
+  const availableRoles = ['student', 'faculty'];
+  if (user?.role === 'superadmin' || user?.role === 'pragati-admin') availableRoles.push('admin');
+  if (user?.role === 'pragati-admin') {
+    availableRoles.push('superadmin', 'pragati-admin');
   }
   return (
     <form onSubmit={submit}>
@@ -145,7 +153,8 @@ function CreateUserForm({ onAdded }) {
         <div><Lbl req>Email</Lbl><input style={inp} type="email" value={form.email} onChange={e=>setForm(f=>({...f,email:e.target.value}))} required/></div>
         <div><Lbl req>Department</Lbl>
           <select style={inp} value={form.department} onChange={e=>setForm(f=>({...f,department:e.target.value}))} required>
-            {form.role === 'admin' && <option value="All">All (Super Admin)</option>}
+            <option value="" disabled>Select Department</option>
+            {(user?.role === 'superadmin' || user?.role === 'pragati-admin' || (user?.role === 'admin' && user?.department === 'All')) && <option value="All">All (Super Admin/PRAGATI Admin)</option>}
             <option value="CSE">CSE</option>
             <option value="CSAIML">CSAIML</option>
             <option value="IT">IT</option>
@@ -158,11 +167,11 @@ function CreateUserForm({ onAdded }) {
         <div><Lbl>Role</Lbl>
           <select style={inp} value={form.role} onChange={e=>{
             const newRole = e.target.value;
-            setForm(f=>({...f, role: newRole, department: (newRole !== 'admin' && f.department === 'All') ? 'CSE' : f.department }));
+            setForm(f=>({...f, role: newRole }));
           }}>
-            <option value="student">Student</option>
-            <option value="faculty">Faculty</option>
-            <option value="admin">Admin</option>
+            {availableRoles.map(r => (
+              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -267,7 +276,12 @@ function UsersTable({ refreshKey }) {
             <tbody>
               {students.map(u=>(
                 <tr key={u._id} style={{ borderBottom:'1px solid #f0f3fa' }}>
-                  <td style={{ padding:'8px 10px', fontWeight:700, color:'var(--text)' }}>{u.name}</td>
+                  <td style={{ padding:'8px 10px', fontWeight:700, color:'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #531697, #13a1a5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', overflow: 'hidden', flexShrink: 0 }}>
+                      {u.profilePhoto ? <img src={u.profilePhoto} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : u.name?.charAt(0)}
+                    </div>
+                    {u.name}
+                  </td>
                   <td style={{ padding:'8px 10px', color:'var(--text-3)', fontSize:'.75rem' }}>{u.email}</td>
                   <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.rollNumber||'—'}</td>
                   <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>Y{u.year||'—'}</td>
@@ -296,7 +310,12 @@ function UsersTable({ refreshKey }) {
             <tbody>
               {faculty.map(u=>(
                 <tr key={u._id} style={{ borderBottom:'1px solid #f0f3fa' }}>
-                  <td style={{ padding:'8px 10px', fontWeight:700, color:'#042c5d' }}>{u.name}</td>
+                  <td style={{ padding:'8px 10px', fontWeight:700, color:'#042c5d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg, #531697, #13a1a5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.6rem', overflow: 'hidden', flexShrink: 0 }}>
+                      {u.profilePhoto ? <img src={u.profilePhoto} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : u.name?.charAt(0)}
+                    </div>
+                    {u.name}
+                  </td>
                   <td style={{ padding:'8px 10px', color:'var(--text-3)', fontSize:'.75rem' }}>{u.email}</td>
                   <td style={{ padding:'8px 10px', color:'var(--text-3)' }}>{u.department}</td>
                   <td style={{ padding:'8px 10px', color:'#b0bec9', fontSize:'.72rem' }}>{u.createdAt?new Date(u.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'—'}</td>
@@ -317,6 +336,9 @@ function UsersTable({ refreshKey }) {
         <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
           {admins.map(u=>(
             <div key={u._id} style={{ padding:'10px 16px', borderRadius:10, background:'rgba(83,22,151,0.06)', border:'1px solid rgba(83,22,151,0.12)', display:'flex', alignItems:'center', gap:12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #531697, #13a1a5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.8rem', overflow: 'hidden', flexShrink: 0 }}>
+                {u.profilePhoto ? <img src={u.profilePhoto} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : u.name?.charAt(0)}
+              </div>
               <div>
                 <div style={{ fontWeight:700, fontSize:'.85rem', color:'#531697' }}>{u.name} <span style={{ fontSize:'.7rem', background:'#eef2ff', padding:'2px 6px', borderRadius:4, color:'#4f46e5', marginLeft:6 }}>{u.department}</span></div>
                 <div style={{ fontSize:'.72rem', color:'var(--text-3)' }}>{u.email}</div>
@@ -466,10 +488,70 @@ function ManageDrives({ onRefresh }) {
   );
 }
 
+function DepartmentSettingsPanel({ user }) {
+  const [disablePaste, setDisablePaste] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState('');
+  
+  const targetDept = (user?.role === 'admin' && user?.department !== 'All') ? user.department : 'CSE'; // Fallback for superadmin, they can choose later but let's default to CSE for UI simplicity if not scoped
+  
+  const [selectedDept, setSelectedDept] = useState(targetDept);
+
+  useEffect(() => {
+    setLoading(true);
+    axios.get(`${API}/settings/department/${selectedDept}`, { headers:tk() })
+      .then(res => setDisablePaste(res.data.disablePasteInEditor || false))
+      .catch(() => setDisablePaste(false))
+      .finally(() => setLoading(false));
+  }, [selectedDept]);
+
+  async function save() {
+    setLoading(true); setMsg('');
+    try {
+      await axios.post(`${API}/settings/department/${selectedDept}`, { disablePasteInEditor: disablePaste }, { headers:tk() });
+      setMsg('✅ Settings saved!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch(err) { setMsg('❌ Failed to save'); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <Section title="Department Settings">
+      {(user?.role === 'superadmin' || user?.role === 'pragati-admin' || user?.department === 'All') && (
+        <div style={{ marginBottom: 16 }}>
+          <Lbl>Select Department</Lbl>
+          <select style={{...inp, width: '200px'}} value={selectedDept} onChange={e=>setSelectedDept(e.target.value)}>
+             {['CSE','CSAIML','IT','ECE','Mechanical','Civil','Other'].map(d=><option key={d}>{d}</option>)}
+          </select>
+        </div>
+      )}
+      
+      {loading ? <div>Loading...</div> : (
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:'.9rem', fontWeight:600 }}>
+            <input type="checkbox" checked={disablePaste} onChange={e=>setDisablePaste(e.target.checked)} style={{ width:18, height:18 }} />
+            Disable Code Paste in Coding Practice Compiler
+          </label>
+          <button onClick={save} disabled={loading} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#13a1a5', color:'#fff', fontWeight:700, cursor:'pointer' }}>Save</button>
+          {msg && <span style={{ fontSize:'.8rem', color:'#166534', fontWeight:700 }}>{msg}</span>}
+        </div>
+      )}
+      <div style={{ marginTop:12, fontSize:'.8rem', color:'var(--text-3)' }}>When enabled, students in {selectedDept} will not be able to paste copied text into the Coding Practice editor.</div>
+    </Section>
+  );
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState('notes');
   const [refresh, setRefresh] = useState(0);
-  const TABS = [{ id:'notes',label:'⏳ Approve Notes' },{ id:'company',label:'🏢 Add Company' },{ id:'aptitude',label:'🎯 Bulk Aptitude' },{ id:'users',label:'👥 Users' },{ id:'drives',label:'🗓️ Placement Drives' }];
+  
+  const user = (() => {
+    const t = localStorage.getItem('pragati_token');
+    if(!t) return {};
+    try { return JSON.parse(atob(t.split('.')[1])); } catch { return {}; }
+  })();
+
+  const TABS = [{ id:'notes',label:'⏳ Approve Notes' },{ id:'company',label:'🏢 Add Company' },{ id:'aptitude',label:'🎯 Bulk Aptitude' },{ id:'users',label:'👥 Users' },{ id:'drives',label:'🗓️ Placement Drives' },{ id:'settings',label:'⚙️ Settings' }];
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif" }}>
       <div style={{ marginBottom:22 }}>
@@ -489,13 +571,14 @@ export default function AdminPage() {
       {tab==='users'    && (
         <>
           <div style={{ display:'grid', gridTemplateColumns:window.innerWidth<768?'1fr':'1fr 1fr', gap:20 }}>
-            <Section title="➕ Create User"><CreateUserForm onAdded={()=>setRefresh(r=>r+1)}/></Section>
+            <Section title="➕ Create User"><CreateUserForm user={user} onAdded={()=>setRefresh(r=>r+1)}/></Section>
             <Section title="📄 Bulk Upload Users (JSON)"><BulkUserUpload onAdded={()=>setRefresh(r=>r+1)}/></Section>
           </div>
           <Section title="👥 All Users"><UsersTable refreshKey={refresh}/></Section>
         </>
       )}
       {tab==='drives'   && <Section title="🗓️ Placement Drives"><ManageDrives onRefresh={()=>setRefresh(r=>r+1)}/></Section>}
+      {tab==='settings' && <DepartmentSettingsPanel user={user} />}
     </div>
   );
 }

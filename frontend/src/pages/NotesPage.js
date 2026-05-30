@@ -130,7 +130,12 @@ function UploadForm({ user, onUploaded }) {
             ) : (
               <div style={{ display: 'flex', gap: 8 }}>
                 {[['public','🌐 Public','Visible to all peers after faculty approval'],['private','🔒 Private','Only visible to you — uploaded instantly, no approval needed']].map(([val, label, desc]) => (
-                  <button key={val} type="button" onClick={() => setForm(f => ({ ...f, visibility: val }))}
+                  <button key={val} type="button" onClick={() => {
+                      setForm(f => ({ ...f, visibility: val }));
+                      if (val === 'public') {
+                        alert('⚠️ Note: Public uploads require approval from a faculty member or administrator before they become visible to other students.');
+                      }
+                    }}
                     style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: `1.5px solid ${form.visibility === val ? (val === 'public' ? '#13a1a5' : '#531697') : '#d0d7e8'}`, background: form.visibility === val ? (val === 'public' ? 'rgba(19,161,165,0.07)' : 'rgba(83,22,151,0.07)') : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all .15s' }}>
                     <div style={{ fontWeight: 700, fontSize: '.83rem', color: form.visibility === val ? (val === 'public' ? '#13a1a5' : '#531697') : 'var(--text-3)', fontFamily: "'Nunito',sans-serif" }}>{label}</div>
                     <div style={{ fontSize: '.68rem', color: '#b0bec9', marginTop: 2 }}>{desc}</div>

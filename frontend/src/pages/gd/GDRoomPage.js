@@ -541,8 +541,16 @@ export default function GDRoomPage() {
         </div>
       )}
 
+      <style>{`
+        .gd-main-body { flex: 1; display: flex; overflow: hidden; min-height: 0; flex-direction: row; }
+        .gd-side-panel { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #13203a; border-left: 1px solid #2a3a5a; overflow: hidden; }
+        @media (max-width: 768px) {
+          .gd-main-body { flex-direction: column; }
+          .gd-side-panel { width: 100%; border-left: none; border-top: 1px solid #2a3a5a; flex: 1; min-height: 250px; }
+        }
+      `}</style>
       {/* BODY */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden', minHeight:0 }}>
+      <div className="gd-main-body">
 
         {/* VIDEO GRID + CONTROLS */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
@@ -650,12 +658,7 @@ export default function GDRoomPage() {
 
         {/* SIDE PANEL */}
         {showChat && (
-          <div style={{
-            width: 290, flexShrink:0,
-            display:'flex', flexDirection:'column',
-            background:'#13203a', borderLeft:'1px solid #2a3a5a',
-            overflow:'hidden',
-          }}>
+          <div className="gd-side-panel">
             <SidePanel
               captions={captions}
               chatMessages={chatMessages}

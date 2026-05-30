@@ -182,6 +182,12 @@ const directMessageSchema = new mongoose.Schema({
 }, { timestamps: true });
 directMessageSchema.index({ participants: 1 });
 
+// ─── DepartmentSettings ───────────────────────────────────────────────────────
+const departmentSettingsSchema = new mongoose.Schema({
+  department: { type: String, required: true, unique: true },
+  disablePasteInEditor: { type: Boolean, default: false }
+}, { timestamps: true });
+
 module.exports = {
   Company:           mongoose.model('Company', companySchema),
   Problem:           mongoose.model('Problem', problemSchema),
@@ -194,6 +200,7 @@ module.exports = {
   Announcement:      mongoose.model('Announcement', announcementSchema),
   AptitudeAttempt:   mongoose.model('AptitudeAttempt', aptitudeAttemptSchema),
   DirectMessage:     mongoose.model('DirectMessage', directMessageSchema),
+  DepartmentSettings:mongoose.model('DepartmentSettings', departmentSettingsSchema),
 };
 // ─── Placement Drive (separate from Company for admin-managed drives) ─────────
 const placementDriveSchema = new mongoose.Schema({

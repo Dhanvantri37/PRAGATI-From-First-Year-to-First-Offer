@@ -142,8 +142,8 @@ function StudentProfileModal({ student, profileData, onClose }) {
 
         {/* Header */}
         <div style={{ background:GRAD, borderRadius:'20px 20px 0 0', padding:'18px 22px', display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ width:56, height:56, borderRadius:14, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.5rem', color:'#fff', flexShrink:0 }}>
-            {s.name?.charAt(0)}
+          <div style={{ width:56, height:56, borderRadius:14, background:'rgba(255,255,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.5rem', color:'#fff', flexShrink:0, overflow:'hidden' }}>
+            {s.profilePhoto ? <img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.name?.charAt(0)}
           </div>
           <div style={{ flex:1 }}>
             <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.05rem', color:'#fff' }}>{s.name}</div>
@@ -424,17 +424,17 @@ export default function FacultyStudentsPage() {
       {/* Filters */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14, alignItems:'center' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search name or roll…"
-          style={{ flex:1, minWidth:160, padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', outline:'none' }}/>
-        <select style={SS} value={filterBranch} onChange={e=>setFB(e.target.value)}>
+          style={{ flex: '1 1 100%', minWidth:160, padding:'9px 12px', borderRadius:9, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', outline:'none' }}/>
+        <select style={{...SS, flex: '1 1 auto'}} value={filterBranch} onChange={e=>setFB(e.target.value)}>
           {branches.map(b => <option key={b} value={b}>{b==='All'?'All Branches':b}</option>)}
         </select>
-        <select style={SS} value={filterYear} onChange={e=>setFY(e.target.value)}>
+        <select style={{...SS, flex: '1 1 auto'}} value={filterYear} onChange={e=>setFY(e.target.value)}>
           {['All','1','2','3','4'].map(y => <option key={y} value={y}>{y==='All'?'All Years':`Year ${y}`}</option>)}
         </select>
-        <div style={{ display:'flex', borderRadius:9, overflow:'hidden', border:'1.5px solid #d0d7e8' }}>
+        <div style={{ display:'flex', borderRadius:9, overflow:'auto', border:'1.5px solid #d0d7e8', flex: '1 1 100%' }}>
           {[['score','🏅 Score'],['apt','🎯 Aptitude'],['solved','💻 Solved'],['streak','🔥 Streak']].map(([k,lbl])=>(
             <button key={k} onClick={()=>setSortBy(k)}
-              style={{ padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
+              style={{ flex:1, padding:'8px 11px', border:'none', background:sortBy===k?GRAD:'#fff', color:sortBy===k?'#fff':'var(--text-3)', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.72rem' }}>
               {lbl}
             </button>
           ))}
@@ -474,8 +474,8 @@ export default function FacultyStudentsPage() {
             </div>
 
             {/* Avatar */}
-            <div style={{ width:38, height:38, borderRadius:10, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', flexShrink:0 }}>
-              {s.name?.charAt(0)}
+            <div style={{ width:38, height:38, borderRadius:10, background:`linear-gradient(135deg,${sc},#13a1a5)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', flexShrink:0, overflow:'hidden' }}>
+              {s.profilePhoto ? <img src={s.profilePhoto} alt={s.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : s.name?.charAt(0)}
             </div>
 
             {/* Info */}
@@ -487,16 +487,16 @@ export default function FacultyStudentsPage() {
             </div>
 
             {/* Stat chips */}
-            <div style={{ display:'flex', gap:12, alignItems:'center', flexShrink:0 }}>
-              <div style={{ textAlign:'center' }}>
+            <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+              <div style={{ textAlign:'center', display: window.innerWidth < 450 ? 'none' : 'block' }}>
                 <div style={{ fontSize:'.58rem', color:'#b0bec9', fontWeight:700 }}>APT</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'#13a1a5' }}>{s.aptScore||0}%</div>
               </div>
-              <div style={{ textAlign:'center' }}>
+              <div style={{ textAlign:'center', display: window.innerWidth < 450 ? 'none' : 'block' }}>
                 <div style={{ fontSize:'.58rem', color:'#b0bec9', fontWeight:700 }}>SOLVED</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'#f59e0b' }}>{s.codingProblems||0}</div>
               </div>
-              <div style={{ textAlign:'center' }}>
+              <div style={{ textAlign:'center', display: window.innerWidth < 450 ? 'none' : 'block' }}>
                 <div style={{ fontSize:'.58rem', color:'#b0bec9', fontWeight:700 }}>STREAK</div>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'#ef4444' }}>🔥{s.streak||0}</div>
               </div>

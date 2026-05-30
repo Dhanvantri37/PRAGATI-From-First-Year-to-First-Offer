@@ -6,6 +6,7 @@ const axios = require('axios');
 const Note = require('../models/Note.model');
 const User = require('../models/User.model');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const webpush = require('web-push');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -146,6 +147,31 @@ router.post('/upload-admin', authenticate, authorize('admin'), upload.single('fi
 router.patch('/:id/approve', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     const note = await Note.findByIdAndUpdate(req.params.id, { status: 'approved', approvedBy: req.user._id, approvedAt: new Date() }, { new: true });
+    
+    // Web Push Notification to students in the department
+    if (note && note.visibility === 'public') {
+      try {
+        const users = await User.find({ role: 'student', department: note.department, pushSubscription: { $exists: true, $ne: null } }).select('pushSubscription _id');
+        const payload = JSON.stringify({
+          title: 'PRAGATI',
+          body: `New Note Approved: ${note.title} for ${note.subject}`,
+          url: '/notes',
+          tag: 'note-approved',
+          id: note._id.toString()
+        });
+        
+        await Promise.allSettled(
+          users.map(u => webpush.sendNotification(u.pushSubscription, payload).catch(async err => {
+            if (err.statusCode === 410) {
+              await User.findByIdAndUpdate(u._id, { $unset: { pushSubscription: 1 } });
+            }
+          }))
+        );
+      } catch (pushErr) {
+        console.error('[WebPush Error on Note Approve]', pushErr.message);
+      }
+    }
+    
     res.json({ message: 'Note approved', note });
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
