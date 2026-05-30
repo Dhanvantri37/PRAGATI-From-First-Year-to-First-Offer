@@ -281,17 +281,20 @@ export default function DashboardLayout() {
     let active = true;
     let retryTimer = null;
     let permissionDenied = false;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // Request mic permission upfront and keep the stream active to avoid Chrome "ding" loop on SR restart
-    navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then(stream => { 
-        // We do NOT stop the stream here; keeping it active in background prevents the recurring mic access sound 
-        window._dummyAudioStream = stream; 
-      }) 
-      .catch(() => {}); // permission prompt handled by onerror below
+    // Request mic permission upfront and keep the stream active to avoid Chrome "ding" loop on SR restart (Desktop only)
+    if (!isMobile) {
+      navigator.mediaDevices?.getUserMedia({ audio: true })
+        .then(stream => { 
+          // We do NOT stop the stream here; keeping it active in background prevents the recurring mic access sound 
+          window._dummyAudioStream = stream; 
+        }) 
+        .catch(() => {}); // permission prompt handled by onerror below
+    }
 
     function startWake() {
-      if (!active || permissionDenied) return;
+      if (!active || permissionDenied || isMobile) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;

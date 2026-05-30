@@ -857,7 +857,7 @@ export default function ProblemsPage() {
               <p style={{ color:'var(--text-3)', fontSize:'.9rem', marginTop:8 }}>Select an external platform to solve problems there, or use PRAGATI Bank to practice in our built-in workspace.</p>
             </div>
             
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:20 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:20 }}>
               {[
                 { name: 'LeetCode', icon: '📝', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', url: 'https://leetcode.com/problemset/all/' },
                 { name: 'CodeChef', icon: '👨‍🍳', color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', url: 'https://www.codechef.com/practice' },
@@ -870,12 +870,12 @@ export default function ProblemsPage() {
                    onClick={(e) => {
                      if (plat.isLocal) { e.preventDefault(); setShowPlatformSelectModal(false); }
                    }}
-                   style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'16px 10px', borderRadius:14, border:`1px solid ${plat.color}40`, background:plat.bg, textDecoration:'none', cursor:'pointer', transition:'all 0.2s' }}
+                   style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'12px 6px', borderRadius:14, border:`1px solid ${plat.color}40`, background:plat.bg, textDecoration:'none', cursor:'pointer', transition:'all 0.2s', textAlign:'center' }}
                    onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
-                  <div style={{ fontSize:'2rem', marginBottom:8 }}>{plat.icon}</div>
-                  <div style={{ fontWeight:800, color:plat.color, fontSize:'.9rem' }}>{plat.name}</div>
-                  {plat.url && <div style={{ fontSize:'.65rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>↗ External</div>}
-                  {plat.isLocal && <div style={{ fontSize:'.65rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>⚡ Built-in</div>}
+                  <div style={{ fontSize:'1.6rem', marginBottom:6 }}>{plat.icon}</div>
+                  <div style={{ fontWeight:800, color:plat.color, fontSize:'.75rem' }}>{plat.name}</div>
+                  {plat.url && <div style={{ fontSize:'.6rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:2 }}>↗ External</div>}
+                  {plat.isLocal && <div style={{ fontSize:'.6rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:2 }}>⚡ Built-in</div>}
                 </a>
               ))}
             </div>

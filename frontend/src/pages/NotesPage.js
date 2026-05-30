@@ -48,7 +48,9 @@ function UploadForm({ user, onUploaded }) {
       if (!res.ok) throw new Error(data.error);
       const isStudent = true;
       const uploadMsg = data.message || 'Note uploaded successfully';
-      setMsg(`✅ ${uploadMsg}${isStudent && data.note?.status === 'pending' ? ' — It will appear after admin/faculty approval.' : ''}`);
+      const fullMsg = `✅ ${uploadMsg}${isStudent && data.note?.status === 'pending' ? ' — It will appear after admin/faculty approval.' : ''}`;
+      alert(fullMsg);
+      setMsg('');
       setFile(null);
       setForm(f => ({ ...f, title: '', description: '', subject: '', tags: '', driveUrl: '', uploaderName: '' }));
       onUploaded();
