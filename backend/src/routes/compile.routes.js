@@ -47,7 +47,7 @@ router.post('/', authenticate, async (req, res) => {
     fs.writeFileSync(filepath, code);
 
     // Execute
-    exec(execCommand, { cwd: runDir, timeout: 5000 }, (error, stdout, stderr) => {
+    exec(execCommand, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
       // Clean up directory
       if (fs.existsSync(runDir)) {
         fs.rmSync(runDir, { recursive: true, force: true });
@@ -55,7 +55,7 @@ router.post('/', authenticate, async (req, res) => {
 
       if (error) {
         if (error.killed) {
-          return res.json({ output: 'Error: Execution Timed Out (5s limit)' });
+          return res.json({ output: 'Time Limit Exceeded (30 seconds) - The code took too long to run. Please check for infinite loops or optimize your logic.' });
         }
         return res.json({ output: stderr || stdout || error.message });
       }

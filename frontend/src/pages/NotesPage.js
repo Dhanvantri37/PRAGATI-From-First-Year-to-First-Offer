@@ -319,40 +319,40 @@ export default function NotesPage() {
         <>
           {/* ── Filter bar ── */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: '0 0 auto' }}>
+            <div style={{ flex: '1 1 auto', width: '100%' }}>
               <div style={{ fontSize: '.7rem', fontWeight: 700, color: 'var(--text-3)', marginBottom: 4 }}>FILTER BY</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
                 {/* Faculty */}
                 <select value={filters.facultyName} onChange={setF('facultyName')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ flex: '1 1 140px', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.facultyName ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">👤 All Faculty</option>
                   {filterOptions.faculties.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
 
                 {/* Subject */}
                 <select value={filters.subject} onChange={setF('subject')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 160 }}>
+                  style={{ flex: '1 1 140px', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.subject ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">📖 All Subjects</option>
                   {filterOptions.subjects.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
 
                 {/* Topic */}
                 <select value={filters.topic} onChange={setF('topic')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
+                  style={{ flex: '1 1 140px', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.topic ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">🏷️ All Topics</option>
                   {filterOptions.topics.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
 
                 {/* Department */}
                 <select value={filters.department} onChange={setF('department')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  style={{ flex: '1 1 140px', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.department ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">🏛️ All Depts</option>
                   {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
 
                 {/* Year */}
                 <select value={filters.year} onChange={setF('year')}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer' }}>
+                  style={{ flex: '1 1 140px', padding: '8px 12px', borderRadius: 8, border: '1.5px solid var(--border)', fontFamily: "'Nunito',sans-serif", fontSize: '.83rem', background: filters.year ? 'rgba(83,22,151,0.06)' : 'var(--surface)', color: 'var(--text-2)', cursor: 'pointer', minWidth: 140 }}>
                   <option value="">📅 All Years</option>
                   {[1, 2, 3, 4].map(y => <option key={y} value={y}>Year {y}</option>)}
                 </select>

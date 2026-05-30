@@ -987,7 +987,7 @@ function StudentDash() {
       })()}
 
       {/* ── ROW 2: SKILLPATH + QUICK ACTIONS ─────────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1.6fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="grid-16-1">
 
         {/* Latest SkillPath */}
         <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa' }}>
@@ -1256,7 +1256,7 @@ function StudentDash() {
       </div>
 
       {/* ── ROW 4: ANNOUNCEMENTS + UPCOMING DRIVES ─────────────────────── */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="grid-1-1">
 
         {/* Announcements */}
         <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa' }}>

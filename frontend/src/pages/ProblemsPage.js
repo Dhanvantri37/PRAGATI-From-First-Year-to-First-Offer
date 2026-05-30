@@ -605,6 +605,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 /* ── Main Structured Platform Component ── */
 export default function ProblemsPage() {
   const [tab, setTab] = useState('dash');
+  const [showPlatformSelectModal, setShowPlatformSelectModal] = useState(true);
   const [allLeetCodeProblems, setAllLeetCodeProblems] = useState([]);
   const [allLeetCodeLoading, setAllLeetCodeLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -822,6 +823,46 @@ export default function ProblemsPage() {
 
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif", color:'var(--text)', background:'var(--background)', minHeight:'100vh', paddingBottom:60 }}>
+      {/* Platform Select Modal */}
+      {showPlatformSelectModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(11,15,25,0.85)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' }}>
+          <div style={{ padding:32, background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:20, maxWidth:600, width:'95%', boxShadow:'0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ textAlign:'center', marginBottom:24 }}>
+              <div style={{ fontSize:'2.5rem', marginBottom:12 }}>🤔</div>
+              <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.4rem', color:'var(--text)' }}>Where would you like to practice coding?</h2>
+              <p style={{ color:'var(--text-3)', fontSize:'.9rem', marginTop:8 }}>Select an external platform to solve problems there, or use PRAGATI Bank to practice in our built-in workspace.</p>
+            </div>
+            
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:12, marginBottom:20 }}>
+              {[
+                { name: 'LeetCode', icon: '📝', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', url: 'https://leetcode.com/problemset/all/' },
+                { name: 'CodeChef', icon: '👨‍🍳', color: '#8b5cf6', bg: 'rgba(139,92,246,0.08)', url: 'https://www.codechef.com/practice' },
+                { name: 'HackerRank', icon: '💻', color: '#10b981', bg: 'rgba(16,185,129,0.08)', url: 'https://www.hackerrank.com/domains/algorithms' },
+                { name: 'HackerEarth', icon: '🌍', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', url: 'https://www.hackerearth.com/practice/' },
+                { name: 'Codeforces', icon: '📊', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', url: 'https://codeforces.com/problemset' },
+                { name: 'PRAGATI Bank', icon: '🏫', color: '#531697', bg: 'rgba(83,22,151,0.08)', isLocal: true }
+              ].map(plat => (
+                <a key={plat.name} href={plat.url ? plat.url : '#'} target={plat.url ? '_blank' : '_self'} rel="noreferrer"
+                   onClick={(e) => {
+                     if (plat.isLocal) { e.preventDefault(); setShowPlatformSelectModal(false); }
+                   }}
+                   style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'16px 10px', borderRadius:14, border:`1px solid ${plat.color}40`, background:plat.bg, textDecoration:'none', cursor:'pointer', transition:'all 0.2s' }}
+                   onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
+                  <div style={{ fontSize:'2rem', marginBottom:8 }}>{plat.icon}</div>
+                  <div style={{ fontWeight:800, color:plat.color, fontSize:'.9rem' }}>{plat.name}</div>
+                  {plat.url && <div style={{ fontSize:'.65rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>↗ External</div>}
+                  {plat.isLocal && <div style={{ fontSize:'.65rem', color:'var(--text-3)', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>⚡ Built-in</div>}
+                </a>
+              ))}
+            </div>
+
+            <button onClick={()=>setShowPlatformSelectModal(false)} style={{ width:'100%', padding:'12px', borderRadius:12, border:'1px solid var(--border)', background:'transparent', color:'var(--text-2)', fontWeight:800, cursor:'pointer', fontSize:'.9rem' }}>
+              Skip & Continue to Dashboard
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Splitscreen Workspace Modal */}
       {activeWorkspaceProblem && (
         <CodingWorkspace
