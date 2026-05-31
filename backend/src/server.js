@@ -104,6 +104,21 @@ const io = new Server(httpServer, {
 // Attach io to app so routes can emit notifications
 app.set('io', io);
 
+// ── Personal user rooms for targeted bell notifications ────────────────────────
+// Each user joins a room named `user:<userId>` so routes can push to a specific user.
+io.on('connection', (socket) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded?.id) {
+        socket.join(`user:${decoded.id}`);
+      }
+    } catch { /* invalid token – ignore */ }
+  }
+});
+
 // GD WebSocket namespace
 registerGDSocket(io, GDRoom);
 registerCompileSocket(io);

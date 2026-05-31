@@ -92,6 +92,21 @@ export default function DashboardLayout() {
       }, 12000);
     });
 
+    // ── Real-time bell: new notification pushed from backend ────────────────
+    socket.on('notification:new', (notif) => {
+      setNotifList(prev => {
+        // avoid duplicates
+        const exists = prev.some(n => String(n._id) === String(notif._id));
+        if (exists) return prev;
+        return [notif, ...prev];
+      });
+      // Only count it as unread if we haven't read it yet
+      const readSet = new Set(JSON.parse(localStorage.getItem('pragati_read_ids') || '[]'));
+      if (!readSet.has(String(notif._id))) {
+        setNotifCount(c => c + 1);
+      }
+    });
+
     return () => {
       socket.disconnect();
       Object.values(gdNotifTimers.current).forEach(clearTimeout);
@@ -129,21 +144,38 @@ export default function DashboardLayout() {
     localStorage.setItem('pragati_notif_seen', Date.now().toString());
   }
 
-  // Fetch announcements for bell icon
+  // Fetch announcements, drives, and discussions for bell icon
   React.useEffect(() => {
     const base  = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
     const token = localStorage.getItem('pragati_token');
     Promise.all([
       fetch(`${base}/announcements`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json()).catch(()=>({announcements:[]})),
       fetch(`${base}/drives`,        { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json()).catch(()=>({drives:[]})),
-    ]).then(([annData, driveData]) => {
-      const anns   = annData.announcements || [];
+      fetch(`${base}/discussions`,   { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json()).catch(()=>({discussions:[]})),
+    ]).then(([annData, driveData, discData]) => {
+      const anns   = (annData.announcements || []).map(a => ({ ...a, type: a.type || 'announcement' }));
       const drives = (driveData.drives || []).map(d => ({
-        _id: d._id, title: `🗓️ Drive: ${d.companyName}`,
+        _id: d._id, type: 'drive',
+        title: `🗓️ Drive: ${d.companyName}`,
         message: `${d.role ? d.role + ' — ' : ''}${d.status === 'open' ? 'Applications Open!' : 'Upcoming drive'}`,
+        link: '/dashboard/drives',
         createdAt: d.createdAt, priority: d.status === 'open' ? 'high' : 'normal',
       }));
-      const all = [...anns, ...drives].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      // Only include discussions from last 7 days (keep bell clean)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const discs = (discData.discussions || [])
+        .filter(d => new Date(d.createdAt) > sevenDaysAgo)
+        .slice(0, 10)
+        .map(d => ({
+          _id: d._id, type: 'discussion',
+          title: `💬 ${d.createdBy?.name || 'Someone'}: ${(d.title || '').substring(0, 50)}`,
+          message: (d.content || '').substring(0, 80),
+          link: '/dashboard/discussions',
+          createdAt: d.createdAt,
+          priority: ['faculty','admin'].includes(d.createdBy?.role) ? 'high' : 'normal',
+          createdBy: d.createdBy,
+        }));
+      const all = [...anns, ...drives, ...discs].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
       setNotifList(all);
       // Unread = not in our read set
       const readSet = new Set(JSON.parse(localStorage.getItem('pragati_read_ids') || '[]'));
@@ -813,33 +845,49 @@ export default function DashboardLayout() {
                     >✓ Mark all read</button>
                   </div>
                   {/* List */}
-                  <div style={{ maxHeight:340, overflowY:'auto' }}>
+                  <div style={{ maxHeight:380, overflowY:'auto' }}>
                     {notifList.filter(a => !readIds.has(String(a._id))).length > 0
-                      ? notifList.filter(a => !readIds.has(String(a._id))).map((a,i)=>(
-                        <div key={i}
-                          onClick={() => {
-                            const url = a.url || (a.title.includes('Drive') ? '/dashboard/drives' : '/dashboard/announcements');
-                            markNotifRead(a._id); nav(url); setShowNotif(false);
-                          }}
-                          style={{ padding:'12px 18px', borderBottom:`1px solid ${dm?'rgba(255,255,255,0.05)':'#f5f6fa'}`, display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer', transition:'background .15s' }}
-                          onMouseOver={e=>e.currentTarget.style.background=dm?'rgba(83,22,151,0.12)':'rgba(83,22,151,0.04)'}
-                          onMouseOut={e=>e.currentTarget.style.background='transparent'}
-                        >
-                          <div style={{ width:36, height:36, borderRadius:'50%', background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.9rem', flexShrink:0 }}>
-                            {a.title?.includes('Drive') ? '🗓️' : '📢'}
-                          </div>
-                          <div style={{ flex:1, minWidth:0 }}>
-                            <div style={{ fontWeight:700, fontSize:'.82rem', color:dm?'#f1f5f9':'#0f1a2e', marginBottom:2, lineHeight:1.3 }}>{a.title}</div>
-                            <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5 }}>{a.message}</div>
-                            <div style={{ fontSize:'.63rem', color:dm?'#4a5a72':'#b0bec9', marginTop:3 }}>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-                          </div>
-                          <button onClick={(e)=>{ e.stopPropagation(); markNotifRead(a._id); }}
-                            style={{ background:'none', border:'none', color:dm?'#4a5a72':'#c0cad8', cursor:'pointer', fontSize:'.85rem', flexShrink:0, padding:'2px 4px', borderRadius:4, transition:'color .12s' }}
-                            onMouseOver={e=>e.currentTarget.style.color='#ef4444'}
-                            onMouseOut={e=>e.currentTarget.style.color=dm?'#4a5a72':'#c0cad8'}
-                          >✕</button>
-                        </div>
-                      ))
+                      ? notifList.filter(a => !readIds.has(String(a._id))).map((a,i)=>{
+                          // Type-aware icon and nav link
+                          const typeIcon = a.type === 'drive' ? '🗓️'
+                            : a.type === 'discussion' ? '💬'
+                            : a.type === 'message' ? '💌'
+                            : '📢';
+                          const typeColor = a.type === 'drive' ? 'linear-gradient(135deg,#0ea5e9,#0369a1)'
+                            : a.type === 'discussion' ? 'linear-gradient(135deg,#10b981,#059669)'
+                            : a.type === 'message' ? 'linear-gradient(135deg,#f59e0b,#d97706)'
+                            : 'linear-gradient(135deg,#531697,#13a1a5)';
+                          const navUrl = a.link || (a.type === 'drive' ? '/dashboard/drives' : a.type === 'discussion' || a.type === 'message' ? '/dashboard/discussions' : '/dashboard/announcements');
+                          const isFacultyPost = ['faculty','admin'].includes(a.createdBy?.role);
+                          return (
+                          <div key={i}
+                            onClick={() => { markNotifRead(a._id); nav(navUrl); setShowNotif(false); }}
+                            style={{ padding:'12px 18px', borderBottom:`1px solid ${dm?'rgba(255,255,255,0.05)':'#f5f6fa'}`, display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer', transition:'background .15s', position:'relative' }}
+                            onMouseOver={e=>e.currentTarget.style.background=dm?'rgba(83,22,151,0.12)':'rgba(83,22,151,0.04)'}
+                            onMouseOut={e=>e.currentTarget.style.background='transparent'}
+                          >
+                            <div style={{ width:36, height:36, borderRadius:'50%', background:typeColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.9rem', flexShrink:0 }}>
+                              {typeIcon}
+                            </div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:2, flexWrap:'wrap' }}>
+                                <span style={{ fontWeight:700, fontSize:'.82rem', color:dm?'#f1f5f9':'#0f1a2e', lineHeight:1.3, flex:1 }}>{a.title}</span>
+                                {a.priority === 'high' && <span style={{ padding:'1px 5px', borderRadius:4, background:'rgba(239,68,68,0.1)', color:'#ef4444', fontSize:'.55rem', fontWeight:800, flexShrink:0 }}>HIGH</span>}
+                                {a.priority === 'urgent' && <span style={{ padding:'1px 5px', borderRadius:4, background:'rgba(239,68,68,0.2)', color:'#dc2626', fontSize:'.55rem', fontWeight:800, flexShrink:0 }}>URGENT</span>}
+                              </div>
+                              {a.message && <div style={{ fontSize:'.73rem', color:dm?'#94a3b8':'#7a8ba8', lineHeight:1.5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.message}</div>}
+                              <div style={{ fontSize:'.63rem', color:dm?'#4a5a72':'#b0bec9', marginTop:3, display:'flex', gap:6, alignItems:'center' }}>
+                                <span>{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+                                {isFacultyPost && <span style={{ color:'#531697', fontWeight:700 }}>· {a.createdBy?.role}</span>}
+                              </div>
+                            </div>
+                            <button onClick={(e)=>{ e.stopPropagation(); markNotifRead(a._id); }}
+                              style={{ background:'none', border:'none', color:dm?'#4a5a72':'#c0cad8', cursor:'pointer', fontSize:'.85rem', flexShrink:0, padding:'2px 4px', borderRadius:4, transition:'color .12s' }}
+                              onMouseOver={e=>e.currentTarget.style.color='#ef4444'}
+                              onMouseOut={e=>e.currentTarget.style.color=dm?'#4a5a72':'#c0cad8'}
+                            >✕</button>
+                          </div>);
+                        })
                       : (
                         <div style={{ padding:'32px 16px', textAlign:'center' }}>
                           <div style={{ fontSize:'2rem', marginBottom:8 }}>✅</div>

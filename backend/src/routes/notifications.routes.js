@@ -66,6 +66,32 @@ async function pushToUser(userId, payload) {
   }
 }
 
+// ── Unified helper: emit real-time bell event + optional web push ──────────────
+// emitToUser(app, userId, notifPayload, { push: true/false })
+// notifPayload: { _id, type, title, message, link, priority, createdAt }
+// type: 'announcement' | 'drive' | 'discussion' | 'message'
+async function emitToUser(app, userId, notifPayload, { push = false } = {}) {
+  try {
+    // Real-time socket bell
+    const io = app.get('io');
+    if (io) {
+      io.to(`user:${userId}`).emit('notification:new', notifPayload);
+    }
+    // Web push (outside app)
+    if (push) {
+      await pushToUser(userId, {
+        title: notifPayload.title,
+        body: notifPayload.message,
+        url: notifPayload.link || '/dashboard',
+        id: notifPayload._id?.toString(),
+        tag: `${notifPayload.type}-${notifPayload._id?.toString()}`,
+      });
+    }
+  } catch (err) {
+    console.error('[emitToUser]', err.message);
+  }
+}
+
 // ── Send push to ALL students (for announcements / drives) ───────────────────
 // POST /api/notifications/broadcast  — admin/faculty only
 router.post('/broadcast', auth, async (req, res) => {
@@ -97,3 +123,4 @@ router.post('/broadcast', auth, async (req, res) => {
 
 module.exports = router;
 module.exports.pushToUser = pushToUser;
+module.exports.emitToUser = emitToUser;

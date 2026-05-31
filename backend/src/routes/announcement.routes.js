@@ -42,31 +42,39 @@ router.post('/', authenticate, authorize('faculty', 'admin'), async (req, res) =
     });
     const populated = await ann.populate('createdBy', 'name role');
 
-    // Asynchronously send push notifications to target users who have active subscriptions
-    const userQuery = {};
-    if (targetFilter?.role && targetFilter.role !== 'all') {
-      userQuery.role = targetFilter.role;
-    }
-    if (targetFilter?.department) {
-      userQuery.department = targetFilter.department;
-    }
-    User.find({
-      ...userQuery,
-      pushSubscription: { $exists: true, $ne: null }
-    }).select('_id').then(targetUsers => {
-      const { pushToUser } = require('./notifications.routes');
-      targetUsers.forEach(u => {
-        pushToUser(u._id, {
-          title: `📢 Announcement: ${title}`,
-          body: message,
-          url: link || '/dashboard/announcements',
-          id: ann._id.toString(),
-          tag: `ann-${ann._id.toString()}`,
-        }).catch(() => {});
+    // Build notification payload for bell + push
+    const notifPayload = {
+      _id: ann._id,
+      type: 'announcement',
+      title: `📢 ${title}`,
+      message,
+      link: link || '/dashboard/announcements',
+      priority: priority || 'normal',
+      createdAt: ann.createdAt,
+      createdBy: { name: populated.createdBy?.name, role: populated.createdBy?.role },
+    };
+
+    // Asynchronously send bell + push notifications to target users
+    const userQuery = { pushSubscription: { $exists: true, $ne: null } };
+    if (targetFilter?.role && targetFilter.role !== 'all') userQuery.role = targetFilter.role;
+    if (targetFilter?.department) userQuery.department = targetFilter.department;
+
+    // For users without push, we still want to emit the bell via socket
+    const allQuery = {};
+    if (targetFilter?.role && targetFilter.role !== 'all') allQuery.role = targetFilter.role;
+    if (targetFilter?.department) allQuery.department = targetFilter.department;
+
+    const { emitToUser } = require('./notifications.routes');
+    const app = req.app;
+    User.find(allQuery).select('_id pushSubscription').then(allTargetUsers => {
+      allTargetUsers.forEach(u => {
+        const hasPush = !!u.pushSubscription?.endpoint;
+        emitToUser(app, u._id, notifPayload, { push: hasPush }).catch(() => {});
       });
-    }).catch(err => console.error('[Announcement push error]', err.message));
+    }).catch(err => console.error('[Announcement notify error]', err.message));
 
     res.status(201).json({ announcement: populated });
+
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -32,22 +32,24 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
       priority: 'high',
     });
 
-    // Asynchronously send push notifications to all subscribed users
+    // Asynchronously send bell + push notifications to all users
     const User = require('../models/User.model');
-    User.find({
-      pushSubscription: { $exists: true, $ne: null }
-    }).select('_id').then(targetUsers => {
-      const { pushToUser } = require('./notifications.routes');
-      targetUsers.forEach(u => {
-        pushToUser(u._id, {
-          title: `🗓️ New Placement Drive: ${drive.companyName}`,
-          body: `Company is visiting for ${drive.role || 'N/A'}. CTC: ${drive.ctc || 'N/A'}.`,
-          url: `/dashboard/drives`,
-          id: drive._id.toString(),
-          tag: `drive-${drive._id.toString()}`,
-        }).catch(() => {});
+    const { emitToUser } = require('./notifications.routes');
+    const notifPayload = {
+      _id: drive._id,
+      type: 'drive',
+      title: `🗓️ New Placement Drive: ${drive.companyName}`,
+      message: `${drive.companyName} is visiting for ${drive.role || 'N/A'}. CTC: ${drive.ctc || 'N/A'}.`,
+      link: `/dashboard/drives`,
+      priority: 'high',
+      createdAt: drive.createdAt,
+    };
+    User.find().select('_id pushSubscription').then(allUsers => {
+      allUsers.forEach(u => {
+        const hasPush = !!u.pushSubscription?.endpoint;
+        emitToUser(req.app, u._id, notifPayload, { push: hasPush }).catch(() => {});
       });
-    }).catch(err => console.error('[Drive push error]', err.message));
+    }).catch(err => console.error('[Drive notify error]', err.message));
 
     res.status(201).json({ drive });
   } catch (err) {

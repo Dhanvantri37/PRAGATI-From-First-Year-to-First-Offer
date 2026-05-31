@@ -69,7 +69,27 @@ router.post('/:otherUserId', authenticate, async (req, res) => {
     }
 
     await conv.populate('messages.from', 'name role');
+    const sentMsg = conv.messages[conv.messages.length - 1];
     res.json({ messages: conv.messages });
+
+    // Notify the recipient (real-time bell + push)
+    const { emitToUser } = require('./notifications.routes');
+    const sender = await require('../models/User.model').findById(myId).select('name role pushSubscription');
+    const recipient = await require('../models/User.model').findById(otherId).select('_id pushSubscription');
+    if (recipient) {
+      const notifPayload = {
+        _id: sentMsg._id,
+        type: 'message',
+        title: `💌 Message from ${sender?.name || 'Someone'}`,
+        message: text.trim().substring(0, 80),
+        link: `/dashboard/discussions`,
+        priority: 'normal',
+        createdAt: sentMsg.createdAt,
+        createdBy: { name: sender?.name, role: sender?.role },
+      };
+      const hasPush = !!recipient.pushSubscription?.endpoint;
+      emitToUser(req.app, recipient._id, notifPayload, { push: hasPush }).catch(() => {});
+    }
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
