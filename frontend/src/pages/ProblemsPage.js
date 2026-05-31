@@ -918,13 +918,12 @@ export default function ProblemsPage() {
     return data;
   }, [heatmap, heatmapYear]);
 
-  const allFilteredProblems = useMemo(() => {
-    // Collect all unique problems across MLA and NeetCode
+  const baseProblems = useMemo(() => {
     const mlaMap = new Map(MOST_LIKELY_ASKED.map(p => [p.title.toLowerCase(), p]));
     const neetcodeMap = new Map(NEETCODE_150.map(p => [p.title.toLowerCase(), p]));
 
     const allTitles = new Set([...mlaMap.keys(), ...neetcodeMap.keys()]);
-    const list = Array.from(allTitles).map(t => {
+    return Array.from(allTitles).map(t => {
       const mla = mlaMap.get(t);
       const nc = neetcodeMap.get(t);
       return {
@@ -938,18 +937,42 @@ export default function ProblemsPage() {
         isMla: !!mla
       };
     });
+  }, []);
 
-    return list.filter(p => {
+  const isTopicMatch = (problemTopic, category) => {
+    if (!problemTopic) return false;
+    const pt = problemTopic.toLowerCase();
+    const c = category.toLowerCase();
+    if (c === 'all') return true;
+    if (c === 'arrays') return pt.includes('array');
+    if (c === 'strings') return pt.includes('string');
+    if (c === 'trees') return pt.includes('tree') || pt.includes('trie');
+    if (c === 'graphs') return pt.includes('graph');
+    if (c === 'dynamic programming') return pt.includes('dynamic programming') || pt.includes('dp');
+    if (c === 'stack & queue') return pt.includes('stack') || pt.includes('queue') || pt.includes('heap');
+    if (c === 'math') return pt.includes('math') || pt.includes('geometry');
+    if (c === 'binary search') return pt.includes('binary search');
+    if (c === 'bit manipulation') return pt.includes('bit');
+    if (c === 'recursion') return pt.includes('recursion');
+    if (c === 'backtracking') return pt.includes('backtracking');
+    if (c === 'sorting') return pt.includes('sort');
+    if (c === 'greedy') return pt.includes('greedy');
+    if (c === 'linked list') return pt.includes('linked list');
+    return pt === c;
+  };
+
+  const allFilteredProblems = useMemo(() => {
+    return baseProblems.filter(p => {
       if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (difficultyFilter !== 'All' && p.difficulty !== difficultyFilter) return false;
       if (solvedFilter === 'Solved' && !solved.has(p.id)) return false;
       if (solvedFilter === 'Unsolved' && solved.has(p.id)) return false;
       if (solvedFilter === 'Favorites' && !favorites.has(p.id)) return false;
-      if (selectedCategory !== 'All' && p.topic !== selectedCategory) return false;
-      if (companyFilter !== 'All' && !p.askedBy.includes(companyFilter)) return false;
+      if (selectedCategory !== 'All' && !isTopicMatch(p.topic, selectedCategory)) return false;
+      if (companyFilter !== 'All' && !(p.askedBy && p.askedBy.includes(companyFilter))) return false;
       return true;
     });
-  }, [search, difficultyFilter, solvedFilter, selectedCategory, companyFilter, solved, favorites]);
+  }, [baseProblems, search, difficultyFilter, solvedFilter, selectedCategory, companyFilter, solved, favorites]);
 
   if (loading) return (
     <div style={{ display:'flex', justifyContent:'center', padding:80 }}>
@@ -1563,9 +1586,12 @@ export default function ProblemsPage() {
         </div>
       )}
 
-      {/* TAB 2: MOST LIKELY ASKED */}
+      {/* TAB 2: MOST LIKELY ASKED / CATEGORY VIEW */}
       {tab === 'mla' && (
         <div>
+          <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', marginBottom:14, color:'var(--text)' }}>
+            {selectedCategory === 'All' ? '🔥 Most Likely Asked Interview Questions' : `📂 Curated Problems: ${selectedCategory}`}
+          </h2>
           {/* Quick Filters */}
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search question title..." style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', flex:1, outline:'none', fontSize:'.82rem', background:'var(--surface)', color:'var(--text)' }} />
@@ -1594,7 +1620,7 @@ export default function ProblemsPage() {
 
           {/* List */}
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {allFilteredProblems.filter(p => p.isMla).map(p => {
+            {allFilteredProblems.filter(p => selectedCategory !== 'All' ? true : p.isMla).map(p => {
               const completed = solved.has(p.id);
               return (
                 <div key={p.id} style={{ padding:'12px 18px', background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
@@ -1631,7 +1657,7 @@ export default function ProblemsPage() {
                 </div>
               );
             })}
-            {allFilteredProblems.filter(p => p.isMla).length === 0 && (
+            {allFilteredProblems.filter(p => selectedCategory !== 'All' ? true : p.isMla).length === 0 && (
               <div style={{ padding:40, textAlign:'center', color:'var(--text-3)' }}>No interview questions match your filter query.</div>
             )}
           </div>
@@ -1768,7 +1794,7 @@ export default function ProblemsPage() {
       {tab === 'categories' && (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14 }}>
           {['All','Arrays','Strings','Linked List','Trees','Graphs','Dynamic Programming','Sorting','Binary Search','Stack & Queue','Recursion','Backtracking','Bit Manipulation','Math','Greedy'].map((c, i) => {
-            const count = allFilteredProblems.filter(p => p.topic === c || (c==='Linked List' && p.topic==='Linked Lists') || (c==='Stack & Queue' && p.topic==='Stack') || (c==='Bit Manipulation' && p.topic==='Bit Manipulation')).length;
+            const count = baseProblems.filter(p => isTopicMatch(p.topic, c)).length;
             return (
               <button key={i} onClick={() => { setSelectedCategory(c === 'All' ? 'All' : c); setTab('mla'); }} style={{ padding:20, background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, cursor:'pointer', textAlign:'left', transition:'all 0.2s', borderBottom:selectedCategory===c?'2px solid #531697':'1.5px solid var(--border)' }} onMouseOver={e=>e.currentTarget.style.borderColor='#531697'} onMouseOut={e=>e.currentTarget.style.borderColor='var(--border)'}>
                 <div style={{ fontSize:'1.5rem', marginBottom:6 }}>📂</div>
