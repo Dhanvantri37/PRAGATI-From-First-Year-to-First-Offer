@@ -690,13 +690,17 @@ function StudentDash() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh company readiness when the browser tab regains focus
-  // (catches cases where user did a SkillPath analysis and switched back)
+  // Auto-refresh company readiness + user streak when tab regains focus
   useEffect(() => {
     async function refreshOnFocus() {
       try {
         const cr = await apiFetch('/analytics/company-readiness');
         if (cr?.results) setCompReadiness(cr.results);
+      } catch {}
+      try {
+        // Re-fetch /auth/me to pick up updated streak after solving a daily problem
+        const me = await apiFetch('/auth/me');
+        if (me?.user && setUser) setUser(me.user);
       } catch {}
     }
     window.addEventListener('focus', refreshOnFocus);

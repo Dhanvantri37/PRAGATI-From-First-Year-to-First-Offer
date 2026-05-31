@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useAuth } from '../context/AuthContext';
 import {
   MOST_LIKELY_ASKED,
   NEETCODE_150,
@@ -171,7 +172,7 @@ function DebugPanel({ result, loading, code, onApplyFix }) {
 }
 
 /* ── Split Screen Coding Workspace Component ── */
-function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
+function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, localData }) {
   const [activeTab, setActiveTab] = useState('desc');
   const [lang, setLang] = useState('javascript');
   const pId = problem._id || problem.id;
@@ -376,6 +377,13 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 
       setIsSolved(true);
       setShowCelebration(true);
+
+      // ── Immediately update streak from backend response ──────────────────
+      // The solve endpoint returns the authoritative new streak value.
+      if (typeof d.streak === 'number') {
+        onUpdateStreak(d.streak); // propagate up to ProblemsPage
+      }
+
       onSolveProgress(problem._id || problem.id, problem.difficulty || problem.level || 'Easy');
       setTimeout(() => setShowCelebration(false), 3500);
     } catch (err) {
@@ -384,6 +392,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
       setSubmitting(false);
     }
   };
+
 
   const toggleFavorite = () => {
     const pId = problem._id || problem.id;
@@ -717,7 +726,9 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 import CalendarHeatmap from '../components/CalendarHeatmap';
 
 export default function ProblemsPage() {
+  const { setUser } = useAuth();
   const [tab, setTab] = useState('dash');
+
   const [showPlatformSelectModal, setShowPlatformSelectModal] = useState(true);
   const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear().toString());
   const [allLeetCodeProblems, setAllLeetCodeProblems] = useState([]);
@@ -791,9 +802,14 @@ export default function ProblemsPage() {
       if (resProf.ok) {
         const prof = await resProf.json();
         if (prof.student) {
-          setStreak(prof.student.streak || 0);
-          setXp(prof.student.totalProblemsSolved * 10); // sync XP based on solved count
-          localStorage.setItem('pragati_practice_streak', String(prof.student.streak || 0));
+          const newStreak = prof.student.streak || 0;
+          setStreak(newStreak);
+          setXp(prof.student.totalProblemsSolved * 10);
+          localStorage.setItem('pragati_practice_streak', String(newStreak));
+          // Also sync user context so DashboardHome shows updated streak
+          if (setUser && prof.student) {
+            setUser(prev => prev ? { ...prev, streak: newStreak, totalProblemsSolved: prof.student.totalProblemsSolved } : prev);
+          }
         }
 
         // Reconstruct heatmap count from submissionDates
@@ -990,6 +1006,15 @@ export default function ProblemsPage() {
           problem={activeWorkspaceProblem}
           onClose={() => { setActiveWorkspaceProblem(null); fetchDaily(); }}
           onSolveProgress={handleSolveProgress}
+          onUpdateStreak={(newStreak) => {
+            // Immediately update local streak state
+            setStreak(newStreak);
+            localStorage.setItem('pragati_practice_streak', String(newStreak));
+            // Sync to user context so DashboardHome reflects it instantly
+            if (setUser) {
+              setUser(prev => prev ? { ...prev, streak: newStreak } : prev);
+            }
+          }}
           localData={{ solved, favorites, notes, submissions }}
         />
       )}
