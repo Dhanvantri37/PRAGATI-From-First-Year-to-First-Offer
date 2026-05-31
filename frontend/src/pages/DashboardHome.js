@@ -2,6 +2,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import CalendarHeatmap from '../components/CalendarHeatmap';
+import { AnnouncementModal, AllAnnouncementsModal, DriveModal } from '../components/DashboardModals';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -135,16 +137,19 @@ function EditProfileModal({ user, onClose, onSaved }) {
 
 /* Donut chart for solved problems */
 function DonutChart({ easy=0, medium=0, hard=0, total=0 }) {
-  const solved = easy + medium + hard;
+  const e = Number(easy) || 0;
+  const m = Number(medium) || 0;
+  const h = Number(hard) || 0;
+  const solved = e + m + h;
   const R = 54, stroke = 10, norm = 2*Math.PI*R;
-  const safeTotal = total || 1;
-  const eP = (easy/safeTotal)*norm, mP = (medium/safeTotal)*norm, hP = (hard/safeTotal)*norm;
+  const safeTotal = Number(total) || 1;
+  const eP = (e/safeTotal)*norm, mP = (m/safeTotal)*norm, hP = (h/safeTotal)*norm;
   const gaps = 2;
   let offset = norm*0.25;
   const segs = [
-    { pct:eP, color:'#47d372', label:'Easy',   val:easy },
-    { pct:mP, color:'#f59e0b', label:'Medium', val:medium },
-    { pct:hP, color:'#ef4444', label:'Hard',   val:hard },
+    { pct:eP, color:'#47d372', label:'Easy',   val:e },
+    { pct:mP, color:'#f59e0b', label:'Medium', val:m },
+    { pct:hP, color:'#ef4444', label:'Hard',   val:h },
   ];
   const paths = segs.map(s => {
     const len = Math.max(0, s.pct - gaps);
@@ -156,11 +161,13 @@ function DonutChart({ easy=0, medium=0, hard=0, total=0 }) {
     <div style={{ display:'flex', alignItems:'center', gap:20 }}>
       <div style={{ position:'relative', width:128, height:128, flexShrink:0 }}>
         <svg width={128} height={128} style={{ transform:'rotate(-90deg)' }}>
-          <circle cx={64} cy={64} r={R} fill="none" stroke="#f0f3fa" strokeWidth={stroke}/>
+          <circle cx={64} cy={64} r={R} fill="none" stroke="var(--border)" strokeWidth={stroke}/>
           {paths.map((s,i) => (
-            <circle key={i} cx={64} cy={64} r={R} fill="none" stroke={s.color}
-              strokeWidth={stroke} strokeDasharray={s.dasharray} strokeDashoffset={-s.offset}
-              strokeLinecap="round" style={{ transition:'stroke-dasharray .6s ease' }}/>
+            s.val > 0 ? (
+              <circle key={i} cx={64} cy={64} r={R} fill="none" stroke={s.color}
+                strokeWidth={stroke} strokeDasharray={s.dasharray} strokeDashoffset={-s.offset}
+                strokeLinecap="round" style={{ transition:'stroke-dasharray .6s ease' }}/>
+            ) : null
           ))}
         </svg>
         <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
@@ -181,76 +188,6 @@ function DonutChart({ easy=0, medium=0, hard=0, total=0 }) {
   );
 }
 
-/* Monthly activity heatmap – purple, month-wise layout */
-function ActivityHeatmap({ submissions=[], currentStreak=0, maxStreak=0, compact=false }) {
-  const counts = {};
-  submissions.forEach(d => { counts[d] = (counts[d]||0)+1; });
-  const today = new Date();
-  const numMonths = compact ? 6 : 12;
-  const months = [];
-  for (let m = numMonths - 1; m >= 0; m--) {
-    const date = new Date(today.getFullYear(), today.getMonth() - m, 1);
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const daysInMonth = new Date(year, month+1, 0).getDate();
-    const firstDay = new Date(year, month, 1).getDay();
-    const days = [];
-    for (let i = 0; i < firstDay; i++) days.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      days.push({ key, count: counts[key]||0 });
-    }
-    months.push({ label: date.toLocaleString('en-US',{ month:'short' }), year, month, days });
-  }
-  const allCounts = Object.values(counts);
-  const maxCount = Math.max(1, ...allCounts);
-  const getPurple = c => {
-    if (!c) return 'var(--heatmap-empty)';
-    const t = c / maxCount;
-    if (t < 0.25) return 'var(--heatmap-level1)';
-    if (t < 0.5)  return 'var(--heatmap-level2)';
-    if (t < 0.75) return 'var(--heatmap-level3)';
-    return 'var(--heatmap-level4)';
-  };
-  const CELL = compact ? 9 : 11;
-  const GAP  = compact ? 1 : 2;
-  return (
-    <div>
-      <div style={{ display:'flex', gap: compact ? 6 : 10, flexWrap:'wrap', overflowX:'auto' }}>
-        {months.map((m, mi) => (
-          <div key={mi} style={{ flexShrink:0 }}>
-            <div style={{ fontSize:'.6rem', color:'#b0bec9', fontWeight:700, marginBottom:3 }}>
-              {m.label}{(mi===0 || m.month===0) ? `, ${m.year}` : ''}
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:`repeat(7, ${CELL}px)`, gap:GAP }}>
-              {m.days.map((d, di) => (
-                <div key={di}
-                  title={d ? `${d.key}: ${d.count} activity` : ''}
-                  style={{ width:CELL, height:CELL, borderRadius:2,
-                    background: d ? getPurple(d.count) : 'transparent' }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display:'flex', gap:14, marginTop:8, alignItems:'center', flexWrap:'wrap' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-          <span style={{ fontSize:'.68rem', color:'var(--text-3)', fontWeight:600 }}>Activity:</span>
-          {['var(--heatmap-empty)','var(--heatmap-level1)','var(--heatmap-level2)','var(--heatmap-level3)','var(--heatmap-level4)'].map((c,i)=>(
-            <div key={i} style={{ width:CELL, height:CELL, borderRadius:2, background:c, border:'1px solid var(--border)' }}/>
-          ))}
-        </div>
-        <span style={{ fontSize:'.72rem', color:'var(--text-3)' }}>
-          Current Streak <strong style={{ color:'var(--purple)' }}>{currentStreak} Days</strong>
-        </span>
-        <span style={{ fontSize:'.72rem', color:'var(--text-3)' }}>
-          Max Streak <strong style={{ color:'var(--text)' }}>{maxStreak} Days</strong>
-        </span>
-      </div>
-    </div>
-  );
-}
 
 /* Contest rating mini-chart (sparkline) */
 function RatingChart({ ratings=[] }) {
@@ -286,9 +223,9 @@ function RatingChart({ ratings=[] }) {
 
 /* ── LeetCode-style profile card (shown when clicking a student) ── */
 function LCProfileCard({ s, profileData, onBack }) {
-  const easy   = profileData?.problemStats?.easy   || Math.floor((s.codingProblems||s.totalProblemsSolved||0)*0.45);
-  const medium = profileData?.problemStats?.medium || Math.floor((s.codingProblems||s.totalProblemsSolved||0)*0.38);
-  const hard   = profileData?.problemStats?.hard   || Math.max(0,(s.codingProblems||s.totalProblemsSolved||0) - easy - medium);
+  const easy   = profileData?.problemStats?.easy   ?? Math.floor((s.codingProblems||s.totalProblemsSolved||0)*0.45);
+  const medium = profileData?.problemStats?.medium ?? Math.floor((s.codingProblems||s.totalProblemsSolved||0)*0.38);
+  const hard   = profileData?.problemStats?.hard   ?? Math.max(0,(s.codingProblems||s.totalProblemsSolved||0) - easy - medium);
   const totalQ = 3920;
   const aptStats = profileData?.aptStats || [];
   const submissions = profileData?.submissionDates || [];
@@ -304,7 +241,7 @@ function LCProfileCard({ s, profileData, onBack }) {
       </button>
 
       {/* Profile header — LeetCode style */}
-      <div style={{ background:'linear-gradient(135deg,#fafbff,#f0f3fa)', border:'1px solid #e8edf5', borderRadius:16, padding:'20px 22px', marginBottom:14 }}>
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, padding:'20px 22px', marginBottom:14 }}>
         <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
           {/* Avatar */}
           <div style={{ width:72, height:72, borderRadius:16, background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.8rem', flexShrink:0, boxShadow:'0 4px 14px rgba(83,22,151,0.25)' }}>
@@ -327,7 +264,7 @@ function LCProfileCard({ s, profileData, onBack }) {
             <div style={{ fontSize:'.72rem', color:'#b0bec9', marginTop:2 }}>🔥 {s.streak||0} day streak · 🏆 Rank #{s.rank||'—'}</div>
             {/* Social links */}
             <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
-              {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'3px 10px', borderRadius:6, background:'#f0f3fa', color:'var(--text-2)', fontWeight:700, fontSize:'.68rem', textDecoration:'none' }}>🐙 GitHub</a>}
+              {s.githubUrl && <a href={s.githubUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'3px 10px', borderRadius:6, background:'rgba(255,255,255,0.06)', color:'var(--text-2)', fontWeight:700, fontSize:'.68rem', textDecoration:'none' }}>🐙 GitHub</a>}
               {s.linkedinUrl && <a href={s.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'3px 10px', borderRadius:6, background:'rgba(37,99,235,0.08)', color:'#2563eb', fontWeight:700, fontSize:'.68rem', textDecoration:'none' }}>💼 LinkedIn</a>}
               {s.portfolioUrl && <a href={s.portfolioUrl} target="_blank" rel="noopener noreferrer" style={{ padding:'3px 10px', borderRadius:6, background:'rgba(83,22,151,0.08)', color:'#531697', fontWeight:700, fontSize:'.68rem', textDecoration:'none' }}>🌐 Portfolio</a>}
             </div>
@@ -365,8 +302,8 @@ function LCProfileCard({ s, profileData, onBack }) {
 
       {/* Activity Heatmap */}
       <div style={{ background:'var(--surface)', border:'1px solid #e8edf5', borderRadius:14, padding:'16px 18px', marginBottom:12, overflowX:'auto' }}>
-        <div style={{ fontSize:'.7rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em', marginBottom:10 }}>ACTIVITY — PAST YEAR</div>
-        <ActivityHeatmap submissions={submissions} currentStreak={s.streak||0} maxStreak={s.maxStreak||s.streak||0}/>
+        <div style={{ fontSize:'.7rem', fontWeight:800, color:'#b0bec9', letterSpacing:'.06em', marginBottom:10 }}>ACTIVITY</div>
+        <CalendarHeatmap noCard={true} title="ACTIVITY" subtitle="" submissions={submissions} currentStreak={s.streak||0} maxStreak={s.maxStreak||s.streak||0}/>
         <div style={{ fontSize:'.7rem', color:'#b0bec9', marginTop:6 }}>
           {s.codingProblems||s.totalProblemsSolved||0} submissions in the past one year
         </div>
@@ -705,6 +642,10 @@ function StudentDash() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [myActivityData, setMyActivityData] = useState(null);
+  
+  const [activeAnnouncement, setActiveAnnouncement] = useState(null);
+  const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
+  const [activeDrive, setActiveDrive] = useState(null);
 
   const load = useCallback(async () => {
     const [dash, me, co, hist, batch, cr, lb, ann, driveData] = await Promise.all([
@@ -873,7 +814,10 @@ function StudentDash() {
   return (
     <div style={{ fontFamily:"'Nunito',sans-serif", maxWidth:1200, margin:'0 auto' }}>
       {showEditProfile && <EditProfileModal user={user} onClose={()=>setShowEditProfile(false)} onSaved={u=>{ if(setUser) setUser(u); load(); }} />}
-      {showLeaderboard && <LeaderboardModal onClose={()=>setShowLeaderboard(false)} myId={data?.user?._id||ctxUser?._id} />}
+      {showLeaderboard && <LeaderboardModal myId={user._id} onClose={() => setShowLeaderboard(false)} />}
+      <AnnouncementModal ann={activeAnnouncement} onClose={()=>setActiveAnnouncement(null)} />
+      {showAllAnnouncements && <AllAnnouncementsModal announcements={announcements} onClose={()=>setShowAllAnnouncements(false)} onView={(a)=>{ setShowAllAnnouncements(false); setActiveAnnouncement(a); }} />}
+      <DriveModal drive={activeDrive} onClose={()=>setActiveDrive(null)} />
 
       {/* ── PAGE HEADER ───────────────────────────────────────────────── */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20, flexWrap:'wrap', gap:10 }}>
@@ -947,10 +891,9 @@ function StudentDash() {
       {/* ── CODING ACTIVITY: Heatmap + Donut ────────────────────────── */}
       {(() => {
         const myProblems = solved || 0;
-        const easy   = myActivityData?.problemStats?.easy   || Math.floor(myProblems * 0.45);
-        const medium = myActivityData?.problemStats?.medium || Math.floor(myProblems * 0.38);
-        const hard   = myActivityData?.problemStats?.hard   || Math.max(0, myProblems - Math.floor(myProblems*0.45) - Math.floor(myProblems*0.38));
-        const submissions = myActivityData?.submissionDates || [];
+        const easy   = myActivityData?.problemStats?.easy   ?? Math.floor(myProblems * 0.45);
+        const medium = myActivityData?.problemStats?.medium ?? Math.floor(myProblems * 0.38);
+        const hard   = myActivityData?.problemStats?.hard   ?? Math.max(0, myProblems - Math.floor(myProblems*0.45) - Math.floor(myProblems*0.38));
         return (
           <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:8 }}>
@@ -965,11 +908,13 @@ function StudentDash() {
               {/* Heatmap */}
               <div style={{ flex: '1 1 auto', minWidth: 280, maxWidth: '100%', overflowX: 'hidden' }}>
                 <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:10 }}>📅 Monthly Activity</div>
-                <ActivityHeatmap
-                  submissions={submissions}
+                <CalendarHeatmap
+                  noCard={true}
+                  title=""
+                  subtitle=""
+                  submissions={myActivityData?.submissionDates || []}
                   currentStreak={streak}
                   maxStreak={user?.maxStreak || streak}
-                  compact={true}
                 />
               </div>
               {/* Donut */}
@@ -1261,13 +1206,16 @@ function StudentDash() {
         {/* Announcements */}
         <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)' }}>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)', display:'flex', alignItems:'center', gap:8 }}>
               📢 Announcements
+              {newAnnouncementsCount > 0 && (
+                <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(239,68,68,0.1)', color:'#991b1b', fontSize:'.68rem', fontWeight:800 }}>
+                  {newAnnouncementsCount} new
+                </span>
+              )}
             </div>
-            {newAnnouncementsCount > 0 && (
-              <span style={{ padding:'2px 8px', borderRadius:999, background:'rgba(239,68,68,0.1)', color:'#991b1b', fontSize:'.68rem', fontWeight:800 }}>
-                {newAnnouncementsCount} new
-              </span>
+            {announcements.length > 5 && (
+              <button onClick={()=>setShowAllAnnouncements(true)} style={{ padding:'4px 10px', borderRadius:7, border:'1px solid rgba(83,22,151,.2)', background:'rgba(83,22,151,.05)', color:'#531697', fontWeight:700, fontSize:'.7rem', cursor:'pointer', fontFamily:"'Nunito',sans-serif" }}>All Announcements →</button>
             )}
           </div>
           {announcements.length > 0 ? (
@@ -1275,7 +1223,7 @@ function StudentDash() {
               const pc = { urgent:'#ef4444', high:'#f59e0b', normal:'#531697' };
               const col = pc[a.priority] || pc.normal;
               return (
-                <div key={a._id} style={{ padding:'10px 12px', borderRadius:9, marginBottom:8, border:`1px solid ${col}20`, background:`${col}06` }}>
+                <div key={a._id} onClick={()=>setActiveAnnouncement(a)} style={{ padding:'10px 12px', borderRadius:9, marginBottom:8, border:`1px solid ${col}20`, background:`${col}06`, cursor:'pointer', transition:'transform 0.1s' }} onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
                   <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
                     {a.priority === 'urgent' && <span style={{ width:8, height:8, borderRadius:'50%', background:'#ef4444', flexShrink:0 }}/>}
                     {a.priority === 'high' && <span style={{ width:8, height:8, borderRadius:'50%', background:'#f59e0b', flexShrink:0 }}/>}
@@ -1284,13 +1232,8 @@ function StudentDash() {
                       <span style={{ padding:'1px 5px', borderRadius:999, background:`${col}20`, color:col, fontSize:'.6rem', fontWeight:700 }}>{a.priority.toUpperCase()}</span>
                     )}
                   </div>
-                  <div style={{ fontSize:'.76rem', color:'var(--text-3)', lineHeight:1.5 }}>{a.message}</div>
-                  {a.link && (
-                    <a href={a.link.startsWith('http') ? a.link : `#`}
-                       onClick={!a.link.startsWith('http') ? (e) => { e.preventDefault(); } : undefined}
-                       target={a.link.startsWith('http') ? '_blank' : '_self'} rel="noreferrer"
-                       style={{ fontSize:'.7rem', color:'#531697', fontWeight:700, marginTop:4, display:'inline-block' }}>🔗 View →</a>
-                  )}
+                  <div style={{ fontSize:'.76rem', color:'var(--text-3)', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>{a.message}</div>
+                  <div style={{ fontSize:'.7rem', color:'#531697', fontWeight:700, marginTop:4, display:'inline-block' }}>🔗 View →</div>
                   <div style={{ fontSize:'.65rem', color:'#b0bec9', marginTop:2 }}>
                     {a.createdBy?.name && `By ${a.createdBy.name} · `}{new Date(a.createdAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}
                   </div>
@@ -1321,7 +1264,7 @@ function StudentDash() {
               const days = Math.ceil((new Date(d.driveDate)-new Date())/(1000*60*60*24));
               const urg = days<=7?'#ef4444':days<=30?'#f59e0b':'#47d372';
               return (
-                <div key={d._id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:9, marginBottom:8, background:`${urg}06`, border:`1px solid ${urg}20` }}>
+                <div key={d._id} onClick={()=>setActiveDrive(d)} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:9, marginBottom:8, background:`${urg}06`, border:`1px solid ${urg}20`, cursor:'pointer', transition:'transform 0.1s' }} onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
                   <div style={{ width:36, height:36, borderRadius:8, background:'#f0f3fa', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.8rem', fontWeight:800, color:'#531697', flexShrink:0 }}>
                     {d.companyName?.charAt(0)||'?'}
                   </div>
@@ -1344,7 +1287,7 @@ function StudentDash() {
               const days = Math.ceil((new Date(c.campusVisitDate)-new Date())/(1000*60*60*24));
               const urg = days<=7?'#ef4444':days<=30?'#f59e0b':'#47d372';
               return (
-                <div key={c.name} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:9, marginBottom:6, background:`${urg}06`, border:`1px solid ${urg}20` }}>
+                <div key={c.name} onClick={()=>setActiveDrive(c)} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:9, marginBottom:6, background:`${urg}06`, border:`1px solid ${urg}20`, cursor:'pointer', transition:'transform 0.1s' }} onMouseOver={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseOut={e=>e.currentTarget.style.transform='none'}>
                   {c.logoUrl && <img src={c.logoUrl} alt={c.name} style={{ width:28, height:28, objectFit:'contain', borderRadius:6, background:'var(--surface)', padding:2 }} onError={e=>e.target.style.display='none'}/>}
                   <div style={{ flex:1 }}>
                     <div style={{ fontWeight:700, fontSize:'.82rem', color:'var(--text)' }}>{c.name}</div>
@@ -1691,16 +1634,16 @@ function FacultyDash() {
                 {lbProfileData && (() => {
                   const sp = lbProfileStudent;
                   const myProb = sp?.totalProblemsSolved || 0;
-                  const easy   = lbProfileData?.problemStats?.easy   || Math.floor(myProb*0.45);
-                  const medium = lbProfileData?.problemStats?.medium || Math.floor(myProb*0.38);
-                  const hard   = lbProfileData?.problemStats?.hard   || Math.max(0, myProb-Math.floor(myProb*0.45)-Math.floor(myProb*0.38));
+                  const easy   = lbProfileData?.problemStats?.easy   ?? Math.floor(myProb*0.45);
+                  const medium = lbProfileData?.problemStats?.medium ?? Math.floor(myProb*0.38);
+                  const hard   = lbProfileData?.problemStats?.hard   ?? Math.max(0, myProb-Math.floor(myProb*0.45)-Math.floor(myProb*0.38));
                   const subs   = lbProfileData?.submissionDates || [];
                   return (
                     <div style={{ marginTop:14 }}>
                       <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem', color:'var(--text)', marginBottom:10 }}>📊 Coding Activity</div>
                       <div style={{ marginBottom:12 }}>
                         <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:8 }}>📅 Monthly Heatmap</div>
-                        <ActivityHeatmap submissions={subs} currentStreak={sp?.streak||0} maxStreak={sp?.maxStreak||sp?.streak||0} compact={true}/>
+                        <CalendarHeatmap noCard={true} title="" subtitle="" submissions={subs} currentStreak={sp?.streak||0} maxStreak={sp?.maxStreak||sp?.streak||0} />
                       </div>
                       <div style={{ borderTop:'1px solid #f0f3fa', paddingTop:12 }}>
                         <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:8 }}>💻 Problems Solved</div>

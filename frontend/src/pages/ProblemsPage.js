@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { io } from 'socket.io-client';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   MOST_LIKELY_ASKED,
   NEETCODE_150,
@@ -8,6 +10,7 @@ import {
   COMPANY_LOGOS,
   getProblemStatement
 } from './practice/PracticeData';
+import { A2Z_SHEET_PROBLEMS } from './practice/A2ZSheetData';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization:`Bearer ${localStorage.getItem('pragati_token')}` });
@@ -171,10 +174,11 @@ function DebugPanel({ result, loading, code, onApplyFix }) {
 function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   const [activeTab, setActiveTab] = useState('desc');
   const [lang, setLang] = useState('javascript');
-  const [code, setCode] = useState(() => localData.submissions[problem.id] || `// Write your ${lang} solution for ${problem.title}...\n\nfunction solve() {\n    // Write code here\n}`);
-  const [notes, setNotes] = useState(() => localData.notes[problem.id] || '');
-  const [isSolved, setIsSolved] = useState(() => localData.solved.has(problem.id));
-  const [isFav, setIsFav] = useState(() => localData.favorites.has(problem.id));
+  const pId = problem._id || problem.id;
+  const [code, setCode] = useState(() => localData.submissions[pId] || `// Write your ${lang} solution for ${problem.title}...\n\nfunction solve() {\n    // Write code here\n}`);
+  const [notes, setNotes] = useState(() => localData.notes[pId] || '');
+  const [isSolved, setIsSolved] = useState(() => localData.solved.has(pId));
+  const [isFav, setIsFav] = useState(() => localData.favorites.has(pId));
 
   const [debugging, setDebugging] = useState(false);
   const [debugResult, setDebugResult] = useState(null);
@@ -245,21 +249,28 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
 
   useEffect(() => {
     // Record last visited problem
-    localStorage.setItem('pragati_practice_last_visited', problem.id);
+    const pId = problem._id || problem.id;
+    if (pId) localStorage.setItem('pragati_practice_last_visited', pId);
   }, [problem]);
 
   // Sync code and notes changes
   useEffect(() => {
-    const subs = JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}');
-    subs[problem.id] = code;
-    localStorage.setItem('pragati_practice_code_submissions', JSON.stringify(subs));
-  }, [code, problem.id]);
+    const pId = problem._id || problem.id;
+    if (pId) {
+      const subs = JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}');
+      subs[pId] = code;
+      localStorage.setItem('pragati_practice_code_submissions', JSON.stringify(subs));
+    }
+  }, [code, problem]);
 
   useEffect(() => {
-    const n = JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}');
-    n[problem.id] = notes;
-    localStorage.setItem('pragati_practice_notes', JSON.stringify(n));
-  }, [notes, problem.id]);
+    const pId = problem._id || problem.id;
+    if (pId) {
+      const n = JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}');
+      n[pId] = notes;
+      localStorage.setItem('pragati_practice_notes', JSON.stringify(n));
+    }
+  }, [notes, problem]);
 
   const handleDebug = async () => {
     if (!code.trim()) return;
@@ -375,12 +386,14 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   };
 
   const toggleFavorite = () => {
+    const pId = problem._id || problem.id;
+    if (!pId) return;
     const favs = new Set(localData.favorites);
-    if (favs.has(problem.id)) {
-      favs.delete(problem.id);
+    if (favs.has(pId)) {
+      favs.delete(pId);
       setIsFav(false);
     } else {
-      favs.add(problem.id);
+      favs.add(pId);
       setIsFav(true);
     }
     localStorage.setItem('pragati_practice_favorites', JSON.stringify([...favs]));
@@ -414,7 +427,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
             {[
               { id:'desc', icon:'📄', label:'Description' },
               { id:'hints', icon:'💡', label:'Hints & Editorial' },
-              ...(problem.videoId ? [{ id:'video', icon:'📺', label:'Watch Video Explanation' }] : []),
+              ...( (problem.videoId || problem.youtube) ? [{ id:'video', icon:'📺', label:'Watch Video Explanation' }] : []),
               { id:'notes', icon:'📝', label:'My Notes' }
             ].map(tab => (
               <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1, padding:'10px', border:'none', background:activeTab===tab.id?'#1f2937':'transparent', color:activeTab===tab.id?'#38bdf8':'#94a3b8', fontWeight:800, fontSize:'.78rem', cursor:'pointer', borderBottom:activeTab===tab.id?'2.5px solid #38bdf8':'none' }}>
@@ -452,12 +465,12 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                         .leetcode-html-desc li { margin-bottom: 6px; }
                         .leetcode-html-desc strong { color: #fff; font-weight: 700; }
                       `}</style>
-                      <div dangerouslySetInnerHTML={{ __html: fullProblem.description }} />
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.description}</ReactMarkdown>
                     </div>
                   ) : (
                     <>
                       <div style={{ whiteSpace:'pre-wrap', lineHeight:1.75, fontSize:'.88rem', color:'#cbd5e1' }}>
-                        {fullProblem.description || problemDetails.desc}
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.description || problemDetails.desc}</ReactMarkdown>
                       </div>
 
                       <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Constraints:</h4>
@@ -502,7 +515,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                 {((fullProblem.hints && fullProblem.hints.length > 0) ? fullProblem.hints : problemDetails.hints).map((hint, idx) => (
                   <div key={idx} style={{ padding:12, background:'rgba(56,189,248,0.05)', border:'1.5px solid rgba(56,189,248,0.15)', borderRadius:10, marginBottom:8, fontSize:'.84rem', display:'flex', gap:10 }}>
                     <span style={{ fontSize:'1rem' }}>💡</span>
-                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }} dangerouslySetInnerHTML={{ __html: hint }} />
+                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }}><ReactMarkdown remarkPlugins={[remarkGfm]}>{hint}</ReactMarkdown></span>
                   </div>
                 ))}
 
@@ -516,23 +529,31 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                       .leetcode-markdown-editorial strong { color: #fff; font-weight: 700; }
                       .leetcode-markdown-editorial h1, .leetcode-markdown-editorial h2, .leetcode-markdown-editorial h3 { color: #38bdf8; font-weight: 800; margin-top: 18px; margin-bottom: 8px; }
                     `}</style>
-                    <div dangerouslySetInnerHTML={{ __html: renderMarkdown(fullProblem.editorial) }} />
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.editorial}</ReactMarkdown>
                   </div>
                 ) : (
                   <div style={{ padding:14, background:'#111827', borderRadius:12, border:'1.5px solid #1f2937', fontSize:'.85rem', lineHeight:1.7, color:'#94a3b8', whiteSpace:'pre-wrap' }}>
-                    {problemDetails.editorial}
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{problemDetails.editorial}</ReactMarkdown>
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === 'video' && (
+            {activeTab === 'video' && (() => {
+              let ytId = problem.videoId;
+              if (!ytId && problem.youtube) {
+                const url = problem.youtube;
+                if (url.includes('v=')) ytId = url.split('v=')[1].split('&')[0];
+                else if (url.includes('youtu.be/')) ytId = url.split('youtu.be/')[1].split('?')[0];
+                else ytId = url;
+              }
+              return (
               <div style={{ textAlign:'center' }}>
                 <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:8 }}>📺 Watch YouTube Solution Video</h4>
                 <p style={{ fontSize:'.78rem', color:'#94a3b8', marginBottom:16 }}>Practice coding side-by-side with this video explanation player!</p>
                 <div style={{ position:'relative', paddingBottom:'56.25%', height:0, overflow:'hidden', borderRadius:12, border:'1.5px solid #1f2937', background:'#000' }}>
                   <iframe
-                    src={`https://www.youtube.com/embed/${problem.videoId}`}
+                    src={`https://www.youtube.com/embed/${ytId}`}
                     title="YouTube solution explanation"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -541,7 +562,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
                   />
                 </div>
               </div>
-            )}
+            )})()}
 
             {activeTab === 'notes' && (
               <div>
@@ -693,17 +714,21 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, localData }) {
   );
 }
 
-/* ── Main Structured Platform Component ── */
+import CalendarHeatmap from '../components/CalendarHeatmap';
+
 export default function ProblemsPage() {
   const [tab, setTab] = useState('dash');
   const [showPlatformSelectModal, setShowPlatformSelectModal] = useState(true);
+  const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear().toString());
   const [allLeetCodeProblems, setAllLeetCodeProblems] = useState([]);
+  const [a2zExpanded, setA2zExpanded] = useState({}); // For accordion state
   const [allLeetCodeLoading, setAllLeetCodeLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('All');
   const [solvedFilter, setSolvedFilter] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [companyFilter, setCompanyFilter] = useState('All');
+  const [activeSubmissionCategory, setActiveSubmissionCategory] = useState(null);
 
   // Pagination states for browsing all LeetCode problems
   const [currentPage, setCurrentPage] = useState(1);
@@ -821,7 +846,7 @@ export default function ProblemsPage() {
   };
 
   useEffect(() => {
-    if (tab === 'all-problems') {
+    if (tab === 'all-problems' || tab === 'submissions') {
       fetchAllProblems();
     }
   }, [tab, search, difficultyFilter, selectedCategory]);
@@ -850,27 +875,32 @@ export default function ProblemsPage() {
     const mlaSolved = MOST_LIKELY_ASKED.filter(p => solved.has(p.id)).length;
     const mlaPct = Math.round((mlaSolved / MOST_LIKELY_ASKED.length) * 100);
 
+    const a2zSolved = A2Z_SHEET_PROBLEMS.filter(p => solved.has(p.id)).length;
+    const a2zPct = Math.round((a2zSolved / A2Z_SHEET_PROBLEMS.length) * 100);
+
     return {
       neetcodeSolved,
       neetcodePct,
       mlaSolved,
-      mlaPct
+      mlaPct,
+      a2zSolved,
+      a2zPct
     };
   }, [solved]);
 
   const heatmapGridData = useMemo(() => {
     const data = [];
-    const today = new Date();
-    // 12 weeks is 84 days. Monday to Sunday alignment
-    for (let i = 83; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
+    const year = parseInt(heatmapYear) || new Date().getFullYear();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31);
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
       const count = heatmap[dateStr] || 0;
-      data.push({ date: dateStr, count });
+      data.push({ date: dateStr, count, month: d.toLocaleString('default', { month: 'short' }), day: d.getDate() });
     }
     return data;
-  }, [heatmap]);
+  }, [heatmap, heatmapYear]);
 
   const allFilteredProblems = useMemo(() => {
     // Collect all unique problems across MLA and NeetCode
@@ -983,9 +1013,11 @@ export default function ProblemsPage() {
       <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'1px solid var(--border)', flexWrap:'wrap' }}>
         {[
           { id:'dash', label:'🏠 Dashboard & Stats' },
+          { id:'a2z', label:'🔥 A2Z DSA Roadmap' },
           { id:'all-problems', label:'🌐 All LeetCode Problems' },
           { id:'mla', label:'🔥 Most Likely Asked' },
           { id:'nc150', label:'🛣️ NeetCode 150 Roadmap' },
+          { id:'submissions', label:'✅ My Submissions' },
           { id:'courses', label:'🎓 Full Video Courses' },
           { id:'categories', label:'🗂️ Browse Categories' }
         ].map(tabItem => (
@@ -1049,9 +1081,9 @@ export default function ProblemsPage() {
             {[
               { icon:'🔥', label:'Solving Streak', val:`${streak} days`, color:'#ea580c', bg:'rgba(234,88,12,0.06)' },
               { icon:'🧠', label:'Total Solutions Logged', val:`${solved.size} solved`, color:'#10b981', bg:'rgba(16,185,129,0.06)' },
-              { icon:'⭐', label:'Total Earned XP', val:`${xp} XP`, color:'#eab308', bg:'rgba(234,179,8,0.06)' },
               { icon:'🛣️', label:'NeetCode 150', val:`${stats.neetcodePct}% complete`, color:'#a855f7', bg:'rgba(168,85,247,0.06)' },
-              { icon:'🔥', label:'Most Likely Asked', val:`${stats.mlaPct}% complete`, color:'#3b82f6', bg:'rgba(59,130,246,0.06)' }
+              { icon:'🔥', label:'Most Likely Asked', val:`${stats.mlaPct}% complete`, color:'#3b82f6', bg:'rgba(59,130,246,0.06)' },
+              { icon:'A2Z', label:'A2Z DSA Roadmap', val:`${stats.a2zPct}% complete`, color:'#ec4899', bg:'rgba(236,72,153,0.06)' }
             ].map((stat, i) => (
               <div key={i} style={{ padding:16, background:'var(--surface)', borderRadius:14, border:'1.5px solid var(--border)', display:'flex', alignItems:'center', gap:12 }}>
                 <span style={{ fontSize:'1.8rem', padding:8, borderRadius:10, background:stat.bg }}>{stat.icon}</span>
@@ -1064,37 +1096,12 @@ export default function ProblemsPage() {
           </div>
 
           {/* GitHub-like Solving Heatmap Card */}
-          <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20, marginBottom:20 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.92rem', textTransform:'uppercase', color:'var(--text-2)' }}>📊 Problem Solving Heatmap</h3>
-              <span style={{ fontSize:'.7rem', color:'var(--text-3)' }}>Record of coding activities in the last 12 weeks</span>
-            </div>
-            {/* Renders dynamic board */}
-            <div style={{ display:'flex', gap:3, flexWrap:'wrap', padding:8, background:'rgba(255,255,255,0.01)', borderRadius:10 }}>
-              {heatmapGridData.map((d, idx) => {
-                let bgColor = 'rgba(255,255,255,0.06)';
-                if (d.count === 1) bgColor = 'rgba(168,85,247,0.25)';
-                if (d.count === 2) bgColor = 'rgba(168,85,247,0.55)';
-                if (d.count >= 3) bgColor = 'rgba(168,85,247,0.9)';
-                return (
-                  <div key={idx} title={`${d.count} solved on ${d.date}`} style={{ width:12, height:12, borderRadius:2, background:bgColor, cursor:'pointer' }} />
-                );
-              })}
-            </div>
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:10, fontSize:'.68rem', color:'var(--text-3)' }}>
-              <span>Less</span>
-              <div style={{ display:'flex', gap:2, alignItems:'center' }}>
-                <div style={{ width:10, height:10, background:'rgba(255,255,255,0.06)', borderRadius:1 }} />
-                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.25)', borderRadius:1 }} />
-                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.55)', borderRadius:1 }} />
-                <div style={{ width:10, height:10, background:'rgba(168,85,247,0.9)', borderRadius:1 }} />
-              </div>
-              <span>More</span>
-            </div>
+          <div style={{ marginBottom:20 }}>
+            <CalendarHeatmap heatmapProp={heatmap} />
           </div>
 
           {/* Roadmaps progress bars section */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, flexWrap:'wrap' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:20, flexWrap:'wrap' }}>
             {/* NeetCode card */}
             <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20 }}>
               <div style={{ fontSize:'.68rem', fontWeight:800, color:'#a855f7', textTransform:'uppercase' }}>Complete Roadmap</div>
@@ -1125,9 +1132,267 @@ export default function ProblemsPage() {
                 View 130 Interview Questions →
               </button>
             </div>
+            {/* A2Z card */}
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:20 }}>
+              <div style={{ fontSize:'.68rem', fontWeight:800, color:'#ec4899', textTransform:'uppercase' }}>Striver's Top 450+</div>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.1rem', margin:'4px 0 12px 0' }}>🔥 A2Z DSA Roadmap</h3>
+              <div style={{ height:12, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                <div style={{ width:`${stats.a2zPct}%`, height:'100%', background:'linear-gradient(90deg,#ec4899,#f472b6)', borderRadius:10 }} />
+              </div>
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:'.85rem' }}>
+                <span>Solved: <strong>{stats.a2zSolved}</strong> / {A2Z_SHEET_PROBLEMS.length}</span>
+                <span style={{ color:'#ec4899', fontWeight:800 }}>{stats.a2zPct}% complete</span>
+              </div>
+              <button onClick={()=>setTab('a2z')} style={{ width:'100%', marginTop:16, padding:'8px 0', border:'1px solid #ec4899', borderRadius:8, background:'rgba(236,72,153,0.05)', color:'#ec4899', cursor:'pointer', fontWeight:800, fontSize:'.8rem' }}>
+                View Full A2Z Accordion →
+              </button>
+            </div>
           </div>
         </div>
       )}
+      {/* TAB: A2Z DSA ROADMAP */}
+      {tab === 'a2z' && (
+        <div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:14 }}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search A2Z problem title..." style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', flex:1, outline:'none', fontSize:'.82rem', background:'var(--surface)', color:'var(--text)' }} />
+            <select value={difficultyFilter} onChange={e=>setDifficultyFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Difficulty</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+            <select value={solvedFilter} onChange={e=>setSolvedFilter(e.target.value)} style={{ padding:'8px 12px', borderRadius:8, border:'1.5px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontWeight:700, fontSize:'.8rem' }}>
+              <option value="All">All Solved Status</option>
+              <option value="Solved">Solved</option>
+              <option value="Unsolved">Unsolved</option>
+            </select>
+          </div>
+
+          {(() => {
+            // Group A2Z_SHEET_PROBLEMS by category first, then apply filters
+            const grouped = {};
+            A2Z_SHEET_PROBLEMS.forEach(p => {
+              if (!grouped[p.category]) grouped[p.category] = [];
+              grouped[p.category].push(p);
+            });
+            
+            return Object.entries(grouped).map(([catName, problems]) => {
+              const filtered = problems.filter(p => {
+                const isSolved = solved.has(p.id);
+                if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+                if (difficultyFilter !== 'All' && p.difficulty !== difficultyFilter) return false;
+                if (solvedFilter === 'Solved' && !isSolved) return false;
+                if (solvedFilter === 'Unsolved' && isSolved) return false;
+                return true;
+              });
+
+              if (filtered.length === 0) return null;
+
+              const catSolvedCount = problems.filter(p => solved.has(p.id)).length;
+              const catPct = Math.round((catSolvedCount / problems.length) * 100) || 0;
+
+              return (
+                <div key={catName} style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, padding:18, marginBottom:16 }}>
+                  <div 
+                    onClick={() => setA2zExpanded(prev => ({...prev, [catName]: !prev[catName]}))}
+                    style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:10, cursor:'pointer' }}
+                  >
+                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1rem', margin:0, display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontSize:'.8rem', transition:'transform 0.2s', transform:a2zExpanded[catName]?'rotate(90deg)':'rotate(0deg)' }}>▶</span>
+                      {catName}
+                    </h3>
+                    <div style={{ textAlign:'right' }}>
+                      <span style={{ fontSize:'.8rem', fontWeight:800, color:'#38bdf8' }}>{catPct}% solved</span>
+                      <div style={{ fontSize:'.68rem', color:'var(--text-3)' }}>{catSolvedCount} / {problems.length} Complete</div>
+                    </div>
+                  </div>
+                  <div style={{ height:6, background:'var(--border)', borderRadius:10, overflow:'hidden', marginBottom:12 }}>
+                    <div style={{ width:`${catPct}%`, height:'100%', background:'linear-gradient(90deg,#38bdf8,#818cf8)', borderRadius:10 }} />
+                  </div>
+
+                  {a2zExpanded[catName] && (
+                  <div style={{ overflowX:'auto' }}>
+                    <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left', fontSize:'.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom:'1px solid var(--border)' }}>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800, width:'40px' }}>STATUS</th>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>PROBLEM</th>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>SOLVE</th>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>RESOURCE</th>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>PRACTICE</th>
+                          <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>DIFFICULTY</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.map(p => {
+                          const isSolved = solved.has(p.id);
+                          return (
+                            <tr key={p.id} style={{ borderBottom:'1px solid var(--border)', background:isSolved?'rgba(71,211,114,0.02)':'transparent' }}>
+                              <td style={{ padding:'12px 16px', textAlign:'center', fontSize:'1rem' }}>{isSolved ? '✅' : '○'}</td>
+                              <td style={{ padding:'12px 16px', fontWeight:700, color:'var(--text)' }}>{p.title}</td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <button onClick={() => setActiveWorkspaceProblem(p)} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer' }}>
+                                  Solve in PRAGATI →
+                                </button>
+                              </td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                                  {p.youtube && (
+                                    <a href={p.youtube.includes('http') ? p.youtube : `https://youtube.com/watch?v=${p.youtube}`} target="_blank" rel="noreferrer" style={{ textDecoration:'none', fontSize:'1.1rem' }} title="Video Solution">📺</a>
+                                  )}
+                                  {p.article && (
+                                    <a href={p.article.includes('http') ? p.article : `https://takeuforward.org${p.article}`} target="_blank" rel="noreferrer" style={{ textDecoration:'none', fontSize:'1.1rem' }} title="Article">📝</a>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding:'12px 16px', textAlign:'center' }}>
+                                {p.leetcode ? (
+                                  <a href={p.leetcode} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, textDecoration:'none', color:'#f59e0b', fontSize:'.75rem', fontWeight:700 }}>
+                                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" alt="Leetcode" style={{ width:16, filter:'invert(1)' }} />
+                                  </a>
+                                ) : (
+                                  <span style={{ color:'var(--text-3)' }}>-</span>
+                                )}
+                              </td>
+                              <td style={{ padding:'12px 16px' }}>
+                                <span style={{ padding:'3px 8px', borderRadius:6, background:DIFF[p.difficulty]?.bg, color:DIFF[p.difficulty]?.color, fontSize:'.7rem', fontWeight:800 }}>
+                                  {p.difficulty}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  )}
+                </div>
+              );
+            });
+          })()}
+        </div>
+      )}
+
+      {/* TAB: MY SUBMISSIONS */}
+      {tab === 'submissions' && (() => {
+        const allProbIds = new Set([
+          ...Object.keys(submissions || {}), 
+          ...Object.keys(notes || {}), 
+          ...(solved ? Array.from(solved) : [])
+        ]);
+
+        const validSubmissions = Array.from(allProbIds).filter(probId => {
+          if (probId === 'undefined') return false;
+          const c = submissions[probId];
+          const n = notes[probId];
+          const hasRealCode = c && c.trim() && !c.trim().startsWith('// Write your');
+          const hasRealNotes = n && n.trim() !== '';
+          const isSolved = solved.has(probId);
+          return hasRealCode || hasRealNotes || isSolved;
+        });
+
+        const catMap = { '🔥 A2Z DSA Roadmap': [], '🛣️ NeetCode 150 Roadmap': [], '🔥 Most Likely Asked': [], '🌐 All LeetCode Problems': [], 'other': [] };
+        
+        validSubmissions.forEach(probId => {
+          if (A2Z_SHEET_PROBLEMS && A2Z_SHEET_PROBLEMS.some(p => p.id === probId)) {
+            catMap['🔥 A2Z DSA Roadmap'].push(probId);
+          } else if (NEETCODE_150 && NEETCODE_150.some(p => p.id === probId)) {
+            catMap['🛣️ NeetCode 150 Roadmap'].push(probId);
+          } else if (MOST_LIKELY_ASKED && MOST_LIKELY_ASKED.some(p => p.id === probId)) {
+            catMap['🔥 Most Likely Asked'].push(probId);
+          } else if (allLeetCodeProblems && allLeetCodeProblems.some(p => p.id === probId || p._id === probId)) {
+            catMap['🌐 All LeetCode Problems'].push(probId);
+          } else if (daily?.dailyProblems?.some(d => d.problem._id === probId || d.problem.id === probId)) {
+            catMap['🌐 All LeetCode Problems'].push(probId);
+          } else {
+            catMap['other'].push(probId);
+          }
+        });
+
+        const getProbTitle = (id) => {
+          const fromStatic = allFilteredProblems.find(p => p.id === id || p._id === id);
+          if (fromStatic) return fromStatic.title;
+          const fromDb = allLeetCodeProblems.find(p => p._id === id || p.id === id);
+          if (fromDb) return fromDb.title;
+          const fromDaily = daily?.dailyProblems?.find(d => d.problem._id === id || d.problem.id === id);
+          if (fromDaily) return fromDaily.problem.title;
+          return id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        };
+
+        return (
+          <div>
+            <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.2rem', marginBottom:16 }}>
+              {activeSubmissionCategory ? (
+                <span style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <button onClick={() => setActiveSubmissionCategory(null)} style={{ background:'transparent', border:'none', cursor:'pointer', fontSize:'1.2rem', padding:0 }}>⬅️</button>
+                  {activeSubmissionCategory}
+                </span>
+              ) : '✅ Saved Code Submissions & Notes'}
+            </h2>
+            
+            {validSubmissions.length === 0 ? (
+              <div style={{ padding:40, textAlign:'center', color:'var(--text-3)', background:'var(--surface)', borderRadius:16, border:'1.5px solid var(--border)' }}>
+                No actual submissions found yet. Write some code, notes, or mark a problem as solved!
+              </div>
+            ) : !activeSubmissionCategory ? (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:16 }}>
+                {Object.keys(catMap).map(catName => {
+                  return (
+                    <div 
+                      key={catName} 
+                      onClick={() => setActiveSubmissionCategory(catName)}
+                      style={{ 
+                        background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:14, padding:20, 
+                        cursor:'pointer', transition:'transform 0.2s, borderColor 0.2s',
+                        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center',
+                        gap:10
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = '#531697'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+                    >
+                      <div style={{ fontSize:'1.1rem', fontWeight:800, color:'var(--text)' }}>
+                        {catName}
+                      </div>
+                      <div style={{ fontSize:'.85rem', color:'var(--text-3)', fontWeight:700, background:'rgba(83,22,151,0.05)', padding:'4px 12px', borderRadius:20 }}>
+                        {catMap[catName].length} Submissions
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {catMap[activeSubmissionCategory].length === 0 ? (
+                  <div style={{ padding:30, textAlign:'center', color:'var(--text-3)', background:'var(--surface)', borderRadius:14, border:'1.5px solid var(--border)' }}>
+                    No submissions found in this category.
+                  </div>
+                ) : (
+                  catMap[activeSubmissionCategory].map(probId => {
+                    const title = getProbTitle(probId);
+                    return (
+                      <div key={probId} style={{ border:'1.5px solid var(--border)', background:'var(--surface)', borderRadius:12, padding:14, display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10 }}>
+                        <div>
+                          <div style={{ fontWeight:800, fontSize:'1rem', color:'var(--text)', display:'flex', alignItems:'center', gap:8 }}>
+                            {solved.has(probId) ? '✅' : '📝'} {title}
+                          </div>
+                          <div style={{ fontSize:'.75rem', color:'var(--text-3)', marginTop:4 }}>
+                            {submissions[probId] && !submissions[probId].trim().startsWith('// Write your') ? 'Has Code ' : ''}
+                            {notes[probId] && notes[probId].trim() !== '' ? (submissions[probId] && !submissions[probId].trim().startsWith('// Write your') ? '· Has Notes' : 'Has Notes') : ''}
+                          </div>
+                        </div>
+                        <button onClick={() => setActiveWorkspaceProblem({ id: probId, title, topic: 'Revision', difficulty: 'Any' })} style={{ padding:'8px 16px', borderRadius:8, background:'rgba(56,189,248,0.1)', color:'#38bdf8', border:'1px solid rgba(56,189,248,0.2)', fontWeight:800, cursor:'pointer', fontSize:'.8rem' }}>
+                          View Code →
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* TAB: ALL LEETCODE PROBLEMS */}
       {tab === 'all-problems' && (
         <div>
@@ -1329,9 +1594,15 @@ export default function ProblemsPage() {
                       </div>
                     )}
                   </div>
-                  <button onClick={() => setActiveWorkspaceProblem(p)} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
-                    Practice Solution →
-                  </button>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    <button onClick={() => setActiveWorkspaceProblem(p)} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
+                      Practice Solution →
+                    </button>
+                    <a href={`https://leetcode.com/problems/${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', gap:4, textDecoration:'none', color:'#f59e0b', fontSize:'.75rem', fontWeight:800, padding:'6px 10px', borderRadius:8, background:'rgba(245,158,11,0.1)' }}>
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" alt="Leetcode" style={{ width:14, filter:'invert(1)' }} />
+                      LeetCode
+                    </a>
+                  </div>
                 </div>
               );
             })}
@@ -1377,17 +1648,20 @@ export default function ProblemsPage() {
                 </div>
 
                 {/* List categories problems */}
-                <div style={{ display:'grid', gridTemplateColumns:window.innerWidth<640?'1fr':'1fr 1fr', gap:8 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10 }}>
                   {catProblems.map(p => {
                     const comp = solved.has(p.id);
                     return (
-                      <div key={p.id} style={{ padding:'8px 12px', background:'var(--background)', border:`1.5px solid ${comp?'#4ade80':'var(--border)'}`, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <span style={{ fontSize:'.82rem', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'65%' }}>
+                      <div key={p.id} style={{ padding:'10px 14px', background:'var(--background)', border:`1.5px solid ${comp?'#4ade80':'var(--border)'}`, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+                        <span style={{ flex:1, fontSize:'.85rem', fontWeight:700, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {comp ? '✅' : '○'} {p.title}
                         </span>
-                        <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                          <span style={{ fontSize:'.65rem', color:DIFF[p.difficulty].color, background:DIFF[p.difficulty].bg, padding:'1px 6px', borderRadius:4, border:`1px solid ${DIFF[p.difficulty].border}` }}>{p.difficulty}</span>
-                          <button onClick={()=>setActiveWorkspaceProblem(p)} style={{ padding:'3px 8px', borderRadius:6, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.65rem' }}>
+                        <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:'.65rem', color:DIFF[p.difficulty].color, background:DIFF[p.difficulty].bg, padding:'2px 8px', borderRadius:6, border:`1px solid ${DIFF[p.difficulty].border}` }}>{p.difficulty}</span>
+                          <a href={`https://leetcode.com/problems/${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ padding:'4px 10px', borderRadius:8, border:'none', background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontWeight:800, textDecoration:'none', display:'flex', alignItems:'center', gap:4, fontSize:'.65rem' }}>
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" alt="Leetcode" style={{ width:12, filter:'invert(1)' }} />
+                          </a>
+                          <button onClick={()=>setActiveWorkspaceProblem(p)} style={{ padding:'4px 10px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.65rem' }}>
                             Solve
                           </button>
                         </div>

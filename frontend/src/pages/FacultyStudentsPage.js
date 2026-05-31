@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CalendarHeatmap from '../components/CalendarHeatmap';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -53,39 +54,7 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
   );
 }
 
-/* ── Mini Heatmap ── */
-function MiniHeatmap({ dates=[] }) {
-  const today = new Date();
-  const cells = 84; // 12 weeks
-  const counts = {};
-  dates.forEach(d => { counts[d] = (counts[d]||0)+1; });
-  const days = Array.from({ length:cells }, (_,i) => {
-    const dt = new Date(today);
-    dt.setDate(today.getDate() - (cells-1-i));
-    const key = dt.toISOString().slice(0,10);
-    return { key, count: counts[key]||0 };
-  });
-  const maxC = Math.max(1, ...days.map(d=>d.count));
-  const getColor = c => {
-    if (!c) return '#f0f3fa';
-    const t = c/maxC;
-    if (t < 0.3) return '#c8e6c9';
-    if (t < 0.6) return '#66bb6a';
-    return '#1b5e20';
-  };
-  return (
-    <div style={{ display:'grid', gridTemplateColumns:'repeat(12,1fr)', gap:2 }}>
-      {Array.from({ length:12 }, (_,week) =>
-        Array.from({ length:7 }, (_,day) => {
-          const idx = week*7+day;
-          const d = days[idx];
-          if (!d) return null;
-          return <div key={idx} title={`${d.key}: ${d.count}`} style={{ width:8, height:8, borderRadius:2, background:getColor(d.count) }}/>;
-        })
-      )}
-    </div>
-  );
-}
+
 
 /* ── Activity Bar Chart (last 7 days) ── */
 function ActivityBars({ recentActivity=[] }) {
@@ -207,8 +176,8 @@ function StudentProfileModal({ student, profileData, onClose }) {
                 <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', padding:'14px 16px' }}>
                   <div style={{ fontSize:'.65rem', fontWeight:800, color:'#b0bec9', marginBottom:10 }}>LAST 7 DAYS ACTIVITY</div>
                   <ActivityBars recentActivity={recentActivity}/>
-                  <div style={{ fontSize:'.68rem', fontWeight:800, color:'#b0bec9', marginBottom:6, marginTop:12 }}>12-WEEK HEATMAP</div>
-                  <MiniHeatmap dates={pd?.submissionDates||[]}/>
+                  <div style={{ fontSize:'.68rem', fontWeight:800, color:'#b0bec9', marginBottom:6, marginTop:12 }}>ACTIVITY HEATMAP</div>
+                  <CalendarHeatmap noCard={true} title="" subtitle="" submissions={pd?.submissionDates||[]}/>
                 </div>
               </div>
 
@@ -316,8 +285,8 @@ function StudentProfileModal({ student, profileData, onClose }) {
           {activeTab==='activity' && (
             <div>
               <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', padding:'14px 16px', marginBottom:14 }}>
-                <div style={{ fontSize:'.65rem', fontWeight:800, color:'#b0bec9', marginBottom:10 }}>12-WEEK ACTIVITY HEATMAP</div>
-                <MiniHeatmap dates={pd?.submissionDates||[]}/>
+                <div style={{ fontSize:'.65rem', fontWeight:800, color:'#b0bec9', marginBottom:10 }}>ACTIVITY HEATMAP</div>
+                <CalendarHeatmap noCard={true} title="" subtitle="" submissions={pd?.submissionDates||[]}/>
                 <div style={{ fontSize:'.62rem', color:'#b0bec9', marginTop:8 }}>{pd?.submissionDates?.length||0} active days</div>
               </div>
               <div style={{ background:'#fff', borderRadius:14, border:'1px solid #e8edf5', padding:'14px 16px' }}>

@@ -1,5 +1,5 @@
-/* eslint-disable */
 import React, { useState, useEffect, useCallback } from 'react';
+import CalendarHeatmap from '../../components/CalendarHeatmap';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -54,40 +54,6 @@ function DonutChart({ easy=0, medium=0, hard=0, total=3920 }) {
   );
 }
 
-/* ── Activity Heatmap ─────────────────────────────────────────────────────── */
-function Heatmap({ dates=[] }) {
-  const today = new Date(), cells = 364;
-  const counts = {};
-  dates.forEach(d => { counts[d] = (counts[d]||0)+1; });
-  const days = Array.from({ length:cells }, (_,i) => {
-    const dt = new Date(today);
-    dt.setDate(today.getDate()-(cells-1-i));
-    const key = dt.toISOString().slice(0,10);
-    return { key, count: counts[key]||0 };
-  });
-  const maxC = Math.max(1, ...days.map(d=>d.count));
-  const getColor = c => {
-    if (!c) return '#f0f3fa';
-    const t=c/maxC;
-    if (t<.25) return '#c8e6c9'; if (t<.5) return '#66bb6a';
-    if (t<.75) return '#43a047'; return '#1b5e20';
-  };
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return (
-    <div style={{ overflowX:'auto' }}>
-      <svg width={728} height={110}>
-        {days.map((d,i)=>{
-          const col=Math.floor(i/7), row=i%7;
-          return (<rect key={i} x={col*14} y={row*14+16} width={11} height={11} rx={2} fill={getColor(d.count)}><title>{d.key}: {d.count}</title></rect>);
-        })}
-        {Array.from({length:12},(_,mi)=>{
-          const col=Math.floor((mi/12)*52);
-          return <text key={mi} x={col*14} y={11} fontSize={9} fill="#b0bec9">{months[mi]}</text>;
-        })}
-      </svg>
-    </div>
-  );
-}
 
 /* ── Score Breakdown Card ─────────────────────────────────────────────────── */
 function ScoreBreakdown({ breakdown }) {
@@ -325,7 +291,7 @@ function StudentProfileModal({ student, onClose }) {
                 <div>
                   <div style={{ background:'#fff', border:'1px solid #e8edf5', borderRadius:14, padding:'16px 18px', marginBottom:14, overflowX:'auto' }}>
                     <div style={{ fontSize:'.68rem', fontWeight:800, color:'#b0bec9', marginBottom:10 }}>ACTIVITY HEATMAP — PAST YEAR</div>
-                    <Heatmap dates={data?.submissionDates||[]}/>
+                    <CalendarHeatmap noCard={true} title="" subtitle="" submissions={data?.submissionDates||[]}/>
                     <div style={{ fontSize:'.7rem', color:'#b0bec9', marginTop:6 }}>
                       {data?.summary?.totalApt||0} aptitude submissions in the past year
                     </div>

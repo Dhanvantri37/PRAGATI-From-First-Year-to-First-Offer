@@ -8,16 +8,20 @@ const { authenticate, authorize } = require('../middleware/auth.middleware');
 const DIFFICULTY_MAP = { Beginner:'Easy', Intermediate:'Medium', Expert:'Hard' };
 const LOWER_DIFF     = { Hard:'Medium', Medium:'Easy', Easy:'Easy' };
 
-// Local-midnight "today" — same as original, avoids UTC-offset mismatch with existing DB records
+// Set daily boundaries using Indian Standard Time (IST, UTC+5:30)
 function todayLocal() {
-  const t = new Date();
-  t.setHours(0, 0, 0, 0);
-  return t;
+  const str = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  const d = new Date(str);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return new Date(`${year}-${month}-${day}T00:00:00.000+05:30`);
 }
 
 function isSameLocalDay(d1, d2) {
   if (!d1 || !d2) return false;
-  const a = new Date(d1), b = new Date(d2);
+  const a = new Date(new Date(d1).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const b = new Date(new Date(d2).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
   return a.getFullYear() === b.getFullYear() &&
          a.getMonth()    === b.getMonth()    &&
          a.getDate()     === b.getDate();

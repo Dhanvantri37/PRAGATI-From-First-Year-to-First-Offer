@@ -334,7 +334,7 @@ router.get('/leaderboard', authenticate, async (req, res) => {
       .select('name department year skillLevel streak atsScore totalProblemsSolved linkedinUrl githubUrl portfolioUrl rollNumber createdAt lastLoginAt');
 
     // Fetch all activity in parallel
-    const [aptStats, problemStats, discussionStats, skillpathStats, attemptDates] = await Promise.all([
+    const [aptStats, problemStats, discussionStats, skillpathStats, attemptDates, problemDates] = await Promise.all([
       // Aptitude: total attempts, correct per user
       AptitudeAttempt.aggregate([
         { $group:{ _id:'$userId', total:{$sum:1}, correct:{$sum:{$cond:['$correct',1,0]}},
@@ -359,11 +359,17 @@ router.get('/leaderboard', authenticate, async (req, res) => {
         { $sort:{ analyzedAt:-1 } },
         { $group:{ _id:'$userId', atsScore:{ $first:'$atsScore' }, analyzedAt:{ $first:'$analyzedAt' } }}
       ]),
-      // Submission dates for heatmap
+      // Submission dates for heatmap (Aptitude)
       AptitudeAttempt.aggregate([
-        { $group:{ _id:{ user:'$userId', date:{ $dateToString:{ format:'%Y-%m-%d', date:'$attemptedAt' } } } } },
-        { $group:{ _id:'$_id.user', dates:{ $push:'$_id.date' } } }
+        { $project:{ userId: 1, date:{ $dateToString:{ format:'%Y-%m-%d', date:'$attemptedAt' } } } },
+        { $group:{ _id:'$userId', dates:{ $push:'$date' } } }
       ]),
+      // Submission dates for heatmap (Coding)
+      UserProblem.aggregate([
+        { $match: { status: 'solved' } },
+        { $project:{ userId: 1, date:{ $dateToString:{ format:'%Y-%m-%d', date:'$updatedAt' } } } },
+        { $group:{ _id:'$userId', dates:{ $push:'$date' } } }
+      ])
     ]);
 
     // Build lookup maps
@@ -371,7 +377,9 @@ router.get('/leaderboard', authenticate, async (req, res) => {
     const probMap  = {}; problemStats.forEach(p => { probMap[p._id.toString()] = p; });
     const discMap  = {}; discussionStats.forEach(d => { discMap[d._id.toString()] = d; });
     const spMap    = {}; skillpathStats.forEach(s => { spMap[s._id.toString()]   = s; });
-    const dateMap  = {}; attemptDates.forEach(d  => { dateMap[d._id.toString()]  = d.dates; });
+    const dateMap  = {}; 
+    attemptDates.forEach(d => { dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
+    problemDates.forEach(d => { dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
 
     const scored = students.map(s => {
       const id  = s._id.toString();
@@ -484,7 +492,10 @@ router.get('/my-profile', authenticate, async (req, res) => {
 
     res.json({
       student, aptStats, codingStats, recentActivity, skillpathResults,
-      submissionDates: [...new Set([...aptDateGroups.map(d=>d._id), ...problemDateGroups.map(d=>d._id)])].sort(),
+      submissionDates: [
+        ...aptDateGroups.flatMap(d => Array(d.count).fill(d._id)),
+        ...problemDateGroups.flatMap(d => Array(d.count).fill(d._id))
+      ].sort(),
       problemStats:{ easy:easyS, medium:medS, hard:hardS },
       contestRatings,
       summary:{ totalApt, correctApt, totalSolved, discussionCount,
@@ -554,7 +565,10 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
     res.json({
       student, aptStats, codingStats,
       recentActivity: isFacultyOrAdmin||isOwnProfile ? recentActivity : [],
-      skillpathResults, submissionDates: aptDateGroups.map(d=>d._id),
+      skillpathResults, submissionDates: [
+        ...aptDateGroups.flatMap(d => Array(d.count).fill(d._id)),
+        ...problemDateGroups.flatMap(d => Array(d.count).fill(d._id))
+      ].sort(),
       problemStats:{ easy:easyS, medium:medS, hard:hardS },
       contestRatings,
       summary:{ totalApt, correctApt, accuracy: totalApt?Math.round((correctApt/totalApt)*100):0,
