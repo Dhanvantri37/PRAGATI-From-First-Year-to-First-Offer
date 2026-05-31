@@ -112,8 +112,11 @@ io.on('connection', (socket) => {
     try {
       const jwt = require('jsonwebtoken');
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (decoded?.id) {
-        socket.join(`user:${decoded.id}`);
+      // JWT is signed with { userId, role } — use decoded.userId (NOT decoded.id)
+      const uid = decoded.userId || decoded.id || decoded._id;
+      if (uid) {
+        socket.join(`user:${uid}`);
+        console.log(`[socket] user:${uid} joined notification room`);
       }
     } catch { /* invalid token – ignore */ }
   }

@@ -6,17 +6,34 @@ const mongoose = require('mongoose');
 // GET /api/direct-messages/conversations — list all conversations for the logged-in user
 router.get('/conversations', authenticate, async (req, res) => {
   try {
-    const myId = req.user._id;
-    const convs = await DirectMessage.find({ participants: myId })
+    const myId = req.user._id.toString();
+    const convs = await DirectMessage.find({ participants: req.user._id })
       .populate('participants', 'name department role')
       .sort({ updatedAt: -1 });
 
     const result = convs.map(c => {
-      const other = c.participants.find(p => p._id.toString() !== myId.toString());
+      const other = c.participants.find(p => p._id.toString() !== myId);
       const lastMsg = c.messages[c.messages.length - 1];
-      // Count unread: messages from others that came after last message from me
-      const myLastIdx = [...c.messages].reverse().findIndex(m => m.from.toString() === myId.toString());
-      const unread = myLastIdx > 0 ? myLastIdx : (c.messages.filter(m => m.from.toString() !== myId.toString()).length > 0 ? c.messages.filter(m => m.from.toString() !== myId.toString()).length : 0);
+
+      // Count messages from the other person (unread approximation)
+      // messages.from is NOT populated here — it's a raw ObjectId
+      const fromOtherCount = c.messages.filter(m => {
+        const fromId = m.from?._id ? m.from._id.toString() : m.from?.toString();
+        return fromId && fromId !== myId;
+      }).length;
+
+      // Find index (from the end) of the last message I sent
+      const reversedMsgs = [...c.messages].reverse();
+      const myLastIdx = reversedMsgs.findIndex(m => {
+        const fromId = m.from?._id ? m.from._id.toString() : m.from?.toString();
+        return fromId === myId;
+      });
+
+      // Unread = messages from other after my last reply
+      const unread = myLastIdx === -1
+        ? fromOtherCount                // never replied → all from other are unread
+        : myLastIdx;                    // myLastIdx = how many new msgs from other after my last
+
       return {
         conversationId: c._id,
         studentId: other?._id,
@@ -24,7 +41,7 @@ router.get('/conversations', authenticate, async (req, res) => {
         studentDept: other?.department || '',
         lastMessage: lastMsg?.text ? (lastMsg.text.length > 40 ? lastMsg.text.slice(0,40)+'…' : lastMsg.text) : null,
         updatedAt: c.updatedAt,
-        unread: myLastIdx <= 0 ? 0 : myLastIdx,
+        unread: Math.max(0, unread),
       };
     });
     res.json({ conversations: result });

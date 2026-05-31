@@ -755,7 +755,7 @@ export default function ProblemsPage() {
   const [notes] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}'));
   const [submissions] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}'));
   const [xp, setXp] = useState(() => parseInt(localStorage.getItem('pragati_practice_xp') || '0'));
-  const [streak, setStreak] = useState(() => parseInt(localStorage.getItem('pragati_practice_streak') || '1'));
+  const [streak, setStreak] = useState(() => parseInt(localStorage.getItem('pragati_practice_streak') || '0'));
   const [lastSolveDate, setLastSolveDate] = useState(() => localStorage.getItem('pragati_practice_last_solve_date') || '');
   const [heatmap, setHeatmap] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_heatmap') || '{}'));
   const [courseProgress, setCourseProgress] = useState(() => JSON.parse(localStorage.getItem('pragati_course_completed_chapters') || '{}'));
@@ -836,8 +836,8 @@ export default function ProblemsPage() {
     nextSolved.add(problemId);
     setSolved(nextSolved);
 
-    // Refresh everything from the database
-    syncPracticeData();
+    // Wait 800ms for DB write to commit before re-fetching profile/streak
+    setTimeout(() => syncPracticeData(), 800);
   };
 
   const fetchAllProblems = async () => {
