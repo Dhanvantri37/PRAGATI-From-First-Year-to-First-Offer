@@ -1358,10 +1358,204 @@ body.dark .aptitude-quiz-topic-btn.chosen .count-text {
 body.dark .aptitude-quiz-selection-summary {
   background: rgba(138, 62, 230, 0.1);
   color: #cbd5e1;
+  [style*="background-color:rgb(255, 255, 255)"],
+  [style*="background-color: rgb(255, 255, 255)"],
+  [style*="background:rgb(250, 251, 255)"],
+  [style*="background: rgb(250, 251, 255)"],
+  [style*="background-color:rgb(250, 251, 255)"],
+  [style*="background-color: rgb(250, 251, 255)"],
+  [style*="background:rgb(248, 249, 252)"],
+  [style*="background: rgb(248, 249, 252)"],
+  [style*="background-color:rgb(248, 249, 252)"],
+  [style*="background-color: rgb(248, 249, 252)"],
+  [style*="background:rgb(240, 243, 250)"],
+  [style*="background: rgb(240, 243, 250)"],
+  [style*="background-color:rgb(240, 243, 250)"],
+  [style*="background-color: rgb(240, 243, 250)"],
+  [style*="background:#f8faff"],
+  [style*="background: #f8faff"],
+  [style*="background-color:#f8faff"],
+  [style*="background-color: #f8faff"],
+  [style*="background:rgb(248, 250, 255)"],
+  [style*="background: rgb(248, 250, 255)"],
+  [style*="background-color:rgb(248, 250, 255)"],
+  [style*="background-color: rgb(248, 250, 255)"] {
+    background: var(--surface) !important;
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+  }
+
+  /* Specific hovers mapped dynamically */
+  [style*="background:#f8f9ff"],
+  [style*="background: #f8f9ff"],
+  [style*="background:'#f8f9ff'"],
+  [style*="background: '#f8f9ff'"],
+  [style*="rgb(248, 249, 255)"] {
+    background: var(--surface-2) !important;
+    background-color: var(--surface-2) !important;
+  }
+
+  /* Specific premium overrides for light-theme inline light gradients */
+  [style*="linear-gradient(135deg,#fafbff,#f0f3fa)"],
+  [style*="linear-gradient(135deg, #fafbff, #f0f3fa)"],
+  [style*="linear-gradient(150deg,#f8f9ff,#f0eeff,#e8fdfd)"],
+  [style*="linear-gradient(150deg, #f8f9ff, #f0eeff, #e8fdfd)"] {
+    background: var(--grad-subtle) !important;
+  }
+
+  /* Map translucent highlights to dark equivalents */
+  [style*="background:rgba(83,22,151,0.04)"],
+  [style*="background: rgba(83,22,151,0.04)"],
+  [style*="background:'rgba(83,22,151,0.04)'"],
+  [style*="background: 'rgba(83,22,151,0.04)'"],
+  [style*="background:rgba(83,22,151,0.05)"],
+  [style*="background: rgba(83,22,151,0.05)"],
+  [style*="background:rgba(19,161,165,0.04)"],
+  [style*="background: rgba(19,161,165,0.04)"],
+  [style*="background:rgba(19,161,165,0.05)"],
+  [style*="background: rgba(19,161,165,0.05)"] {
+    background: rgba(167, 139, 250, 0.08) !important;
+    border-color: rgba(167, 139, 250, 0.25) !important;
+  }
+
+  /* Hardcoded border overrides */
+  [style*="border: '1px solid #e8edf5'"],
+  [style*="border:'1px solid #e8edf5'"],
+  [style*="border: '1.5px solid #d0d7e8'"],
+  [style*="border:'1.5px solid #d0d7e8'"],
+  [style*="border: '1px solid #d0d7e8'"],
+  [style*="border:'1px solid #d0d7e8'"],
+  [style*="border: '1px solid #e4e8f0'"],
+  [style*="border:'1px solid #e4e8f0'"],
+  [style*="border: '1px solid #eef1f8'"],
+  [style*="border:'1px solid #eef1f8'"],
+  [style*="border: '1px solid #f0f3fa'"],
+  [style*="border:'1px solid #f0f3fa'"],
+  [style*="border-color: '#e8edf5'"],
+  [style*="border-color:'#e8edf5'"],
+  [style*="border-color: '#d0d7e8'"],
+  [style*="border-color:'#d0d7e8'"],
+  [style*="#e8edf5"],
+  [style*="#d0d7e8"],
+  [style*="#eef1f8"],
+  [style*="#f0f3fa"] {
+    border-color: var(--border) !important;
+  }
+
+  /* Force highly readable light colors on text elements with hardcoded dark colors */
+  [style*="color:#531697"],
+  [style*="color: #531697"],
+  [style*="color:'#531697'"],
+  [style*="color: '#531697'"],
+  [style*="color: rgb(83, 22, 151)"],
+  [style*="color:rgb(83,22,151)"] {
+    color: #c084fc !important; /* Premium light purple for high readability */
+  }
+
+  [style*="color:#042c5d"],
+  [style*="color: #042c5d"],
+  [style*="color:'#042c5d'"],
+  [style*="color: '#042c5d'"],
+  [style*="color: rgb(4, 44, 93)"],
+  [style*="color:rgb(4,44,93)"] {
+    color: #60a5fa !important; /* Premium light blue/teal for readability */
+  }
+
+  [style*="color:#0d7a7e"],
+  [style*="color: #0d7a7e"],
+  [style*="color:'#0d7a7e'"],
+  [style*="color: '#0d7a7e'"],
+  [style*="color: rgb(13, 122, 126)"],
+  [style*="color:rgb(13,122,126)"] {
+    color: #2dd4bf !important; /* Premium light teal for readability */
+  }
+
+  [style*="color:#b0bec9"],
+  [style*="color: #b0bec9"],
+  [style*="color:'#b0bec9'"],
+  [style*="color: '#b0bec9'"] {
+    color: var(--text-3) !important;
+  }
+}
+
+/* ── Aptitude Quiz Topic Buttons ── */
+.aptitude-quiz-topic-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.82rem;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.aptitude-quiz-topic-btn:hover {
+  border-color: var(--teal);
+  background: var(--surface-2);
+}
+
+.aptitude-quiz-topic-btn.chosen {
+  border-color: var(--purple-light);
+  background: rgba(83, 22, 151, 0.08);
+  color: var(--purple-light);
+}
+
+.aptitude-quiz-topic-btn .count-text {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.aptitude-quiz-topic-btn.chosen .count-text {
+  color: var(--purple-light);
+}
+
+/* Dark mode overrides for Aptitude Quiz Topic Buttons */
+body.dark .aptitude-quiz-topic-btn {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+body.dark .aptitude-quiz-topic-btn:hover {
+  border-color: var(--teal);
+  background: var(--surface);
+}
+
+body.dark .aptitude-quiz-topic-btn.chosen {
+  border-color: var(--purple-light);
+  background: rgba(138, 62, 230, 0.15);
+  color: #c084fc;
+}
+
+body.dark .aptitude-quiz-topic-btn.chosen .count-text {
+  color: #c084fc;
+}
+
+/* Quiz Selection Summary */
+.aptitude-quiz-selection-summary {
+  padding: 10px 14px;
+  background: rgba(83, 22, 151, 0.04);
+  border-radius: 9px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: var(--purple);
+  font-weight: 600;
+  border: 1.5px solid rgba(83, 22, 151, 0.1);
+}
+
+body.dark .aptitude-quiz-selection-summary {
+  background: rgba(138, 62, 230, 0.1);
+  color: #cbd5e1;
   border-color: rgba(138, 62, 230, 0.25);
 }
-. w o r k s p a c e - s p l i t   {   f l e x :   1 ;   d i s p l a y :   f l e x ;   o v e r f l o w :   h i d d e n ;   f l e x - d i r e c t i o n :   r o w ;   }   @ m e d i a   ( m a x - w i d t h :   7 6 8 p x )   {   . w o r k s p a c e - s p l i t   {   f l e x - d i r e c t i o n :   c o l u m n   ! i m p o r t a n t ;   }   }  
- 
+
 .workspace-split { flex: 1; display: flex; overflow: hidden; flex-direction: row; }
 @media (max-width: 768px) {
   .workspace-split { flex-direction: column !important; }

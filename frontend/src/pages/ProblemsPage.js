@@ -12,6 +12,7 @@ import {
   getProblemStatement
 } from './practice/PracticeData';
 import { A2Z_SHEET_PROBLEMS } from './practice/A2ZSheetData';
+import CalendarHeatmap from '../components/CalendarHeatmap';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization:`Bearer ${localStorage.getItem('pragati_token')}` });
@@ -723,7 +724,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
   );
 }
 
-import CalendarHeatmap from '../components/CalendarHeatmap';
+
 
 export default function ProblemsPage() {
   const { setUser } = useAuth();
