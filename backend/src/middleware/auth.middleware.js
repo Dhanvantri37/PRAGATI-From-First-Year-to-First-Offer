@@ -16,6 +16,8 @@ const generateTokens = (userId, role) => {
   return { accessToken, refreshToken };
 };
 
+const { getDecayedStreak } = require('../utils/streakHelper');
+
 // Middleware: verify access token
 const authenticate = async (req, res, next) => {
   const header = req.headers.authorization;
@@ -30,6 +32,16 @@ const authenticate = async (req, res, next) => {
     if (!user || !user.isActive) {
       return res.status(401).json({ error: 'User not found or deactivated' });
     }
+
+    // Auto-decay streak if needed
+    if (user.role === 'student' && user.streak > 0 && user.lastSolvedDate) {
+      const decayed = getDecayedStreak(user);
+      if (decayed !== user.streak) {
+        user.streak = decayed;
+        await User.findByIdAndUpdate(user._id, { streak: decayed });
+      }
+    }
+
     req.user = user;
     next();
   } catch (err) {

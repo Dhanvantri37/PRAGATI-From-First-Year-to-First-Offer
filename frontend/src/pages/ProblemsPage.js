@@ -1478,8 +1478,8 @@ export default function ProblemsPage() {
               <div style={{ color:'var(--text-3)', fontSize:'.82rem' }}>Fetching LeetCode problems list...</div>
             </div>
           ) : (
-            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, overflow:'hidden' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', textAlign:'left', fontSize:'.85rem' }}>
+            <div style={{ background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:16, overflowX:'auto' }}>
+              <table style={{ width:'100%', minWidth:'700px', borderCollapse:'collapse', textAlign:'left', fontSize:'.85rem' }}>
                 <thead>
                   <tr style={{ borderBottom:'1px solid var(--border)', background:'rgba(255,255,255,0.02)' }}>
                     <th style={{ padding:'12px 16px', color:'var(--text-3)', fontWeight:800 }}>ID</th>
@@ -1524,12 +1524,14 @@ export default function ProblemsPage() {
                               <td style={{ padding:'12px 16px', color:'var(--text-2)' }}>{p.topic}</td>
                               <td style={{ padding:'12px 16px', color:'var(--text-3)' }}>{p.acceptanceRate ? `${p.acceptanceRate}%` : 'N/A'}</td>
                               <td style={{ padding:'12px 16px' }}>
-                                <button onClick={() => setActiveWorkspaceProblem({ ...p, id: p._id || p.id })} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer' }}>
-                                  Solve →
-                                </button>
-                                <a href={p.leetcode_url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:8, padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#13a1a5,#531697)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer', textDecoration:'none' }}>
-                                  LeetCode
-                                </a>
+                                <div style={{ display:'flex', gap:6, flexWrap:'wrap', minWidth:'160px' }}>
+                                  <button onClick={() => setActiveWorkspaceProblem({ ...p, id: p._id || p.id })} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                    Solve →
+                                  </button>
+                                  <a href={p.url || `https://leetcode.com/problems/${(p.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}/`} target="_blank" rel="noopener noreferrer" style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#13a1a5,#531697)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
+                                    LeetCode
+                                  </a>
+                                </div>
                               </td>
                             </tr>
                           );

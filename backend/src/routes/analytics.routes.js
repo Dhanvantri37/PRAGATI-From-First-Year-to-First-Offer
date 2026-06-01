@@ -3,6 +3,7 @@ const User = require('../models/User.model');
 const Note = require('../models/Note.model');
 const { UserProblem, SkillpathResult, Discussion, Company, AptitudeQuestion, AptitudeAttempt } = require('../models/index');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { getDecayedStreak } = require('../utils/streakHelper');
 
 // GET /api/analytics/dashboard — student personal stats
 router.get('/dashboard', authenticate, async (req, res) => {
@@ -16,6 +17,9 @@ router.get('/dashboard', authenticate, async (req, res) => {
     ]);
     const problems = { solved: 0, assigned: 0, attempted: 0 };
     problemStats.forEach(s => { problems[s._id] = s.count; });
+    if (freshUser && freshUser.streak > 0 && freshUser.lastSolvedDate) {
+      freshUser.streak = getDecayedStreak(freshUser);
+    }
     res.json({ user: freshUser || {}, problems, doubtsPosted: doubtStats, latestAnalysis: latestAnalysis || null });
   } catch (err) {
     console.error('Dashboard Error:', err);
@@ -331,7 +335,7 @@ router.get('/leaderboard', authenticate, async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 200, 500);
 
     const students = await User.find({ role:'student', isActive:true })
-      .select('name department year skillLevel streak atsScore totalProblemsSolved linkedinUrl githubUrl portfolioUrl rollNumber createdAt lastLoginAt');
+      .select('name department year skillLevel streak lastSolvedDate atsScore totalProblemsSolved linkedinUrl githubUrl portfolioUrl rollNumber createdAt lastLoginAt');
 
     // Fetch all activity in parallel
     const [aptStats, problemStats, discussionStats, skillpathStats, attemptDates, problemDates] = await Promise.all([
@@ -401,7 +405,8 @@ router.get('/leaderboard', authenticate, async (req, res) => {
       const codingScore  = Math.min(100, Math.round((prb.solved || 0) * 5));
 
       // 3. Activity score (25%) — streak + ats + discussions + skillpath
-      const streakScore  = Math.min(40, (s.streak || 0) * 2);
+      const actualStreak = getDecayedStreak(s);
+      const streakScore  = Math.min(40, actualStreak * 2);
       const atsFromSP    = sp?.atsScore || s.atsScore || 0;
       const atsScore     = Math.min(40, atsFromSP * 0.4);
       const discScore    = Math.min(10, (dsc.count || 0) * 2);
@@ -414,7 +419,7 @@ router.get('/leaderboard', authenticate, async (req, res) => {
         _id: s._id, name: s.name, department: s.department, year: s.year,
         rollNumber: s.rollNumber, skillLevel: s.skillLevel,
         aptScore, codingProblems: prb.solved || 0,
-        streak: s.streak || 0, atsScore: atsFromSP,
+        streak: actualStreak, atsScore: atsFromSP,
         totalAptAttempts: apt.total, aptTopics: apt.topicsAttempted?.length || 0,
         discussions: dsc.count || 0, hasSkillPath: !!sp,
         linkedinUrl: s.linkedinUrl, githubUrl: s.githubUrl, portfolioUrl: s.portfolioUrl,
@@ -424,7 +429,7 @@ router.get('/leaderboard', authenticate, async (req, res) => {
         scoreBreakdown: {
           aptitude:  `${aptScore}/100 (${apt.total} attempts, ${Math.round(aptAccuracy)}% accuracy)`,
           coding:    `${codingScore}/100 (${prb.solved} problems solved)`,
-          activity:  `${actScore}/100 (streak:${s.streak||0}, ATS:${atsFromSP}, discussions:${dsc.count||0})`,
+          activity:  `${actScore}/100 (streak:${actualStreak}, ATS:${atsFromSP}, discussions:${dsc.count||0})`,
           total:     `${totalScore} = apt(${Math.round(aptScore*0.4)}) + code(${Math.round(codingScore*0.35)}) + activity(${Math.round(actScore*0.25)})`
         }
       };
@@ -442,6 +447,9 @@ router.get('/my-profile', authenticate, async (req, res) => {
     const { AptitudeAttempt, UserProblem, Discussion, SkillpathResult } = require('../models/index');
     const student = await User.findById(req.user._id).select('-password');
     if (!student) return res.status(404).json({ error:'User not found' });
+    if (student && student.streak > 0 && student.lastSolvedDate) {
+      student.streak = getDecayedStreak(student);
+    }
 
     const [aptStats, codingStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups] = await Promise.all([
       AptitudeAttempt.aggregate([
@@ -514,6 +522,9 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
 
     const student = await User.findById(req.params.id).select('-password');
     if (!student) return res.status(404).json({ error:'Student not found' });
+    if (student && student.streak > 0 && student.lastSolvedDate) {
+      student.streak = getDecayedStreak(student);
+    }
 
     const [aptStats, codingStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups] = await Promise.all([
       AptitudeAttempt.aggregate([

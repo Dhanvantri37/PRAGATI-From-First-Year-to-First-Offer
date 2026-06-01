@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { Problem, UserProblem } = require('../models/index');
 const User = require('../models/User.model');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { getDecayedStreak } = require('../utils/streakHelper');
 
 const DIFFICULTY_MAP = { Beginner:'Easy', Intermediate:'Medium', Expert:'Hard' };
 const LOWER_DIFF     = { Hard:'Medium', Medium:'Easy', Easy:'Easy' };
@@ -218,24 +219,21 @@ router.post('/:id/solve', authenticate, async (req, res) => {
       });
     }
 
-    // ── Streak logic (original, local-day based) ──────────────────────────────
+    // ── Streak logic (decaying streak calculation) ──────────────────────────────
     const user      = await User.findById(req.user._id);
-    // ── Streak Calculation (IST Timezone) ──
     const todayStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: 'numeric', month: 'numeric', day: 'numeric' });
     const lastSolvedStr = user.lastSolvedDate ? new Date(user.lastSolvedDate).toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: 'numeric', month: 'numeric', day: 'numeric' }) : null;
-    
-    const istNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-    istNow.setDate(istNow.getDate() - 1);
-    const yesterdayStr = istNow.toLocaleString("en-US", { year: 'numeric', month: 'numeric', day: 'numeric' });
 
     let newStreak = 1;
     if (lastSolvedStr) {
+      const decayed = getDecayedStreak(user);
       if (todayStr === lastSolvedStr) {
-        newStreak = Math.max(user.streak || 1, 1); // already solved today
-      } else if (yesterdayStr === lastSolvedStr) {
-        newStreak = (user.streak || 0) + 1;        // consecutive day
+        newStreak = Math.max(decayed, 1); // already solved today
+      } else {
+        newStreak = decayed + 1;         // consecutive day or decayed day + 1
       }
-      // else gap > 1 day -> reset to 1
+    } else {
+      newStreak = 1;
     }
 
     await User.findByIdAndUpdate(req.user._id, {
