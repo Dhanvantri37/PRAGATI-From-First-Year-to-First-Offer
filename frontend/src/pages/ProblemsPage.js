@@ -428,7 +428,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
       </header>
 
       {/* Workspace split columns */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden', flexDirection:window.innerWidth < 768 ? 'column' : 'row' }}>
+      <div className="workspace-split">
         {/* Left Side: Problem Details & Solution Video Embed */}
         <div style={{ flex:1, borderRight:'1px solid #1f2937', display:'flex', flexDirection:'column', overflow:'hidden', background:'#0b0f19' }}>
           {/* Tabs bar */}
@@ -1526,6 +1526,9 @@ export default function ProblemsPage() {
                                 <button onClick={() => setActiveWorkspaceProblem({ ...p, id: p._id || p.id })} style={{ padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer' }}>
                                   Solve →
                                 </button>
+                                <a href={p.leetcode_url} target="_blank" rel="noopener noreferrer" style={{ marginLeft:8, padding:'5px 12px', borderRadius:6, background:'linear-gradient(135deg,#13a1a5,#531697)', color:'#fff', border:'none', fontSize:'.72rem', fontWeight:800, cursor:'pointer', textDecoration:'none' }}>
+                                  LeetCode
+                                </a>
                               </td>
                             </tr>
                           );

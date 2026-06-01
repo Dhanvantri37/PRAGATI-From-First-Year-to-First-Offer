@@ -122,7 +122,8 @@ services:
     environment:
       PORT: 5000
       NODE_ENV: production
-      MONGODB_URI: "mongodb://${MONGO_USER:-pragati}:${MONGO_PASS:-pragati_secret}@mongo:27017/pragati?authSource=admin"
+      # Use MONGO_URI from .env (for Atlas) or fallback to local docker mongo
+      MONGODB_URI: "${MONGO_URI:-mongodb://${MONGO_USER:-pragati}:${MONGO_PASS:-pragati_secret}@mongo:27017/pragati?authSource=admin}"
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_EXPIRES_IN: 15m

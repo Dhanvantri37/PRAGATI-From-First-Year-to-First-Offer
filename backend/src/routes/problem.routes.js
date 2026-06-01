@@ -220,16 +220,22 @@ router.post('/:id/solve', authenticate, async (req, res) => {
 
     // ── Streak logic (original, local-day based) ──────────────────────────────
     const user      = await User.findById(req.user._id);
-    const today     = todayLocal();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    // ── Streak Calculation (IST Timezone) ──
+    const todayStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: 'numeric', month: 'numeric', day: 'numeric' });
+    const lastSolvedStr = user.lastSolvedDate ? new Date(user.lastSolvedDate).toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: 'numeric', month: 'numeric', day: 'numeric' }) : null;
+    
+    const istNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    istNow.setDate(istNow.getDate() - 1);
+    const yesterdayStr = istNow.toLocaleString("en-US", { year: 'numeric', month: 'numeric', day: 'numeric' });
 
-    const lastSolved = user.lastSolvedDate ? new Date(user.lastSolvedDate) : null;
     let newStreak = 1;
-    if (lastSolved) {
-      if (isSameLocalDay(lastSolved, today))     newStreak = user.streak;           // already solved today
-      else if (isSameLocalDay(lastSolved, yesterday)) newStreak = (user.streak || 0) + 1; // consecutive day
-      // else: gap > 1 day → reset to 1
+    if (lastSolvedStr) {
+      if (todayStr === lastSolvedStr) {
+        newStreak = Math.max(user.streak || 1, 1); // already solved today
+      } else if (yesterdayStr === lastSolvedStr) {
+        newStreak = (user.streak || 0) + 1;        // consecutive day
+      }
+      // else gap > 1 day -> reset to 1
     }
 
     await User.findByIdAndUpdate(req.user._id, {

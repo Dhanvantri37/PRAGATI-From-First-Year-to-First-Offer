@@ -12,7 +12,11 @@ const mongoose = require('mongoose');
 
 // ── Smart connection builder ───────────────────────────────────────────────
 function buildMongoURI() {
+  // Prefer the full connection string if provided.
   if (process.env.MONGODB_URI) return process.env.MONGODB_URI;
+  // New fallback – use the generic MONGO_URI variable (commonly set for Atlas).
+  if (process.env.MONGO_URI) return process.env.MONGO_URI;
+  // Legacy construction using individual components.
   const user = process.env.MONGO_USER || 'pragati';
   const pass = process.env.MONGO_PASS || 'pragati_secret';
   const host = process.env.MONGO_HOST || 'localhost';
@@ -152,10 +156,6 @@ async function seedProblems() {
     console.log('✅ MongoDB connected\n');
   } catch (err) {
     console.error('❌ Could not connect to MongoDB:', err.message);
-    console.error('\n💡 Troubleshooting:');
-    console.error('   1. Is MongoDB running?  →  docker-compose up mongo');
-    console.error('   2. Check your .env file has MONGODB_URI set correctly');
-    console.error('   3. If running locally without auth, set: MONGODB_URI=mongodb://localhost:27017/pragati');
     process.exit(1);
   }
 
@@ -164,15 +164,60 @@ async function seedProblems() {
   if (del.deletedCount > 0) console.log(`🗑️  Removed ${del.deletedCount} placeholder problems`);
 
   let added = 0, updated = 0;
-  for (const p of LEETCODE_PROBLEMS) {
-    const existing = await Problem.findOne({ source: 'LeetCode', problemId: p.problemId });
+  
+  // Combine internal LEETCODE_PROBLEMS with external JSON if exists
+  let allProblems = [...LEETCODE_PROBLEMS];
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const externalFile = path.join(__dirname, 'neetcode250.json');
+    if (fs.existsSync(externalFile)) {
+      const rawData = JSON.parse(fs.readFileSync(externalFile, 'utf8'));
+      const extData = Array.isArray(rawData) ? rawData : rawData.problems;
+      console.log(`📦 Loaded ${extData.length} problems from neetcode250.json`);
+      // Standardize the schema of external problems
+      extData.forEach(p => {
+        allProblems.push({
+          title: p.title || p.problem,
+          source: 'LeetCode',
+          problemId: p.problemId || p.id || String(Math.floor(Math.random() * 10000)),
+          // Prefer explicit leetcode_url, then generic link, then fallback slug
+          url: p.leetcode_url || p.url || p.link || `https://leetcode.com/problems/${(p.title || p.problem || '').toLowerCase().replace(/ /g, '-')}`,
+          difficulty: p.difficulty,
+          // Use topics array if present; fallback to existing fields
+          topic: Array.isArray(p.topics) ? p.topics.join(', ') : (p.topic || p.pattern || 'Algorithms'),
+          // Use tags if present; otherwise reuse topics as tags
+          tags: Array.isArray(p.tags) ? p.tags : (Array.isArray(p.topics) ? p.topics : [p.pattern || 'Algorithms']),
+          description: p.description || 'No description provided.',
+          constraints: p.constraints || '',
+          companies: p.companies || []
+        });
+      });
+    }
+  } catch(e) {
+    console.log("⚠️ Could not load or parse neetcode250.json, continuing with default list.");
+  }
+
+  // Deduplicate by title to ensure NO repeated problems
+  const uniqueProblemsMap = new Map();
+  allProblems.forEach(p => uniqueProblemsMap.set(p.title.trim().toLowerCase(), p));
+  const uniqueProblems = Array.from(uniqueProblemsMap.values());
+
+  for (const p of uniqueProblems) {
+    const existing = await Problem.findOne({ 
+      $or: [
+        { source: 'LeetCode', problemId: p.problemId },
+        { title: { $regex: new RegExp(`^${p.title}$`, 'i') } }
+      ]
+    });
+    
     if (!existing) {
       await Problem.create(p);
       added++;
     } else {
       await Problem.findByIdAndUpdate(existing._id, {
         url: p.url, description: p.description, constraints: p.constraints,
-        tags: p.tags, companies: p.companies, topic: p.topic,
+        tags: p.tags, companies: p.companies, topic: p.topic, difficulty: p.difficulty
       });
       updated++;
     }

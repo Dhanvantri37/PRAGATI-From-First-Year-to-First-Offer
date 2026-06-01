@@ -1360,3 +1360,9 @@ body.dark .aptitude-quiz-selection-summary {
   color: #cbd5e1;
   border-color: rgba(138, 62, 230, 0.25);
 }
+. w o r k s p a c e - s p l i t   {   f l e x :   1 ;   d i s p l a y :   f l e x ;   o v e r f l o w :   h i d d e n ;   f l e x - d i r e c t i o n :   r o w ;   }   @ m e d i a   ( m a x - w i d t h :   7 6 8 p x )   {   . w o r k s p a c e - s p l i t   {   f l e x - d i r e c t i o n :   c o l u m n   ! i m p o r t a n t ;   }   }  
+ 
+.workspace-split { flex: 1; display: flex; overflow: hidden; flex-direction: row; }
+@media (max-width: 768px) {
+  .workspace-split { flex-direction: column !important; }
+}
