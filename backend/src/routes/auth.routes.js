@@ -88,9 +88,9 @@ router.post('/forgot-password', async (req, res) => {
     </div>`;
 
     await sendEmail(user.email, subject, text, html);
-    res.json({ message: 'If an account exists, a temporary password has been sent.' });
+    console.log('✅ Forgot‑password email dispatched to', user.email);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to process request: ' + err.message });
+    res.status(500).json({ error: 'Failed to process request' });
   }
 });
 
