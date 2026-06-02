@@ -2,6 +2,7 @@ const router = require('express').Router();
 const axios  = require('axios');
 const FormData = require('form-data');
 const cloudinary = require('cloudinary').v2;
+const { ensureValidJson } = require('../utils/aiGuard');
 const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const { SkillpathResult } = require('../models/index');
@@ -67,13 +68,7 @@ async function callAI(prompt, maxTokens = 1500) {
   return null; // both failed or no keys
 }
 
-function parseJSON(text) {
-  if (!text) return null;
-  try {
-    const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(clean);
-  } catch { return null; }
-}
+// Removed local parseJSON; using ensureValidJson from aiGuard utility
 
 // ── POST /api/skillpath/analyze ───────────────────────────────────────────────
 router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1 }, { name:'jdFile', maxCount:1 }]), async (req, res) => {
@@ -110,7 +105,7 @@ router.post('/analyze', authenticate, upload.fields([{ name:'resume', maxCount:1
     if (!resumeUrl) return res.status(400).json({ error: 'No resume found. Upload your resume (PDF).' });
 
     // ── NATIVE AI PIPELINE (Primary) ──
-    let mlData = null;
+    let mlData = null; let nativeFailCount = 0;
     try {
       if (!resumeBufferToParse) {
         const resumeResp = await axios.get(resumeUrl, { responseType: 'arraybuffer', timeout: 30000 });
@@ -181,10 +176,11 @@ Return ONLY valid JSON exactly matching this structure:
 }`;
 
       const rawJson = await callAI(prompt, 3000);
-      const parsed = parseJSON(rawJson);
+      const parsed = ensureValidJson(rawJson);
       
       if (parsed && typeof parsed.ats_score === 'number') {
         mlData = parsed;
+        nativeFailCount = 0; // reset on success
         // Inject the locally extracted personal info back into the profile for the frontend
         mlData.candidate_profile = { ...mlData.candidate_profile, ...candidateProfile };
         
@@ -195,10 +191,24 @@ Return ONLY valid JSON exactly matching this structure:
           if(Array.isArray(arr)) arr.forEach(s => mlData.parsed_skills.push(s.name));
         });
       } else {
+        nativeFailCount++;
         console.warn('[SkillPath] Native AI failed to return valid JSON, falling back to ML service');
+        if (nativeFailCount >= 5) {
+          console.warn('[SkillPath] Too many native AI failures, aborting to avoid overload');
+        }
       }
     } catch (err) {
+      nativeFailCount++;
       console.warn('[SkillPath] Native AI pipeline error:', err.message);
+      if (nativeFailCount >= 5) {
+        console.warn('[SkillPath] Native AI repeatedly failing, aborting further attempts');
+      }
+    }
+
+    // If native AI has failed repeatedly, skip ML service to avoid overload
+    if (nativeFailCount >= 5 && !mlData) {
+      console.warn('[SkillPath] Skipping ML service due to repeated native AI failures');
+      return res.status(500).json({ error: 'AI analysis failed repeatedly. Please try again later.' });
     }
 
     // ── FALLBACK TO ML SERVICE ──
@@ -326,7 +336,7 @@ Generate a comprehensive interview preparation guide. Return ONLY valid JSON (no
 Rules: 5 technical questions, 4 behavioral questions, 3 gap questions, 4 quick wins. Specific to Indian campus placements.`;
 
     const raw = await callAI(prompt, 1800);
-    const parsed = parseJSON(raw);
+    const parsed = ensureValidJson(raw);
     if (parsed) return res.json(parsed);
 
     // High-quality mock fallback
@@ -441,7 +451,7 @@ Return ONLY valid JSON (no markdown):
 {"explanation":"2-3 sentence clear explanation for a campus interview context","practice_questions":["3 interview questions about ${topic}"],"resources":["2 specific free resource URLs or names"],"quick_prep":"One sentence on how to answer ${topic} questions in an interview"}`;
 
     const raw = await callAI(prompt, 600);
-    const parsed = parseJSON(raw);
+    const parsed = ensureValidJson(raw);
     if (parsed) return res.json(parsed);
 
     res.json({
@@ -544,7 +554,7 @@ router.post('/dynamic-interview', authenticate, async (req, res) => {
     if (!lastAnswer?.trim()) return res.status(400).json({ error: 'lastAnswer required' });
 
     const raw    = await callAI(prompt || `Interview answer: "${lastAnswer}". Give feedback and a follow-up question. JSON: {"feedback":"...","nextQuestion":"...","confidence":7,"keyMissing":""}`, 400);
-    const parsed = parseJSON(raw);
+    const parsed = ensureValidJson(raw);
     if (parsed?.feedback) return res.json(parsed);
 
     // Robust local fallback with tech detection
