@@ -18,7 +18,7 @@ cloudinary.config({
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ── AI Provider: Groq (primary, free) → Gemini (fallback) ─────────────────────
-// Groq models: llama-3.1-8b-instant (fast, free), mixtral-8x7b-32768 (better)
+// Groq models: openai/gpt-oss-20b (fast, free) — replaces deprecated llama-3.1-8b-instant
 // Gemini: gemini-2.0-flash (free 15 req/min, 1M tokens/day)
 async function callAI(prompt, maxTokens = 1500) {
   const GROQ_KEY   = process.env.GROQ_API_KEY;
@@ -29,7 +29,7 @@ async function callAI(prompt, maxTokens = 1500) {
     try {
       const resp = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: prompt }],
+        { model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: prompt }],
           max_tokens: maxTokens, temperature: 0.7 },
         { headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' }, timeout: 25000 }
       );
@@ -290,7 +290,7 @@ router.get('/ai-status', authenticate, async (req, res) => {
   if (groqKey) {
     try {
       const r = await axios.post('https://api.groq.com/openai/v1/chat/completions',
-        { model:'llama-3.1-8b-instant', messages:[{role:'user',content:'Say OK'}], max_tokens:5 },
+        { model:'openai/gpt-oss-20b', messages:[{role:'user',content:'Say OK'}], max_tokens:5 },
         { headers:{ Authorization:`Bearer ${groqKey}`, 'Content-Type':'application/json' }, timeout:10000 });
       result.groq.working = !!r.data?.choices?.[0]?.message?.content;
     } catch(e) { result.groq.error = e.response?.data?.error?.message||e.message; }
@@ -303,7 +303,7 @@ router.get('/ai-status', authenticate, async (req, res) => {
       result.gemini.working = !!r.data?.candidates?.[0]?.content?.parts?.[0]?.text;
     } catch(e) { result.gemini.error = e.response?.data?.error?.message||e.message; }
   }
-  result.activeProvider = result.groq.working ? 'Groq (llama-3.1-8b-instant)' : result.gemini.working ? 'Gemini 2.0 Flash' : 'None (using mock data)';
+  result.activeProvider = result.groq.working ? 'Groq (openai/gpt-oss-20b)' : result.gemini.working ? 'Gemini 2.0 Flash' : 'None (using mock data)';
   res.json(result);
 });
 

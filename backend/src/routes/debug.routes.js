@@ -20,7 +20,7 @@ async function callGroq(prompt, retries = 2) {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model:       'llama-3.1-8b-instant',   // fast + free (14,400 req/day)
+          model:       'openai/gpt-oss-20b',     // fast + free — replaces deprecated llama-3.1-8b-instant
           messages:    [{ role: 'user', content: prompt }],
           max_tokens:  4096,
           temperature: 0.0,
