@@ -664,15 +664,16 @@ function StudentDash() {
   });
   const updateActivityData = (d) => {
     if (!d) return;
-    // Only update if new data has better (non-zero) problem stats, to avoid overwriting good cache with stale zeros
     setMyActivityData(prev => {
       const prevSolved = (prev?.problemStats?.easy||0) + (prev?.problemStats?.medium||0) + (prev?.problemStats?.hard||0);
       const newSolved  = (d?.problemStats?.easy||0)   + (d?.problemStats?.medium||0)   + (d?.problemStats?.hard||0);
       const merged = { ...d };
-      if (newSolved === 0 && prevSolved > 0) {
-        // Backend returned zeros (may be stale) — keep previous good stats but update heatmap
+      
+      // If new solved count is 0 or less than what we already verified/cached, keep the higher numbers
+      if (newSolved < prevSolved && prevSolved > 0) {
         merged.problemStats = prev.problemStats;
       }
+      
       try { localStorage.setItem('pragati_activity_cache', JSON.stringify(merged)); } catch {}
       return merged;
     });

@@ -547,7 +547,7 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
       student.streak = getDecayedStreak(student);
     }
 
-    const [aptStats, codingStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups] = await Promise.all([
+    const [aptStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups, solvedUPs] = await Promise.all([
       AptitudeAttempt.aggregate([
         { $match:{ userId: student._id } },
         { $group:{ _id:'$topic', total:{$sum:1}, correct:{$sum:{$cond:['$correct',1,0]}},
@@ -555,18 +555,6 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
         { $project:{ topic:'$_id', total:1, correct:1, lastAttempt:1,
             accuracy:{ $round:[{ $multiply:[{ $divide:['$correct',{ $cond:[{$eq:['$total',0]},1,'$total'] }] },100] },1] } }},
         { $sort:{ total:-1 } }
-      ]),
-      UserProblem.aggregate([
-        { $match:{ userId: student._id } },
-        { $lookup:{ from:'problems', localField:'problemId', foreignField:'_id', as:'p' } },
-        { $unwind:{ path:'$p', preserveNullAndEmptyArrays:true } },
-        { $group:{ _id:'$p.topic', total:{$sum:1},
-            solved:{$sum:{$cond:[{$eq:['$status','solved']},1,0]}},
-            easy:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Easy']}]},1,0]}},
-            medium:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Medium']}]},1,0]}},
-            hard:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Hard']}]},1,0]}}
-        }},
-        { $project:{ topic:'$_id', total:1, solved:1, easy:1, medium:1, hard:1 } }
       ]),
       (isFacultyOrAdmin || isOwnProfile)
         ? AptitudeAttempt.find({ userId: student._id }).sort({ attemptedAt:-1 }).limit(20).populate('questionId','question topic difficulty')
@@ -582,14 +570,45 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
         { $match:{ userId: student._id, status: 'solved', updatedAt: { $type: 'date' } } },
         { $group:{ _id:{ $dateToString:{ format:'%Y-%m-%d', date:'$updatedAt' } }, count:{ $sum:1 } } },
         { $sort:{ _id:1 } }
-      ])
+      ]),
+      UserProblem.find({ userId: student._id, status: 'solved' }).select('problemId').lean()
     ]);
+
+    // Cast-safe difficulty lookup: separate ObjectIds from string IDs (like "nc-101")
+    const mongoose = require('mongoose');
+    const solvedObjIds = [], solvedStrIds = [];
+    solvedUPs.forEach(up => {
+      const id = up.problemId;
+      if (!id) return;
+      const s = String(id);
+      if (mongoose.Types.ObjectId.isValid(s) && s.length === 24) solvedObjIds.push(id);
+      else solvedStrIds.push(s);
+    });
+    const { Problem: ProbModel } = require('../models/index');
+    const [diffByObj, diffByStr] = await Promise.all([
+      solvedObjIds.length ? ProbModel.find({ _id: { $in: solvedObjIds } }).select('difficulty topic').lean() : [],
+      solvedStrIds.length ? ProbModel.find({ problemId: { $in: solvedStrIds } }).select('difficulty topic').lean() : [],
+    ]);
+    const allSolvedProbs = [...diffByObj, ...diffByStr];
+    const easyS  = allSolvedProbs.filter(p => p.difficulty === 'Easy').length;
+    const medS   = allSolvedProbs.filter(p => p.difficulty === 'Medium').length;
+    const hardS  = allSolvedProbs.filter(p => p.difficulty === 'Hard').length;
+
+    // Build codingStats by topic (backward compat)
+    const topicMap = {};
+    allSolvedProbs.forEach(p => {
+      const t = p.topic || 'General';
+      if (!topicMap[t]) topicMap[t] = { topic:t, total:0, solved:0, easy:0, medium:0, hard:0 };
+      topicMap[t].solved++; topicMap[t].total++;
+      if (p.difficulty==='Easy') topicMap[t].easy++;
+      else if (p.difficulty==='Medium') topicMap[t].medium++;
+      else if (p.difficulty==='Hard') topicMap[t].hard++;
+    });
+    const codingStats = Object.values(topicMap);
 
     const totalApt   = await AptitudeAttempt.countDocuments({ userId: student._id });
     const correctApt = await AptitudeAttempt.countDocuments({ userId: student._id, correct:true });
-    const easyS  = codingStats.reduce((a,c)=>a+(c.easy||0),0);
-    const medS   = codingStats.reduce((a,c)=>a+(c.medium||0),0);
-    const hardS  = codingStats.reduce((a,c)=>a+(c.hard||0),0);
+
     const contestRatings = skillpathResults.map(r=>({
       rating: Math.max(1200, Math.round((r.atsScore||0)*8+1200)), date: r.analyzedAt
     })).reverse();
