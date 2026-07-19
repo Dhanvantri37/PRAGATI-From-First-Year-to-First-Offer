@@ -5,7 +5,11 @@ const path = require('path');
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://Pragati_MongoDBAtlas:PragatiMongo2026AIML@cluster0.vze4vjq.mongodb.net/pragati?appName=Cluster0';
+const MONGO_URI = process.env.MONGO_URI;
+if (!MONGO_URI) {
+  console.error('Error: MONGO_URI environment variable is not defined.');
+  process.exit(1);
+}
 
 async function purgeNotes() {
   try {

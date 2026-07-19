@@ -92,6 +92,28 @@ const VOICE_CONFIG = {
   },
 };
 
+// ── Free Tier ElevenLabs Voice Mapping ─────────────────────────────────────────
+// Free ElevenLabs accounts are restricted from using Voice Library / Cloned voices.
+// We map high-fidelity built-in system voices for the free plan.
+if (process.env.USE_ELEVENLABS_FREE_VOICES === 'true') {
+  const FREE_MAPPINGS = {
+    system_female:      'EXAVITQu4vr4xnSDxMaL', // Bella (Female)
+    system_male:        'ErXwobaYiN019PkySvjV', // Antoni (Male)
+    interviewer:        'EXAVITQu4vr4xnSDxMaL', // Bella (Female)
+    moderator_female:   '21m00Tcm4TlvDq8ikWAM', // Rachel (Female)
+    moderator_male:     'IKne3meq5aC2b9Dtkkyr', // Charlie (Male)
+    candidate_female_1: 'N2lVS1w7qc9y9D9wZ19i', // Gigi (Female - Priya AI)
+    candidate_female_2: 'XB0fDUnUDzGvR5S3vPvL', // Nicole (Female - Diya AI)
+    candidate_male_1:   'Lcfc5A4pTvTkyEb6oZ2W', // Clyde (Male - Arjun AI)
+    candidate_male_2:   'SOYHLrjzK2t1IabR4W68', // Harry (Male - Guru AI)
+  };
+  Object.keys(FREE_MAPPINGS).forEach(key => {
+    if (VOICE_CONFIG[key]) {
+      VOICE_CONFIG[key].elevenlabs = FREE_MAPPINGS[key];
+    }
+  });
+}
+
 /**
  * ElevenLabs model — multilingual-v2 supports Indian English naturally
  */
