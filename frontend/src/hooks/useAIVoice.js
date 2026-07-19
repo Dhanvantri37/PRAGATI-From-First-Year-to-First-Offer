@@ -104,54 +104,125 @@ function tryPlayBase64(base64, text, accent, role, onDone, speakerName) {
   }
 }
 
+// ── Voice role mapping helper ───────────────────────────────────────────────
+function getVoiceRole(role, speakerName) {
+  let gender = localStorage.getItem('pragati_voice_gender') || 'female';
+  const name = (speakerName || '').toLowerCase();
+
+  const maleNames = ['arjun', 'vikram', 'rahul', 'amit', 'ravi', 'karan', 'rohit', 'siddharth', 'aditya', 'deepak', 'rajesh', 'manish', 'saurabh', 'anuj', 'prabhat', 'madhur', 'fritz', 'angelo', 'atlas', 'briggs', 'guru'];
+  const femaleNames = ['priya', 'ananya', 'sneha', 'pooja', 'shreya', 'neha', 'divya', 'sapana', 'megha', 'radhika', 'swati', 'tanvi', 'neerja', 'heera', 'sonia', 'celeste', 'aria', 'diya'];
+
+  if (maleNames.some(m => name.includes(m))) {
+    gender = 'male';
+  } else if (femaleNames.some(f => name.includes(f))) {
+    gender = 'female';
+  }
+
+  if (role === 'moderator') {
+    return gender === 'male' ? 'moderator_male' : 'moderator_female';
+  }
+
+  if (role === 'participant') {
+    if (gender === 'female') {
+      if (name.includes('diya') || name.includes('ananya') || name.includes('celeste')) {
+        return 'candidate_female_2';
+      }
+      return 'candidate_female_1';
+    } else {
+      if (name.includes('guru') || name.includes('vikram') || name.includes('rahul')) {
+        return 'candidate_male_2';
+      }
+      return 'candidate_male_1';
+    }
+  }
+
+  return gender === 'male' ? 'system_male' : 'system_female';
+}
+
 // ── Web Speech — Natural/Neural voice picker integration ─────────────────────
-export function speakWebSpeech(text, accent = 'indian', role = 'companion', onDone, speakerName) {
-  if (!window.speechSynthesis || !text?.trim()) { onDone?.(); return; }
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+export async function speakWebSpeech(text, accent = 'indian', role = 'companion', onDone, speakerName) {
+  if (!text?.trim()) { onDone?.(); return; }
+
+  // Clean the text
+  const cleanText = text
+    .replace(/\*\*(.*?)\*\"/g, '$1')
+    .replace(/\*(.*?)\*/g,    '$1')
+    .replace(/#{1,6} /g,      '')
+    .replace(/[\[\]()]/g,     '')
+    .substring(0, 500);
+
+  // 1. Try Backend premium neural TTS (ElevenLabs / Edge-TTS)
+  try {
+    const backendRole = getVoiceRole(role, speakerName);
+    const token = localStorage.getItem('pragati_token') || localStorage.getItem('token');
+    const response = await fetch(`${API}/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      body: JSON.stringify({ text: cleanText, role: backendRole })
+    });
+
+    if (response.ok) {
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      window.pragatiAudioPlayer = audio;
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        onDone?.();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        speakLocalBrowserFallback(cleanText, accent, role, onDone, speakerName);
+      };
+      await audio.play();
+      return;
+    }
+  } catch (err) {
+    console.warn('[useAIVoice] Backend TTS failed, using local browser fallback:', err.message);
+  }
+
+  speakLocalBrowserFallback(cleanText, accent, role, onDone, speakerName);
+}
+
+// ── Local browser speech synthesis fallback ──────────────────────────────────
+function speakLocalBrowserFallback(text, accent, role, onDone, speakerName) {
+  if (!window.speechSynthesis) { onDone?.(); return; }
   window.speechSynthesis.cancel();
 
   const chunks = chunkText(text, 200);
   let idx = 0;
 
   // Determine speaker gender
-  let gender = 'female';
-  if (role === 'participant') {
-    const name = (speakerName || '').toLowerCase();
-    const isMale = name.includes('arjun') || name.includes('vikram') || name.includes('rahul') || name.includes('fritz') || name.includes('angelo') || name.includes('atlas') || name.includes('briggs');
-    gender = isMale ? 'male' : 'female';
-  } else {
-    // Moderators and companions are female by default
-    gender = 'female';
-  }
+  let gender = localStorage.getItem('pragati_voice_gender') || 'female';
+  const name = (speakerName || '').toLowerCase();
+  const maleNames = ['arjun', 'vikram', 'rahul', 'amit', 'ravi', 'karan', 'rohit', 'siddharth', 'aditya', 'deepak', 'rajesh', 'manish', 'saurabh', 'anuj', 'prabhat', 'madhur', 'fritz', 'angelo', 'atlas', 'briggs'];
+  const femaleNames = ['priya', 'ananya', 'sneha', 'pooja', 'shreya', 'neha', 'divya', 'sapana', 'megha', 'radhika', 'swati', 'tanvi', 'neerja', 'heera', 'sonia', 'celeste', 'aria'];
+
+  if (maleNames.some(m => name.includes(m))) { gender = 'male'; }
+  else if (femaleNames.some(f => name.includes(f))) { gender = 'female'; }
 
   function speakChunk() {
     if (idx >= chunks.length) { onDone?.(); return; }
     const utt = new SpeechSynthesisUtterance(chunks[idx++]);
-    
-    // Pick the best natural browser voice matching preferences
     const voice = getNaturalVoice(accent, gender);
-    
-    // Fine-tune rates/pitches based on gender for maximum quality
-    if (gender === 'male') {
-      utt.pitch = 0.85;
-      utt.rate  = 0.90;
-    } else {
-      utt.pitch = 1.12;
-      utt.rate  = 0.93;
-    }
+    utt.pitch  = 1.0;
+    utt.rate   = 1.0;
     utt.volume = 1.0;
 
-    if (voice) {
-      utt.voice = voice;
-      utt.lang  = voice.lang;
-    } else {
-      utt.lang  = accent === 'foreign' ? 'en-US' : 'en-IN';
-    }
+    if (voice) { utt.voice = voice; utt.lang = voice.lang; }
+    else { utt.lang = accent === 'foreign' ? 'en-US' : 'en-IN'; }
 
     const keepAlive = setInterval(() => {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
     }, 5000);
 
-    utt.onend   = () => { clearInterval(keepAlive); speakChunk(); };
+    utt.onend = () => { clearInterval(keepAlive); speakChunk(); };
     utt.onerror = () => { clearInterval(keepAlive); speakChunk(); };
 
     window.speechSynthesis.speak(utt);
@@ -164,14 +235,6 @@ export function speakWebSpeech(text, accent = 'indian', role = 'companion', onDo
       window.speechSynthesis.onvoiceschanged = null;
       speakChunk();
     };
-    let poll = 0;
-    const t = setInterval(() => {
-      if (fired || ++poll > 20) { clearInterval(t); return; }
-      if (window.speechSynthesis.getVoices().length > 0) {
-        fired = true; window.speechSynthesis.onvoiceschanged = null;
-        clearInterval(t); speakChunk();
-      }
-    }, 100);
   } else {
     speakChunk();
   }

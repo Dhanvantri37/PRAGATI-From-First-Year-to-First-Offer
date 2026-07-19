@@ -12,6 +12,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RoundHeader, Card, SectionTitle, AnswerBox, Timer } from './PracticeComponents';
 import { ROUND_RESOURCES } from './RESOURCES';
+import { speakText } from '../../utils/voiceHelper';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -186,6 +187,7 @@ function AIGDSimulator({ topic }) {
     const intro = await callModerator({topic:topic.topic,conversation:[],participantPoint:'[Session starting]',turn:0,totalTurns});
     setConvo([{role:'moderator',text:intro.response,tone:intro.tone}]);
     setTurn(1); setLoad(false);
+    speakText(intro.response, 'moderator_female');
   }
 
   const handleSend = useCallback(async(textOverride)=>{
@@ -203,6 +205,7 @@ function AIGDSimulator({ topic }) {
     setTimeout(()=>{
       setConvo(c=>[...c,{role:'moderator',text:result.response,tone:result.tone,pq:result.pointQuality}]);
       setTurn(t=>t+1); setLoad(false);
+      speakText(result.response, 'moderator_female');
       if(isLast)setDone(true);
     },700);
   },[input,loading,done,convo,turn,totalTurns,topic,listening,stopMic]);

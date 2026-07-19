@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Editor from '@monaco-editor/react';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -187,6 +188,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
   const [running, setRunning] = useState(false);
   const [runResult, setRunResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   
   // Interactive Terminal State
@@ -255,7 +257,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
     if (pId) localStorage.setItem('pragati_practice_last_visited', pId);
   }, [problem]);
 
-  // Sync code and notes changes
+  // Sync code and notes changes locally
   useEffect(() => {
     const pId = problem._id || problem.id;
     if (pId) {
@@ -274,6 +276,38 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
     }
   }, [notes, problem]);
 
+  const handleSaveDraft = async () => {
+    setSavingDraft(true);
+    try {
+      const res = await fetch(`${API}/problems/${problem._id || problem.id}/save-notes`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify({
+          approachNotes: notes,
+          solutionCode: code
+        })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to save draft');
+      
+      // Update local storage too so localData has it
+      const existingNotes = JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}');
+      const existingCode = JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}');
+      existingNotes[pId] = notes;
+      existingCode[pId] = code;
+      localStorage.setItem('pragati_practice_notes', JSON.stringify(existingNotes));
+      localStorage.setItem('pragati_practice_code_submissions', JSON.stringify(existingCode));
+      localData.notes[pId] = notes;
+      localData.submissions[pId] = code;
+      
+      alert('✅ Draft and notes saved successfully!');
+    } catch (err) {
+      alert(`Save error: ${err.message}`);
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handleDebug = async () => {
     if (!code.trim()) return;
     setDebugging(true);
@@ -285,7 +319,7 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
         body: JSON.stringify({
           code,
           language: lang,
-          problemTitle: fullProblem.title,
+          problemTitle: fullProblem?.title || problem?.title || 'Coding Practice',
           testCases: [
             { input: problemDetails.examples[0]?.input || '', expected: problemDetails.examples[0]?.output || '' }
           ]
@@ -362,13 +396,75 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
 
   const handleSolveSubmit = async () => {
     setSubmitting(true);
+    setTerminalOutput('Preparing submission...');
+    setRunResult(true);
+    
     try {
+      // Detect if this is a static roadmap problem (nc-*, mla-*, a2z-*) 
+      // These don't have executable test harnesses — skip the test runner
+      const pid = problem._id || problem.id || '';
+      const isStaticRoadmapProblem = !problem._id && problem.id;
+      const isRoadmapStringId = typeof pid === 'string' && /^(nc|mla|a2z)-\d+/.test(pid);
+      
+      let shouldSkipTestRunner = isStaticRoadmapProblem || isRoadmapStringId;
+      
+      if (!shouldSkipTestRunner) {
+        // 1. Run tests — only for DB problems that have a proper ObjectId _id
+        setTerminalOutput('Running pre-submission test verification...');
+        const runRes = await fetch(`${API}/compile/run-tests`, {
+          method: 'POST',
+          headers: tks(),
+          body: JSON.stringify({
+            problemId: problem._id || problem.id,
+            code,
+            language: lang
+          })
+        });
+        
+        const testVerdict = await runRes.json();
+        if (!runRes.ok) {
+          // If test runner fails (DB lookup error etc.), fall through to direct submit
+          shouldSkipTestRunner = true;
+          setTerminalOutput(`⚠️ Test runner unavailable — submitting directly...\n${testVerdict.error || ''}`);
+        } else {
+          let outputStr = `Pre-submission Tests: ${testVerdict.message}\n\n`;
+          (testVerdict.results || []).forEach(r => {
+            outputStr += `Case ${r.caseIndex}: ${r.verdict} ${r.passed ? '✅' : '❌'}\n`;
+            if (!r.passed) {
+              outputStr += `  Input:    ${r.input}\n  Expected: ${r.expected}\n  Actual:   ${r.actual}\n`;
+            }
+          });
+          setTerminalOutput(outputStr);
+          
+          if (testVerdict.success === false && (testVerdict.results || []).some(r => r.verdict === 'Runtime Error')) {
+            throw new Error('Code has runtime or syntax errors. Fix your code before submitting, or use AI Analyse for hints.');
+          }
+        }
+      } else {
+        // Static problem — show a friendly compilation check message
+        setTerminalOutput('⚡ Static roadmap problem — verifying code compiles...\n\nRunning compilation check via Piston sandbox...');
+        // Quick compile check (run with empty input, just see if it errors)
+        try {
+          const compileRes = await fetch(`${API}/compile`, {
+            method: 'POST',
+            headers: tks(),
+            body: JSON.stringify({ code, language: lang, input: '' })
+          });
+          const compileData = await compileRes.json();
+          const output = compileData.output || '';
+          setTerminalOutput(`✅ Compilation successful!\n\nCode output:\n${output || '(no output — function-only code is fine)'}\n\nSubmitting solution...`);
+        } catch {
+          setTerminalOutput('✅ Submitting solution directly...');
+        }
+      }
+
+      // 2. Submit solved progress to DB
       const res = await fetch(`${API}/problems/${problem._id || problem.id}/solve`, {
         method: 'POST',
         headers: tks(),
         body: JSON.stringify({
           solutionCode: code,
-          approachNotes: notes || 'Solved daily target.',
+          approachNotes: notes || 'Solved via PRAGATI workspace.',
           selfRating: 5,
           timeTakenMinutes: 15
         })
@@ -379,16 +475,15 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
       setIsSolved(true);
       setShowCelebration(true);
 
-      // ── Immediately update streak from backend response ──────────────────
-      // The solve endpoint returns the authoritative new streak value.
+      // Immediately update streak from backend response
       if (typeof d.streak === 'number') {
-        onUpdateStreak(d.streak); // propagate up to ProblemsPage
+        onUpdateStreak(d.streak);
       }
 
       onSolveProgress(problem._id || problem.id, problem.difficulty || problem.level || 'Easy');
       setTimeout(() => setShowCelebration(false), 3500);
     } catch (err) {
-      alert(`Submission error: ${err.message}`);
+      alert(`Cannot Submit: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -410,139 +505,182 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
     localData.favorites = favs; // update local context reference
   };
 
+  // Select examples source dynamically (DB test cases fallback to details example list)
+  const displayExamples = (fullProblem.testCases && fullProblem.testCases.length > 0)
+    ? fullProblem.testCases.map(tc => ({ input: tc.input, output: tc.output }))
+    : (problemDetails.examples || []);
+
   return (
-    <div style={{ position:'fixed', inset:0, background:'#0b0f19', zIndex:2000, display:'flex', flexDirection:'column', fontFamily:"'Nunito',sans-serif", color:'#e2e8f0' }}>
-      {/* Workspace Header */}
-      <header style={{ padding:'12px 24px', background:'#111827', borderBottom:'1px solid #1f2937', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <button onClick={onClose} style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid #374151', color:'#cbd5e1', cursor:'pointer', display:'flex', alignItems:'center', gap:6, fontWeight:700, fontSize:'.85rem' }}>
-          ← Back to Dashboard
-        </button>
+    <div style={{ position:'fixed', inset:0, background:'#1e1e1e', zIndex:2000, display:'flex', flexDirection: 'column', fontFamily:"Consolas, 'Courier New', monospace", color:'#d4d4d4', userSelect:'none' }}>
+      
+      {/* ── VS Code Title Bar ── */}
+      <header style={{ height:35, background:'#3c3c3c', borderBottom:'1px solid #252526', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 10px', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:'1.1rem' }}>💻</span>
-          <span style={{ fontWeight:800, fontSize:'1.05rem', fontFamily:"'Syne',sans-serif" }}>{fullProblem.title}</span>
+          <button onClick={onClose} style={{ padding:'2px 8px', borderRadius:4, background:'#4b4b4b', border:'1px solid #5a5a5a', color:'#fff', cursor:'pointer', fontSize:'.72rem', fontWeight:600, fontFamily:"'Segoe UI',sans-serif" }}>
+            ✕ Close Editor
+          </button>
+          <span style={{ fontSize:'.7rem', color:'#858585' }}>PRAGATI Workspace</span>
         </div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button onClick={toggleFavorite} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #374151', background:isFav?'rgba(245,158,11,0.12)':'transparent', color:isFav?'#f59e0b':'#94a3b8', cursor:'pointer', fontWeight:700, fontSize:'.85rem' }}>
-            {isFav ? '⭐ Bookmarked' : '☆ Bookmark'}
+        <div style={{ fontSize:'.75rem', color:'#a6a6a6', background:'#2d2d2d', padding:'2px 40px', borderRadius:4, border:'1px solid #454545', maxWidth:400, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          pragati-platform / practice / {fullProblem?.title || problem?.title || 'Coding Practice'}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <button onClick={toggleFavorite} style={{ padding:'2px 8px', borderRadius:4, border:'none', background:isFav?'#3a3a3a':'transparent', color:isFav?'#f59e0b':'#858585', cursor:'pointer', fontSize:'.72rem' }}>
+            {isFav ? '★ Bookmarked' : '☆ Bookmark'}
           </button>
         </div>
       </header>
 
-      {/* Workspace split columns */}
-      <div className="workspace-split">
-        {/* Left Side: Problem Details & Solution Video Embed */}
-        <div style={{ flex:1, borderRight:'1px solid #1f2937', display:'flex', flexDirection:'column', overflow:'hidden', background:'#0b0f19' }}>
-          {/* Tabs bar */}
-          <div style={{ display:'flex', background:'#111827', borderBottom:'1px solid #1f2937' }}>
-            {[
-              { id:'desc', icon:'📄', label:'Description' },
-              { id:'hints', icon:'💡', label:'Hints & Editorial' },
-              ...( (problem.videoId || problem.youtube) ? [{ id:'video', icon:'📺', label:'Watch Video Explanation' }] : []),
-              { id:'notes', icon:'📝', label:'My Notes' }
-            ].map(tab => (
-              <button key={tab.id} onClick={()=>setActiveTab(tab.id)} style={{ flex:1, padding:'10px', border:'none', background:activeTab===tab.id?'#1f2937':'transparent', color:activeTab===tab.id?'#38bdf8':'#94a3b8', fontWeight:800, fontSize:'.78rem', cursor:'pointer', borderBottom:activeTab===tab.id?'2.5px solid #38bdf8':'none' }}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+      {/* ── Main Workspace Body ── */}
+      <div style={{ display:'flex', flex:1, overflow:'hidden', minHeight:0 }}>
+        
+        {/* Left Side: VS Code Sidebar (Description, Hints, Notes as mock files) */}
+        <div style={{ width:'40%', minWidth:320, background:'#252526', borderRight:'1px solid #2d2d2d', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          
+          {/* Sidebar Header */}
+          <div style={{ height:35, padding:'0 16px', background:'#252526', borderBottom:'1px solid #2d2d2d', display:'flex', alignItems:'center', justifyContent:'space-between', color:'#bbbbbb', fontSize:'.68rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em', fontFamily:"'Segoe UI',sans-serif" }}>
+            <span>Explorer: Instructions</span>
           </div>
 
-          <div style={{ flex:1, overflowY:'auto', padding:'20px' }}>
+          {/* Explorer mock file tree / tabs */}
+          <div style={{ display:'flex', background:'#2d2d2d', borderBottom:'1px solid #252526' }}>
+            {[
+              { id:'desc', file:'Description.md', icon:'📝' },
+              { id:'hints', file:'Hints.md', icon:'💡' },
+              { id:'notes', file:'Notes.txt', icon:'✏️' },
+              ...( (problem.videoId || problem.youtube) ? [{ id:'video', file:'Video.mp4', icon:'🎥' }] : [])
+            ].map(tab => {
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    flex: 1,
+                    height: 35,
+                    border: 'none',
+                    background: active ? '#1e1e1e' : '#2d2d2d',
+                    color: active ? '#ffffff' : '#969696',
+                    fontSize: '.72rem',
+                    fontWeight: active ? 'bold' : 'normal',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    borderRight: '1px solid #252526',
+                    borderTop: active ? '2px solid #007acc' : '2px solid transparent',
+                    fontFamily: "'Segoe UI',sans-serif"
+                  }}>
+                  <span>{tab.icon}</span>
+                  <span>{tab.file}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Left Panel Content Area */}
+          <div style={{ flex:1, overflowY:'auto', padding:'16px', background:'#1e1e1e', fontFamily:"'Segoe UI',sans-serif" }}>
+            
             {activeTab === 'desc' && (() => {
               const isHtml = fullProblem.description && (fullProblem.description.startsWith('<') || fullProblem.description.includes('</') || fullProblem.description.includes('<p>'));
               return (
-                <div>
-                  <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap' }}>
-                    <span style={{ padding:'3px 10px', borderRadius:999, background:DIFF[fullProblem.difficulty||fullProblem.level]?.bg || 'rgba(255,255,255,0.05)', color:DIFF[fullProblem.difficulty||fullProblem.level]?.color || '#fff', fontSize:'.72rem', fontWeight:800 }}>
+                <div style={{ fontSize:'.82rem', lineHeight:1.6, color:'#cccccc' }}>
+                  <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+                    <span style={{ padding:'2px 8px', borderRadius:3, background:DIFF[fullProblem.difficulty||fullProblem.level]?.bg || '#3a3a3a', color:DIFF[fullProblem.difficulty||fullProblem.level]?.color || '#fff', fontSize:'.65rem', fontWeight:800 }}>
                       {fullProblem.difficulty || fullProblem.level}
                     </span>
-                    <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.72rem', fontWeight:800 }}>
+                    <span style={{ padding:'2px 8px', borderRadius:3, background:'rgba(56,189,248,0.12)', color:'#38bdf8', fontSize:'.65rem', fontWeight:800 }}>
                       {fullProblem.topic}
                     </span>
                     {fullProblem.askedBy && (
-                      <span style={{ padding:'3px 10px', borderRadius:999, background:'rgba(245,158,11,0.1)', color:'#f59e0b', fontSize:'.72rem', fontWeight:800 }}>
-                        🔥 Frequency Asked
+                      <span style={{ padding:'2px 8px', borderRadius:3, background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontSize:'.65rem', fontWeight:800 }}>
+                        🔥 Popular
                       </span>
                     )}
                   </div>
 
                   {isHtml ? (
-                    <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-html-desc">
+                    <div className="leetcode-html-desc" style={{ fontFamily:"'Segoe UI',sans-serif" }}>
                       <style>{`
-                        .leetcode-html-desc p { margin-bottom: 14px; }
-                        .leetcode-html-desc code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
-                        .leetcode-html-desc pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; }
-                        .leetcode-html-desc ul { margin-left: 20px; margin-bottom: 14px; list-style-type: disc; }
-                        .leetcode-html-desc li { margin-bottom: 6px; }
-                        .leetcode-html-desc strong { color: #fff; font-weight: 700; }
+                        .leetcode-html-desc p { margin-bottom: 12px; }
+                        .leetcode-html-desc code { background: #2d2d2d; padding: 2px 5px; border-radius: 3px; font-family: Consolas, monospace; color: #f43f5e; font-size: 0.8rem; }
+                        .leetcode-html-desc pre { background: #181818; padding: 12px; border-radius: 6px; border: 1px solid #3c3c3c; margin: 12px 0; white-space: pre-wrap; font-family: Consolas, monospace; color: #cbd5e1; font-size: 0.78rem; }
+                        .leetcode-html-desc ul { margin-left: 20px; margin-bottom: 12px; list-style-type: disc; }
+                        .leetcode-html-desc li { margin-bottom: 5px; }
                       `}</style>
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.description}</ReactMarkdown>
                     </div>
                   ) : (
                     <>
-                      <div style={{ whiteSpace:'pre-wrap', lineHeight:1.75, fontSize:'.88rem', color:'#cbd5e1' }}>
+                      <div style={{ whiteSpace:'pre-wrap' }}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.description || problemDetails.desc}</ReactMarkdown>
                       </div>
 
-                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Constraints:</h4>
-                      <pre style={{ padding:10, background:'#1e2937', borderRadius:8, fontSize:'.8rem', color:'#94a3b8', border:'1.5px solid #374151' }}>
-                        {problemDetails.constraints}
+                      <h4 style={{ marginTop:20, color:'#ffffff', fontWeight:700, fontSize:'.88rem' }}>Constraints:</h4>
+                      <pre style={{ padding:10, background:'#181818', borderRadius:4, fontSize:'.78rem', color:'#85c5ed', border:'1px solid #3c3c3c', fontFamily:'Consolas, monospace', whiteSpace:'pre-wrap' }}>
+                        {fullProblem.constraints || problemDetails.constraints}
                       </pre>
 
-                      <h4 style={{ marginTop:20, color:'#f1f5f9', fontWeight:800 }}>Examples:</h4>
-                      {problemDetails.examples.map((ex, idx) => (
-                        <div key={idx} style={{ padding:12, background:'#111827', borderRadius:10, border:'1.5px solid #1f2937', marginBottom:8, fontSize:'.84rem' }}>
+                      <h4 style={{ marginTop:20, color:'#ffffff', fontWeight:700, fontSize:'.88rem' }}>Examples:</h4>
+                      {displayExamples.map((ex, idx) => (
+                        <div key={idx} style={{ padding:12, background:'#181818', borderRadius:6, border:'1px solid #3c3c3c', marginBottom:8, fontSize:'.78rem', fontFamily:'Consolas, monospace' }}>
                           <div style={{ color:'#38bdf8', fontWeight:700, marginBottom:4 }}>Example {idx+1}:</div>
-                          <div><strong>Input:</strong> <code>{ex.input}</code></div>
-                          <div><strong>Output:</strong> <code>{ex.output}</code></div>
-                          {ex.explanation && <div style={{ color:'#94a3b8', fontSize:'.78rem', marginTop:4 }}><strong>Explanation:</strong> {ex.explanation}</div>}
+                          <div><strong>Input:</strong> {ex.input}</div>
+                          <div><strong>Output:</strong> {ex.output}</div>
+                          {ex.explanation && <div style={{ color:'#858585', marginTop:4 }}><strong>Explanation:</strong> {ex.explanation}</div>}
                         </div>
                       ))}
                     </>
                   )}
 
-                  {fullProblem.askedBy && (
-                    <div style={{ marginTop:24, borderTop:'1px solid #1f2937', paddingTop:16 }}>
-                      <h5 style={{ fontSize:'.8rem', fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:8 }}>Companies Asked:</h5>
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                        {fullProblem.askedBy.split(', ').map(item => {
-                          const [name] = item.split('-');
-                          return (
-                            <span key={item} style={{ padding:'4px 9px', borderRadius:6, background:'#1e2937', color:'#cbd5e1', fontSize:'.7rem', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
-                              {COMPANY_LOGOS[name] || '🏢'} {item}
+                  {(() => {
+                    const companyList = Array.isArray(fullProblem.companies) && fullProblem.companies.length > 0
+                      ? fullProblem.companies
+                      : (typeof fullProblem.askedBy === 'string'
+                          ? fullProblem.askedBy.split(', ').map(item => item.split('-')[0])
+                          : (Array.isArray(fullProblem.askedBy) ? fullProblem.askedBy : []));
+                    if (companyList.length === 0) return null;
+                    return (
+                      <div style={{ marginTop:24, borderTop:'1px solid #2d2d2d', paddingTop:16 }}>
+                        <h5 style={{ fontSize:'.72rem', fontWeight:800, color:'#858585', textTransform:'uppercase', letterSpacing:'0.03em', marginBottom:8 }}>Companies Asked:</h5>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                          {companyList.map((comp, idx) => (
+                            <span key={idx} style={{ padding:'3px 8px', borderRadius:3, background:'#2d2d2d', color:'#cccccc', fontSize:'.68rem', fontWeight:600 }}>
+                              {typeof comp === 'string' ? comp : String(comp)}
                             </span>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               );
             })()}
 
             {activeTab === 'hints' && (
-              <div>
-                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:12 }}>💡 Guided Hints:</h4>
+              <div style={{ fontSize:'.82rem', lineHeight:1.6 }}>
+                <h4 style={{ color:'#ffffff', fontWeight:700, marginBottom:12, fontSize:'.88rem' }}>💡 Hints:</h4>
                 {((fullProblem.hints && fullProblem.hints.length > 0) ? fullProblem.hints : problemDetails.hints).map((hint, idx) => (
-                  <div key={idx} style={{ padding:12, background:'rgba(56,189,248,0.05)', border:'1.5px solid rgba(56,189,248,0.15)', borderRadius:10, marginBottom:8, fontSize:'.84rem', display:'flex', gap:10 }}>
-                    <span style={{ fontSize:'1rem' }}>💡</span>
-                    <span style={{ lineHeight:1.6, color:'#cbd5e1' }}><ReactMarkdown remarkPlugins={[remarkGfm]}>{hint}</ReactMarkdown></span>
+                  <div key={idx} style={{ padding:10, background:'rgba(56,189,248,0.05)', border:'1px solid rgba(56,189,248,0.15)', borderRadius:4, marginBottom:8, display:'flex', gap:10 }}>
+                    <span>💡</span>
+                    <span style={{ color:'#cbd5e1' }}><ReactMarkdown remarkPlugins={[remarkGfm]}>{hint}</ReactMarkdown></span>
                   </div>
                 ))}
 
-                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginTop:24, marginBottom:12 }}>📝 Editorial Solution:</h4>
+                <h4 style={{ color:'#ffffff', fontWeight:700, marginTop:24, marginBottom:12, fontSize:'.88rem' }}>📝 Editorial Solution:</h4>
                 {fullProblem.editorial ? (
-                  <div style={{ lineHeight:1.8, fontSize:'.88rem', color:'#cbd5e1' }} className="leetcode-markdown-editorial">
+                  <div className="leetcode-markdown-editorial" style={{ color:'#cbd5e1' }}>
                     <style>{`
-                      .leetcode-markdown-editorial p { margin-bottom: 12px; }
-                      .leetcode-markdown-editorial code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; color: #f43f5e; font-size: 0.82rem; }
-                      .leetcode-markdown-editorial pre { background: #111827; padding: 14px; border-radius: 10px; border: 1.5px solid #1f2937; margin: 14px 0; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; color: #cbd5e1; font-size: 0.8rem; overflow-x: auto; }
-                      .leetcode-markdown-editorial strong { color: #fff; font-weight: 700; }
-                      .leetcode-markdown-editorial h1, .leetcode-markdown-editorial h2, .leetcode-markdown-editorial h3 { color: #38bdf8; font-weight: 800; margin-top: 18px; margin-bottom: 8px; }
+                      .leetcode-markdown-editorial p { margin-bottom: 10px; }
+                      .leetcode-markdown-editorial code { background: #2d2d2d; padding: 2px 5px; border-radius: 3px; font-family: Consolas, monospace; color: #f43f5e; font-size: 0.8rem; }
+                      .leetcode-markdown-editorial pre { background: #181818; padding: 12px; border-radius: 6px; border: 1px solid #3c3c3c; margin: 12px 0; white-space: pre-wrap; font-family: Consolas, monospace; color: #cbd5e1; font-size: 0.78rem; overflow-x: auto; }
+                      .leetcode-markdown-editorial h1, .leetcode-markdown-editorial h2, .leetcode-markdown-editorial h3 { color: #38bdf8; font-weight: 700; margin-top: 16px; margin-bottom: 8px; font-size: 0.95rem; }
                     `}</style>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{fullProblem.editorial}</ReactMarkdown>
                   </div>
                 ) : (
-                  <div style={{ padding:14, background:'#111827', borderRadius:12, border:'1.5px solid #1f2937', fontSize:'.85rem', lineHeight:1.7, color:'#94a3b8', whiteSpace:'pre-wrap' }}>
+                  <div style={{ padding:12, background:'#181818', borderRadius:6, border:'1px solid #3c3c3c', fontSize:'.78rem', lineHeight:1.6, color:'#858585', whiteSpace:'pre-wrap', fontFamily:'Consolas, monospace' }}>
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{problemDetails.editorial}</ReactMarkdown>
                   </div>
                 )}
@@ -558,159 +696,280 @@ function CodingWorkspace({ problem, onClose, onSolveProgress, onUpdateStreak, lo
                 else ytId = url;
               }
               return (
-              <div style={{ textAlign:'center' }}>
-                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:8 }}>📺 Watch YouTube Solution Video</h4>
-                <p style={{ fontSize:'.78rem', color:'#94a3b8', marginBottom:16 }}>Practice coding side-by-side with this video explanation player!</p>
-                <div style={{ position:'relative', paddingBottom:'56.25%', height:0, overflow:'hidden', borderRadius:12, border:'1.5px solid #1f2937', background:'#000' }}>
-                  <iframe
-                    src={`https://www.youtube.com/embed/${ytId}`}
-                    title="YouTube solution explanation"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%' }}
-                  />
+                <div style={{ textAlign:'center' }}>
+                  <h4 style={{ color:'#ffffff', fontWeight:700, marginBottom:8, fontSize:'.88rem' }}>📺 Video Player</h4>
+                  <div style={{ position:'relative', paddingBottom:'56.25%', height:0, overflow:'hidden', borderRadius:6, border:'1px solid #3c3c3c', background:'#000' }}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}`}
+                      title="YouTube explanation"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%' }}
+                    />
+                  </div>
                 </div>
-              </div>
-            )})()}
+              );
+            })()}
 
             {activeTab === 'notes' && (
               <div>
-                <h4 style={{ color:'#f1f5f9', fontWeight:800, marginBottom:8 }}>📝 Personal Solutions &amp; Notes</h4>
-                <p style={{ fontSize:'.78rem', color:'#94a3b8', marginBottom:12 }}>Notes are permanently saved in your local database for revision.</p>
+                <h4 style={{ color:'#ffffff', fontWeight:700, marginBottom:8, fontSize:'.88rem' }}>📝 Solution Notes</h4>
                 <textarea
                   value={notes}
                   onChange={e=>setNotes(e.target.value)}
-                  placeholder="Record your algorithm approaches, pitfalls, time complexity analyses, or study summaries..."
-                  style={{ width:'100%', minHeight:300, padding:14, borderRadius:12, border:'1.5px solid #1f2937', background:'#111827', color:'#cbd5e1', outline:'none', resize:'vertical', fontSize:'.88rem', lineHeight:1.65 }}
+                  placeholder="Record your algorithm approaches, complexities, constraints..."
+                  style={{ width:'100%', minHeight:200, padding:10, borderRadius:4, border:'1px solid #3c3c3c', background:'#181818', color:'#d4d4d4', outline:'none', resize:'vertical', fontSize:'.8rem', fontFamily:'Consolas, monospace', lineHeight:1.5 }}
                 />
+                <button onClick={handleSaveDraft} disabled={savingDraft} style={{ marginTop: 8, padding: '6px 12px', borderRadius: 4, border: 'none', background: '#007acc', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '.72rem', fontFamily: "'Segoe UI',sans-serif" }}>
+                  {savingDraft ? 'Saving Draft...' : '💾 Save Notes & Draft'}
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right Side: Code Editor Workspace */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#0a0d14' }}>
-          {/* Header controls */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 16px', background:'#111827', borderBottom:'1px solid #1f2937' }}>
-            <div style={{ display:'flex', gap:6 }}>
-              {LANGUAGES.map(l => (
-                <button key={l} onClick={()=>setLang(l)} style={{ padding:'4px 10px', borderRadius:6, border:`1px solid ${lang===l?'#38bdf8':'#374151'}`, background:lang===l?'rgba(56,189,248,0.12)':'transparent', color:lang===l?'#38bdf8':'#cbd5e1', fontSize:'.7rem', fontWeight:800, cursor:'pointer' }}>
-                  {l.toUpperCase()}
-                </button>
-              ))}
+        {/* Right Side: Monaco Code Editor & Terminal (Split Horizontally) */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'#1e1e1e' }}>
+          
+          {/* Mock Open Editors Tab Bar in VS Code */}
+          <div style={{ height:35, background:'#2d2d2d', borderBottom:'1px solid #252526', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+            <div style={{ display:'flex', height:'100%' }}>
+              {LANGUAGES.map(l => {
+                const active = lang === l;
+                const fileExt = { javascript:'js', python:'py', java:'java', 'c++':'cpp' }[l] || 'js';
+                return (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    style={{
+                      height: '100%',
+                      padding: '0 16px',
+                      border: 'none',
+                      background: active ? '#1e1e1e' : '#2d2d2d',
+                      color: active ? '#ffffff' : '#969696',
+                      fontSize: '.72rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      borderRight: '1px solid #252526',
+                      borderTop: active ? '2px solid #007acc' : '2px solid transparent',
+                      cursor: 'pointer',
+                      fontFamily: "Consolas, monospace"
+                    }}>
+                    <span>📄</span>
+                    <span>Solution.{fileExt}</span>
+                  </button>
+                );
+              })}
             </div>
-            {isSolved ? (
-              <span style={{ fontSize:'.78rem', color:'#4ade80', fontWeight:800, display:'flex', alignItems:'center', gap:4 }}>
-                ✓ Solved
-              </span>
-            ) : (
-              <span style={{ fontSize:'.78rem', color:'#ef4444', fontWeight:800 }}>
-                ● Unsolved
-              </span>
-            )}
-          </div>
-
-          {/* Code Textarea Workspace */}
-          <div style={{ flex:1, position:'relative', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-            <div style={{ display:'flex', flex:1 }}>
-              {/* Simulated terminal line numbers */}
-              <div style={{ width:38, background:'#0a0d14', borderRight:'1px solid #1f2937', display:'flex', flexDirection:'column', alignItems:'center', padding:'14px 0', fontSize:'.72rem', color:'#4b5563', fontFamily:'monospace', userSelect:'none', lineHeight:1.8 }}>
-                {Array.from({ length: 40 }).map((_, i) => (
-                  <div key={i}>{i + 1}</div>
-                ))}
-              </div>
-              <textarea
-                value={code}
-                onChange={e=>setCode(e.target.value)}
-                onPaste={e => {
-                  if (disablePaste) {
-                    e.preventDefault();
-                    alert('⚠️ Pasting code is disabled for your department to encourage typing and practice.');
-                  }
-                }}
-                style={{ flex:1, border:'none', padding:'14px', background:'#0a0d14', color:'#818cf8', fontFamily:'JetBrains Mono, monospace', fontSize:'.84rem', outline:'none', resize:'none', lineHeight:1.8 }}
-              />
-            </div>
-          </div>
-
-          {/* Compile panel - Interactive Terminal */}
-          {runResult && (
-            <div style={{ maxHeight:250, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px', background:'#020617', color:'#4ade80', fontSize:'.8rem', fontFamily:'monospace', whiteSpace:'pre-wrap' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                <strong style={{ color:'#94a3b8' }}>Execution Output:</strong>
-                <button onClick={()=>{ setRunResult(null); stopExecution(); }} style={{ background:'transparent', border:'none', color:'#ef4444', cursor:'pointer' }}>✖</button>
-              </div>
-              <div>{terminalOutput || 'Waiting for output...'}</div>
-              {running && (
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, borderTop:'1px dashed #334155', paddingTop:8 }}>
-                  <span style={{ color:'#38bdf8' }}>❯</span>
-                  <input
-                    value={terminalInput}
-                    onChange={e => setTerminalInput(e.target.value)}
-                    onKeyDown={handleTerminalInput}
-                    placeholder="Type input and press Enter..."
-                    style={{ flex:1, background:'transparent', border:'none', color:'#f8fafc', outline:'none', fontFamily:'monospace', fontSize:'.8rem' }}
-                    autoFocus
-                  />
-                  <button onClick={stopExecution} style={{ background:'rgba(239,68,68,0.2)', color:'#f87171', border:'none', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:'.7rem', fontWeight:800 }}>Stop</button>
-                </div>
+            <div style={{ paddingRight:16 }}>
+              {isSolved ? (
+                <span style={{ fontSize:'.68rem', color:'#4ade80', fontWeight:800 }}>● Solved</span>
+              ) : (
+                <span style={{ fontSize:'.68rem', color:'#f87171', fontWeight:800 }}>● Unsolved</span>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Debug panel */}
-          {debugResult && (
-            <div style={{ maxHeight:260, overflowY:'auto', borderTop:'1.5px solid #1f2937', padding:'10px' }}>
-              <DebugPanel result={debugResult} loading={debugging} code={code} onApplyFix={fixed => setCode(fixed)} />
-            </div>
-          )}
+          {/* Editor pane */}
+          <div style={{ flex:1, position:'relative', display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
+            <Editor
+              height="100%"
+              language={
+                lang === 'c++' || lang === 'cpp' ? 'cpp' : 
+                lang === 'python' || lang === 'python3' ? 'python' : 
+                lang === 'javascript' || lang === 'js' || lang === 'nodejs' ? 'javascript' : 
+                lang
+              }
+              theme="vs-dark"
+              value={code}
+              onChange={val => setCode(val || '')}
+              onMount={(editor) => {
+                if (disablePaste) {
+                  editor.onDidPaste((e) => {
+                    e.prevent();
+                    alert('⚠️ Pasting code is disabled for your department to encourage typing and practice.');
+                  });
+                }
+              }}
+              options={{
+                fontSize: 14,
+                fontFamily: 'Consolas, monospace',
+                minimap: { enabled: false },
+                automaticLayout: true,
+                suggestOnTriggerCharacters: true,
+                wordWrap: 'on',
+                readOnly: false
+              }}
+            />
+          </div>
 
-          {/* Action buttons footer */}
-          <div style={{ padding:'12px 18px', background:'#111827', borderTop:'1px solid #1f2937', display:'flex', gap:8, justifyContent:'space-between', alignItems:'center' }}>
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={handleRunCode} disabled={running || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:running?'transparent':'rgba(74,222,128,0.1)', color:'#4ade80', fontWeight:700, fontSize:'.82rem', cursor:running||!code.trim()?'not-allowed':'pointer' }}>
-                {running ? 'Running...' : '▶ Run Code'}
-              </button>
-              <button onClick={handleDebug} disabled={debugging || !code.trim()} style={{ padding:'10px 18px', borderRadius:8, border:'1px solid #374151', background:debugging?'transparent':'rgba(129,140,248,0.1)', color:'#818cf8', fontWeight:700, fontSize:'.82rem', cursor:debugging||!code.trim()?'not-allowed':'pointer' }}>
-                {debugging ? 'Analysing...' : '🤖 AI Analyse Code'}
-              </button>
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              {isSolved ? (
-                <span style={{ color:'#4ade80', fontSize:'.85rem', fontWeight:800 }}>🎉 You solved this problem!</span>
-              ) : (
-                <button onClick={handleSolveSubmit} disabled={submitting || !code.trim()} style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#13a1a5,#531697)', color:'#fff', fontWeight:800, fontSize:'.82rem', cursor:submitting||!code.trim()?'not-allowed':'pointer', boxShadow:'0 4px 12px rgba(83,22,151,0.25)' }}>
-                  {submitting ? 'Submitting...' : 'Mark as Solved & Earn XP'}
+          {/* VS Code Bottom Panel: TERMINAL / OUTPUT Console */}
+          <div style={{ height: debugResult ? 380 : 200, background: '#1e1e1e', borderTop: '1px solid #2d2d2d', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0, transition:'height 0.3s ease' }}>
+            
+            {/* ── Terminal Header with Action Buttons (VS Code style) ── */}
+            <div style={{ height:36, background:'#252526', borderBottom:'1px solid #2d2d2d', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 8px', flexShrink:0 }}>
+              {/* Left: Tab labels */}
+              <div style={{ display:'flex', gap:0, height:'100%', alignItems:'stretch' }}>
+                <span style={{ fontSize:'.68rem', fontWeight:'bold', color:'#ffffff', borderBottom:'2px solid #007acc', display:'flex', alignItems:'center', cursor:'pointer', padding:'0 12px' }}>
+                  TERMINAL
+                </span>
+                {debugResult && (
+                  <span onClick={() => setActiveTab('hints')} style={{ fontSize:'.68rem', color:'#f59e0b', display:'flex', alignItems:'center', cursor:'pointer', padding:'0 12px', gap:4, borderBottom:'2px solid transparent' }}>
+                    🤖 ANALYSIS
+                  </span>
+                )}
+              </div>
+              {/* Right: Action buttons in header (VS Code toolbar style) */}
+              <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                <button onClick={handleRunCode} disabled={running || !code.trim()}
+                  title="Run Code (Execute)"
+                  style={{ padding:'4px 10px', height:26, border:'none', background: running ? 'rgba(0,122,204,0.3)' : 'rgba(0,122,204,0.15)', color:'#ffffff', cursor:running||!code.trim()?'not-allowed':'pointer', fontWeight:700, display:'flex', alignItems:'center', gap:4, fontSize:'.68rem', borderRadius:4, opacity: (!code.trim()) ? 0.5 : 1 }}>
+                  <span>▶</span> Run
                 </button>
+                <span style={{ color:'rgba(255,255,255,0.2)', fontSize:'.8rem' }}>│</span>
+                <button onClick={handleDebug} disabled={debugging || !code.trim()}
+                  title="AI Analyse Code"
+                  style={{ padding:'4px 10px', height:26, border:'none', background: debugging ? 'rgba(167,139,250,0.3)' : 'rgba(167,139,250,0.12)', color:'#c4b5fd', cursor:debugging||!code.trim()?'not-allowed':'pointer', fontWeight:700, display:'flex', alignItems:'center', gap:4, fontSize:'.68rem', borderRadius:4, opacity:(!code.trim()) ? 0.5 : 1 }}>
+                  {debugging ? '⏳' : '🤖'} {debugging ? 'Analysing…' : 'AI Analyse'}
+                </button>
+                <span style={{ color:'rgba(255,255,255,0.2)', fontSize:'.8rem' }}>│</span>
+                <button onClick={handleSaveDraft} disabled={savingDraft || !code.trim()}
+                  title="Save Draft & Notes"
+                  style={{ padding:'4px 10px', height:26, border:'none', background:'rgba(255,255,255,0.05)', color:'#94a3b8', cursor:savingDraft||!code.trim()?'not-allowed':'pointer', fontWeight:700, display:'flex', alignItems:'center', gap:4, fontSize:'.68rem', borderRadius:4, opacity:(!code.trim()) ? 0.5 : 1 }}>
+                  💾 {savingDraft ? 'Saving…' : 'Save Draft'}
+                </button>
+                <span style={{ color:'rgba(255,255,255,0.2)', fontSize:'.8rem' }}>│</span>
+                {isSolved ? (
+                  <span style={{ padding:'0 10px', height:26, display:'flex', alignItems:'center', fontWeight:700, color:'#4ade80', fontSize:'.68rem' }}>
+                    ✓ Solved
+                  </span>
+                ) : (
+                  <button onClick={handleSolveSubmit} disabled={submitting || !code.trim()}
+                    title="Submit Solution"
+                    style={{ padding:'4px 12px', height:26, border:'none', background:'#1f8244', color:'#ffffff', cursor:submitting||!code.trim()?'not-allowed':'pointer', fontWeight:800, display:'flex', alignItems:'center', gap:4, fontSize:'.68rem', borderRadius:4, opacity:(!code.trim()) ? 0.5 : 1 }}>
+                    🚀 {submitting ? 'Submitting…' : 'Submit Solution'}
+                  </button>
+                )}
+                <span style={{ color:'rgba(255,255,255,0.2)', fontSize:'.8rem', margin:'0 4px' }}>│</span>
+                <button onClick={() => setTerminalOutput('')} style={{ background:'transparent', border:'none', color:'#858585', cursor:'pointer', fontSize:'.68rem', padding:'4px 6px' }} title="Clear Console">
+                  🗑️
+                </button>
+                {runResult && (
+                  <button onClick={() => { setRunResult(null); stopExecution(); }} style={{ background:'transparent', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'.68rem', padding:'4px 6px' }}>
+                    ✖
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* AI Analysis floating panel (above terminal output when active) */}
+            {(debugResult || debugging) && (
+              <div style={{ flex: debugResult ? '1 1 55%' : '0 0 auto', background:'#0d0d1a', borderBottom:'1px solid rgba(83,22,151,0.3)', overflowY:'auto', padding:'0 12px 8px 12px', flexShrink:0 }}>
+                <DebugPanel
+                  result={debugResult}
+                  loading={debugging}
+                  code={code}
+                  onApplyFix={(fixedCode) => setCode(fixedCode)}
+                />
+              </div>
+            )}
+
+            {/* Terminal Console Output Scrollbox */}
+            <div style={{ flex:1, overflowY:'auto', padding:'10px', background:'#181818', color:'#3cd876', fontSize:'.75rem', fontFamily:'Consolas, monospace', whiteSpace:'pre-wrap', minHeight:0 }}>
+              {runResult || terminalOutput ? (
+                <div>
+                  {terminalOutput || 'Executing code...'}
+                  {running && (
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, borderTop:'1px dashed #3c3c3c', paddingTop:6 }}>
+                      <span style={{ color:'#38bdf8' }}>pragati-sandbox:~$</span>
+                      <input
+                        value={terminalInput}
+                        onChange={e => setTerminalInput(e.target.value)}
+                        onKeyDown={handleTerminalInput}
+                        placeholder="Type stdin input and press Enter..."
+                        style={{ flex:1, background:'transparent', border:'none', color:'#ffffff', outline:'none', fontFamily:'Consolas, monospace', fontSize:'.75rem' }}
+                        autoFocus
+                      />
+                      <button onClick={stopExecution} style={{ background:'#ef4444', color:'#fff', border:'none', padding:'2px 8px', borderRadius:2, cursor:'pointer', fontSize:'.65rem', fontWeight:'bold' }}>Stop</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color:'#858585' }}>
+                  pragati-sandbox:~/workspace$ click ▶ Run or 🚀 Submit above to compile &amp; run...
+                </div>
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Glowing success modal overlay */}
+
+      {/* ── VS Code Bottom Status Bar (Action Controllers) ── */}
+      <footer style={{ height:22, background:'#007acc', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 10px', fontSize:'.68rem', color:'#ffffff', flexShrink:0, fontFamily:"'Segoe UI',sans-serif" }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ background:'#1f1f1f', padding:'0 8px', height:'100%', display:'flex', alignItems:'center' }}>
+            ⚙️ Compile Sandbox
+          </span>
+          <span>Spaces: 4</span>
+          <span>UTF-8</span>
+          <span>Language: {lang.toUpperCase()}</span>
+        </div>
+
+        <div style={{ display:'flex', alignItems:'center', gap:1 }}>
+          <button onClick={handleRunCode} disabled={running || !code.trim()} 
+            style={{ padding:'0 10px', height:22, border:'none', background:'transparent', color:'#ffffff', cursor:running||!code.trim()?'not-allowed':'pointer', fontWeight:600, display:'flex', alignItems:'center', gap:4 }}>
+            <span>▶</span> Run Code
+          </button>
+          <span style={{ color:'rgba(255,255,255,0.4)' }}>|</span>
+          <button onClick={handleDebug} disabled={debugging || !code.trim()} 
+            style={{ padding:'0 10px', height:22, border:'none', background:'transparent', color:'#ffffff', cursor:debugging||!code.trim()?'not-allowed':'pointer', fontWeight:600, display:'flex', alignItems:'center', gap:4 }}>
+            <span>🤖</span> AI Analyse
+          </button>
+          <span style={{ color:'rgba(255,255,255,0.4)' }}>|</span>
+          <button onClick={handleSaveDraft} disabled={savingDraft || !code.trim()} 
+            style={{ padding:'0 10px', height:22, border:'none', background:'transparent', color:'#ffffff', cursor:savingDraft||!code.trim()?'not-allowed':'pointer', fontWeight:600, display:'flex', alignItems:'center', gap:4 }}>
+            <span>💾</span> Save Draft
+          </button>
+          <span style={{ color:'rgba(255,255,255,0.4)' }}>|</span>
+          
+          {isSolved ? (
+            <span style={{ padding:'0 12px', background:'rgba(255,255,255,0.15)', height:22, display:'flex', alignItems:'center', fontWeight:700 }}>
+              ✓ Solved
+            </span>
+          ) : (
+            <button onClick={handleSolveSubmit} disabled={submitting || !code.trim()} 
+              style={{ padding:'0 14px', height:22, border:'none', background:'#1f8244', color:'#ffffff', cursor:submitting||!code.trim()?'not-allowed':'pointer', fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
+              🚀 Submit Solution
+            </button>
+          )}
+        </div>
+      </footer>
+
+      {/* Celebration success overlay */}
       {showCelebration && (
         <div style={{ position:'fixed', inset:0, background:'rgba(11,15,25,0.85)', zIndex:2500, display:'flex', alignItems:'center', justifyContent:'center', backdropFilter:'blur(4px)' }}>
-          <div style={{ padding:32, background:'#111827', border:'2.5px solid #4ade80', borderRadius:24, textAlign:'center', maxWidth:420, width:'90%', boxShadow:'0 0 50px rgba(74,222,128,0.3)', animation:'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+          <div style={{ padding:32, background:'#1e1e1e', border:'2px solid #007acc', borderRadius:16, textAlign:'center', maxWidth:420, width:'90%', boxShadow:'0 0 30px rgba(0,122,204,0.3)', animation:'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', fontFamily:"'Segoe UI',sans-serif" }}>
             <div style={{ fontSize:'3.5rem', marginBottom:12, animation:'bounce 1s infinite' }}>🏆</div>
             <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.4rem', color:'#4ade80', marginBottom:8 }}>EXCELLENT WORK!</h2>
             <p style={{ color:'#cbd5e1', fontSize:'.9rem', lineHeight:1.6, marginBottom:20 }}>
               You have successfully completed <strong>{problem.title}</strong>!<br />
               Your streak progresses and rewards are permanently recorded.
             </p>
-            <div style={{ display:'flex', justifyContent:'space-around', background:'#1f2937', padding:12, borderRadius:14, marginBottom:24 }}>
+            <div style={{ display:'flex', justifyContent:'space-around', background:'#2d2d2d', padding:12, borderRadius:8, marginBottom:24 }}>
               <div>
                 <div style={{ color:'#fbbf24', fontWeight:800 }}>+{problem.difficulty === 'Hard' || problem.level === 'Hard' ? 100 : problem.difficulty === 'Medium' || problem.level === 'Medium' ? 30 : 10} XP</div>
                 <div style={{ fontSize:'.68rem', color:'#94a3b8' }}>XP Points</div>
               </div>
-              <div style={{ borderLeft:'1px solid #374151' }} />
+              <div style={{ borderLeft:'1px solid #3c3c3c' }} />
               <div>
                 <div style={{ color:'#4ade80', fontWeight:800 }}>🔥 Active</div>
                 <div style={{ fontSize:'.68rem', color:'#94a3b8' }}>Heatmap Logged</div>
               </div>
             </div>
-            <button onClick={()=>setShowCelebration(false)} style={{ width:'100%', padding:'10px 0', border:'none', borderRadius:10, background:'#4ade80', color:'#111827', fontWeight:800, cursor:'pointer', fontSize:'.88rem' }}>
+            <button onClick={()=>setShowCelebration(false)} style={{ width:'100%', padding:'10px 0', border:'none', borderRadius:6, background:'#007acc', color:'#ffffff', fontWeight:800, cursor:'pointer', fontSize:'.88rem' }}>
               AWESOME
             </button>
           </div>
@@ -751,8 +1010,8 @@ export default function ProblemsPage() {
   }, [search, difficultyFilter, solvedFilter, selectedCategory, companyFilter]);
   
   // Custom states for local DB sync
-  const [solved, setSolved] = useState(() => new Set(JSON.parse(localStorage.getItem('pragati_practice_solved') || '[]')));
-  const [favorites] = useState(() => new Set(JSON.parse(localStorage.getItem('pragati_practice_favorites') || '[]')));
+  const [solved, setSolved] = useState(() => new Set((JSON.parse(localStorage.getItem('pragati_practice_solved') || '[]')).filter(Boolean).filter(x => x !== 'undefined')));
+  const [favorites] = useState(() => new Set((JSON.parse(localStorage.getItem('pragati_practice_favorites') || '[]')).filter(Boolean).filter(x => x !== 'undefined')));
   const [notes] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}'));
   const [submissions] = useState(() => JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}'));
   const [xp, setXp] = useState(() => parseInt(localStorage.getItem('pragati_practice_xp') || '0'));
@@ -767,20 +1026,50 @@ export default function ProblemsPage() {
   // Daily API sync variables
   const [daily, setDaily] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dailyLoading, setDailyLoading] = useState(true);
+  const [dailyError, setDailyError] = useState(null);
+  const [dailyRetryCount, setDailyRetryCount] = useState(0);
+  const dailyRetryTimerRef = React.useRef(null);
 
-  const fetchDaily = async () => {
+  const fetchDaily = React.useCallback(async (isAutoRetry = false) => {
+    if (!isAutoRetry) {
+      setDailyLoading(true);
+      setDailyError(null);
+      setDailyRetryCount(0);
+      // Clear any pending auto-retry
+      if (dailyRetryTimerRef.current) clearTimeout(dailyRetryTimerRef.current);
+    }
     try {
-      const res = await fetch(`${API}/problems/daily`, { headers:tk() });
+      const res = await fetch(`${API}/problems/daily`, { headers: tk() });
       if (res.ok) {
         const d = await res.json();
         setDaily(d);
+        setDailyError(null);
+        setDailyLoading(false);
+        setDailyRetryCount(0);
+        if (dailyRetryTimerRef.current) clearTimeout(dailyRetryTimerRef.current);
+      } else {
+        const e = await res.json().catch(() => ({}));
+        const msg = e.message || e.error || 'Server returned an error. Retrying...';
+        setDailyError(msg);
+        setDailyLoading(false);
       }
-    } catch(e) {
-      console.error(e);
+    } catch (e) {
+      console.warn('[fetchDaily] attempt failed:', e.message);
+      setDailyError('connecting');
+      setDailyLoading(false);
+      // Auto-retry up to 8 times with 4s interval
+      setDailyRetryCount(prev => {
+        const next = prev + 1;
+        if (next <= 8) {
+          dailyRetryTimerRef.current = setTimeout(() => fetchDaily(true), 4000);
+        }
+        return next;
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const syncPracticeData = async () => {
     try {
@@ -788,14 +1077,39 @@ export default function ProblemsPage() {
       const resHist = await fetch(`${API}/problems/history`, { headers: tk() });
       if (resHist.ok) {
         const histData = await resHist.json();
-        const solvedIds = new Set(
-          (histData.history || [])
-            .filter(up => up.status === 'solved')
-            .map(up => up.problemId?._id || up.problemId)
-            .filter(Boolean)
-        );
-        setSolved(solvedIds);
+        const solvedIds = new Set();
+        const localNotes = {};
+        const localCode = {};
+        
+        (histData.history || []).forEach(up => {
+          const pId = up.problemId?._id || up.problemId;
+          if (pId) {
+            if (up.status === 'solved') {
+              solvedIds.add(pId);
+            }
+            if (up.approachNotes) {
+              localNotes[pId] = up.approachNotes;
+            }
+            if (up.solutionCode) {
+              localCode[pId] = up.solutionCode;
+            }
+          }
+        });
+        
+        // Merge into persistent state objects and localStorage
+        const existingNotes = JSON.parse(localStorage.getItem('pragati_practice_notes') || '{}');
+        const existingCode = JSON.parse(localStorage.getItem('pragati_practice_code_submissions') || '{}');
+        
+        const mergedNotes = { ...existingNotes, ...localNotes };
+        const mergedCode = { ...existingCode, ...localCode };
+        
         localStorage.setItem('pragati_practice_solved', JSON.stringify([...solvedIds]));
+        localStorage.setItem('pragati_practice_notes', JSON.stringify(mergedNotes));
+        localStorage.setItem('pragati_practice_code_submissions', JSON.stringify(mergedCode));
+        
+        setSolved(solvedIds);
+        Object.assign(notes, mergedNotes);
+        Object.assign(submissions, mergedCode);
       }
 
       // 2. Fetch my profile for streak & heatmap
@@ -827,9 +1141,12 @@ export default function ProblemsPage() {
   };
 
   useEffect(() => {
-    fetchDaily();
-    syncPracticeData();
-  }, []);
+    // Run both in parallel — no sequential waiting
+    Promise.all([
+      fetchDaily(),
+      syncPracticeData(),
+    ]);
+  }, []); // eslint-disable-line
 
   const handleSolveProgress = (problemId, difficulty) => {
     // Proactively add solved problem locally first for instant feedback
@@ -964,7 +1281,7 @@ export default function ProblemsPage() {
 
   const allFilteredProblems = useMemo(() => {
     return baseProblems.filter(p => {
-      if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (search && !(p?.title || '').toLowerCase().includes(search.toLowerCase())) return false;
       if (difficultyFilter !== 'All' && p.difficulty !== difficultyFilter) return false;
       if (solvedFilter === 'Solved' && !solved.has(p.id)) return false;
       if (solvedFilter === 'Unsolved' && solved.has(p.id)) return false;
@@ -1077,7 +1394,7 @@ export default function ProblemsPage() {
       </div>
 
       {/* Today's curriculum assigned problems list (Easy, Medium, Hard) */}
-      {tab === 'dash' && daily?.dailyProblems && daily.dailyProblems.length > 0 && (
+      {tab === 'dash' && (
         <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.03),rgba(19,161,165,0.03))', border:'1.5px solid rgba(83,22,151,0.12)', borderRadius:16, padding:20, marginBottom:20 }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:10 }}>
             <div>
@@ -1087,40 +1404,162 @@ export default function ProblemsPage() {
             <span style={{ fontSize:'.75rem', color:'var(--text-3)', fontWeight:600 }}>Solve at least 1 to advance your streak! Solve all 3 for maximum heatmap dark purple color!</span>
           </div>
 
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14 }}>
-            {daily.dailyProblems.map(({ problem, userProblem }) => {
-              const isSolved = solved.has(problem._id || problem.id);
-              const diffCol = DIFF[problem.difficulty]?.color || '#cbd5e1';
-              return (
-                <div key={problem._id || problem.id} style={{ background:'var(--surface)', padding:16, borderRadius:12, border:isSolved?'1.5px solid rgba(71,211,114,0.4)':'1.5px solid var(--border)', display:'flex', flexDirection:'column', justifyContent:'space-between', transition:'transform 0.2s' }}>
-                  <div>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                      <span style={{ padding:'2px 8px', borderRadius:6, background:DIFF[problem.difficulty]?.bg, color:diffCol, fontSize:'.68rem', fontWeight:800 }}>
-                        {problem.difficulty}
-                      </span>
+          {/* Loading state */}
+          {dailyLoading && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:14 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ background:'var(--surface)', padding:16, borderRadius:12, border:'1.5px solid var(--border)' }}>
+                  <div style={{ height:12, background:'linear-gradient(90deg,rgba(83,22,151,0.08),rgba(19,161,165,0.08),rgba(83,22,151,0.08))', backgroundSize:'200% 100%', borderRadius:6, marginBottom:10, animation:'_shimmer 1.5s infinite' }} />
+                  <div style={{ height:18, background:'linear-gradient(90deg,rgba(83,22,151,0.06),rgba(19,161,165,0.06),rgba(83,22,151,0.06))', backgroundSize:'200% 100%', borderRadius:6, marginBottom:8, width:'80%', animation:'_shimmer 1.5s infinite' }} />
+                  <div style={{ height:10, background:'rgba(255,255,255,0.04)', borderRadius:6, marginBottom:6, animation:'_shimmer 1.5s infinite' }} />
+                  <div style={{ height:10, background:'rgba(255,255,255,0.04)', borderRadius:6, marginBottom:6, width:'60%', animation:'_shimmer 1.5s infinite' }} />
+                  <style>{`@keyframes _shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error / Connecting state */}
+          {!dailyLoading && dailyError && (
+            <div style={{ padding:20, background: dailyError === 'connecting' ? 'rgba(83,22,151,0.06)' : 'rgba(239,68,68,0.06)', border:`1px solid ${dailyError === 'connecting' ? 'rgba(83,22,151,0.25)' : 'rgba(239,68,68,0.2)'}`, borderRadius:12, textAlign:'center' }}>
+              {dailyError === 'connecting' ? (
+                <>
+                  <div style={{ fontSize:'1.5rem', marginBottom:8, animation:'spin 1.5s linear infinite', display:'inline-block' }}>⚡</div>
+                  <div style={{ fontSize:'.88rem', color:'#a78bfa', fontWeight:700, marginBottom:4 }}>Connecting to PRAGATI server…</div>
+                  <div style={{ fontSize:'.75rem', color:'var(--text-3)', marginBottom:10 }}>
+                    {dailyRetryCount <= 8 ? `Auto-retrying… (${dailyRetryCount}/8)` : 'Server may be starting up. Click Retry.'}
+                  </div>
+                  <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+                    <button onClick={() => fetchDaily(false)} style={{ padding:'6px 16px', borderRadius:8, background:'rgba(83,22,151,0.15)', border:'1px solid rgba(83,22,151,0.3)', color:'#a78bfa', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
+                      🔄 Retry Now
+                    </button>
+                  </div>
+                  <style>{`@keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }`}</style>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize:'1.5rem', marginBottom:8 }}>⚠️</div>
+                  <div style={{ fontSize:'.85rem', color:'#f87171', fontWeight:700, marginBottom:8 }}>{dailyError}</div>
+                  <button onClick={() => fetchDaily(false)} style={{ padding:'6px 16px', borderRadius:8, background:'rgba(83,22,151,0.15)', border:'1px solid rgba(83,22,151,0.3)', color:'#a78bfa', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
+                    🔄 Retry
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Empty state (fetch succeeded but no problems) */}
+          {!dailyLoading && !dailyError && (!daily?.dailyProblems || daily.dailyProblems.length === 0) && (
+            <div style={{ padding:20, background:'rgba(255,255,255,0.02)', border:'1px solid var(--border)', borderRadius:12, textAlign:'center' }}>
+              <div style={{ fontSize:'1.8rem', marginBottom:8 }}>🎯</div>
+              <div style={{ fontSize:'.88rem', color:'var(--text-2)', fontWeight:700, marginBottom:4 }}>No daily targets assigned yet</div>
+              <div style={{ fontSize:'.75rem', color:'var(--text-3)' }}>Daily problems are refreshed at midnight. Check back tomorrow!</div>
+            </div>
+          )}
+
+          {/* Problems grid */}
+          {!dailyLoading && !dailyError && daily?.dailyProblems && daily.dailyProblems.length > 0 && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))', gap:14 }}>
+              {(daily.dailyProblems || []).filter(d => d && d.problem && typeof d.problem === 'object' && (d.problem.title || d.problem._id || d.problem.id)).map(({ problem, userProblem }) => {
+                const isSolved = solved.has(problem._id || problem.id);
+                const diffCol = DIFF[problem.difficulty]?.color || '#cbd5e1';
+                const diffBg = DIFF[problem.difficulty]?.bg || 'rgba(255,255,255,0.05)';
+                // Gather description/hints from static data if not in problem object
+                const staticData = getProblemStatement(problem.title, problem.topic, problem.difficulty);
+                const descSnippet = problem.description
+                  ? (problem.description.replace(/<[^>]+>/g, '').substring(0, 120) + (problem.description.length > 120 ? '…' : ''))
+                  : (staticData.desc ? staticData.desc.substring(0, 120) + '…' : null);
+                const hintsCount = (problem.hints && problem.hints.length) || (staticData.hints && staticData.hints.length) || 0;
+                const hasEditorial = !!(problem.editorial || staticData.editorial);
+                const topicBadge = problem.topic || staticData.topic || '';
+                return (
+                  <div key={problem._id || problem.id || problem.title}
+                    style={{ background:'var(--surface)', padding:18, borderRadius:14,
+                      border: isSolved ? '1.5px solid rgba(71,211,114,0.4)' : '1.5px solid var(--border)',
+                      display:'flex', flexDirection:'column', justifyContent:'space-between',
+                      boxShadow: isSolved ? '0 0 12px rgba(71,211,114,0.08)' : 'none',
+                      transition:'transform 0.2s, box-shadow 0.2s',
+                      position: 'relative', overflow: 'hidden'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseOut={e => e.currentTarget.style.transform = 'none'}
+                  >
+                    {/* Top row: difficulty + status */}
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+                        <span style={{ padding:'2px 8px', borderRadius:6, background:diffBg, color:diffCol, fontSize:'.68rem', fontWeight:800 }}>
+                          {problem.difficulty || 'Easy'}
+                        </span>
+                        {topicBadge && (
+                          <span style={{ padding:'2px 8px', borderRadius:6, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.62rem', fontWeight:700, maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {topicBadge}
+                          </span>
+                        )}
+                      </div>
                       {isSolved ? (
-                        <span style={{ fontSize:'.75rem', color:'#47d372', fontWeight:800 }}>✅ Solved</span>
+                        <span style={{ fontSize:'.72rem', color:'#47d372', fontWeight:800, display:'flex', alignItems:'center', gap:3 }}>✅ Solved</span>
                       ) : (
-                        <span style={{ fontSize:'.75rem', color:'#ea580c', fontWeight:800 }}>🎯 Assigned</span>
+                        <span style={{ fontSize:'.72rem', color:'#ea580c', fontWeight:800, display:'flex', alignItems:'center', gap:3 }}>🎯 Target</span>
                       )}
                     </div>
-                    <h4 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.9rem', color:'var(--text)', margin:'0 0 6px 0' }}>{problem.title}</h4>
-                    <p style={{ fontSize:'.72rem', color:'var(--text-3)', margin:0 }}>Topic: {problem.topic}</p>
+
+                    {/* Title */}
+                    <h4 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.92rem', color:'var(--text)', margin:'0 0 8px 0', lineHeight:1.3 }}>
+                      {problem.title}
+                    </h4>
+
+                    {/* Description snippet */}
+                    {descSnippet && (
+                      <p style={{ fontSize:'.72rem', color:'var(--text-3)', margin:'0 0 10px 0', lineHeight:1.55 }}>
+                        {descSnippet}
+                      </p>
+                    )}
+
+                    {/* Badges: hints + editorial */}
+                    <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
+                      {hintsCount > 0 && (
+                        <span style={{ padding:'2px 7px', borderRadius:5, background:'rgba(251,191,36,0.12)', color:'#fbbf24', fontSize:'.6rem', fontWeight:800 }}>
+                          💡 {hintsCount} Hints
+                        </span>
+                      )}
+                      {hasEditorial && (
+                        <span style={{ padding:'2px 7px', borderRadius:5, background:'rgba(167,139,250,0.12)', color:'#a78bfa', fontSize:'.6rem', fontWeight:800 }}>
+                          📖 Editorial
+                        </span>
+                      )}
+                      <span style={{ padding:'2px 7px', borderRadius:5, background:'rgba(56,189,248,0.1)', color:'#38bdf8', fontSize:'.6rem', fontWeight:800 }}>
+                        ⚡ AI Analysis
+                      </span>
+                    </div>
+
+                    {/* CTA buttons */}
+                    <div style={{ display:'flex', gap:8 }}>
+                      <button onClick={() => setActiveWorkspaceProblem(problem)}
+                        style={{ flex:2, padding:'9px 0', borderRadius:9,
+                          background: isSolved ? 'rgba(71,211,114,0.08)' : 'linear-gradient(135deg,#531697,#13a1a5)',
+                          color: isSolved ? '#47d372' : '#fff',
+                          border: isSolved ? '1px solid rgba(71,211,114,0.4)' : 'none',
+                          fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s'
+                        }}>
+                        {isSolved ? '🔍 Review Solution' : '⚡ Solve Target →'}
+                      </button>
+                      <a href={`https://leetcode.com/problems/${(problem.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`}
+                        target="_blank" rel="noreferrer"
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, padding:'9px 0',
+                          borderRadius:9, background:'rgba(255,255,255,0.03)',
+                          color:'#94a3b8', border:'1px solid var(--border)', fontWeight:800, fontSize:'.72rem', textDecoration:'none'
+                        }}>
+                        LeetCode ↗
+                      </a>
+                    </div>
                   </div>
-                  <div style={{ display:'flex', gap:8, marginTop:12 }}>
-                    <button onClick={() => setActiveWorkspaceProblem(problem)} style={{ flex:1, padding:'8px 0', borderRadius:8, background:isSolved?'rgba(71,211,114,0.06)':'linear-gradient(135deg,#531697,#13a1a5)', color:isSolved?'#47d372':'#fff', border:isSolved?'1px solid #47d372':'none', fontWeight:800, cursor:'pointer', fontSize:'.78rem', transition:'opacity 0.2s' }}>
-                      {isSolved ? 'Review Solution' : 'Solve Target →'}
-                    </button>
-                    <a href={`https://leetcode.com/problems/${problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', justifyContent:'center', flex:1, padding:'8px 0', borderRadius:8, background:'rgba(255,255,255,0.05)', color:'#cbd5e1', border:'1px solid var(--border)', fontWeight:800, fontSize:'.78rem', textDecoration:'none' }}>
-                      Solve on LeetCode ↗
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
+
 
       {/* TAB 1: DASHBOARD & STATS */}
       {tab === 'dash' && (
@@ -1228,7 +1667,7 @@ export default function ProblemsPage() {
             return Object.entries(grouped).map(([catName, problems]) => {
               const filtered = problems.filter(p => {
                 const isSolved = solved.has(p.id);
-                if (search && !p.title.toLowerCase().includes(search.toLowerCase())) return false;
+                if (search && !(p?.title || '').toLowerCase().includes(search.toLowerCase())) return false;
                 if (difficultyFilter !== 'All' && p.difficulty !== difficultyFilter) return false;
                 if (solvedFilter === 'Solved' && !isSolved) return false;
                 if (solvedFilter === 'Unsolved' && isSolved) return false;
@@ -1351,7 +1790,7 @@ export default function ProblemsPage() {
             catMap['🔥 Most Likely Asked'].push(probId);
           } else if (allLeetCodeProblems && allLeetCodeProblems.some(p => p.id === probId || p._id === probId)) {
             catMap['🌐 All LeetCode Problems'].push(probId);
-          } else if (daily?.dailyProblems?.some(d => d.problem._id === probId || d.problem.id === probId)) {
+          } else if (daily?.dailyProblems?.some(d => d?.problem?._id === probId || d?.problem?.id === probId)) {
             catMap['🌐 All LeetCode Problems'].push(probId);
           } else {
             catMap['other'].push(probId);
@@ -1359,12 +1798,12 @@ export default function ProblemsPage() {
         });
 
         const getProbTitle = (id) => {
-          const fromStatic = allFilteredProblems.find(p => p.id === id || p._id === id);
+          const fromStatic = allFilteredProblems.find(p => p?.id === id || p?._id === id);
           if (fromStatic) return fromStatic.title;
-          const fromDb = allLeetCodeProblems.find(p => p._id === id || p.id === id);
+          const fromDb = allLeetCodeProblems.find(p => p?._id === id || p?.id === id);
           if (fromDb) return fromDb.title;
-          const fromDaily = daily?.dailyProblems?.find(d => d.problem._id === id || d.problem.id === id);
-          if (fromDaily) return fromDaily.problem.title;
+          const fromDaily = daily?.dailyProblems?.find(d => d?.problem?._id === id || d?.problem?.id === id);
+          if (fromDaily?.problem) return fromDaily.problem.title;
           return id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         };
 
@@ -1492,10 +1931,14 @@ export default function ProblemsPage() {
                 </thead>
                 <tbody>
                   {(() => {
-                    const filtered = allLeetCodeProblems.filter(p => {
+                    const filtered = (allLeetCodeProblems || []).filter(p => {
+                      if (!p || (!p._id && !p.id)) return false;
                       const isSolved = solved.has(p._id || p.id);
                       if (solvedFilter === 'Solved' && !isSolved) return false;
                       if (solvedFilter === 'Unsolved' && isSolved) return false;
+                      if (difficultyFilter !== 'All' && (p.difficulty || p.level) !== difficultyFilter) return false;
+                      if (selectedCategory !== 'All' && !isTopicMatch(p.topic, selectedCategory)) return false;
+                      if (search && !(p.title || '').toLowerCase().includes(search.toLowerCase())) return false;
                       return true;
                     });
                     
@@ -1549,10 +1992,14 @@ export default function ProblemsPage() {
                 </tbody>
               </table>
               {(() => {
-                const filtered = allLeetCodeProblems.filter(p => {
+                const filtered = (allLeetCodeProblems || []).filter(p => {
+                  if (!p || (!p._id && !p.id)) return false;
                   const isSolved = solved.has(p._id || p.id);
                   if (solvedFilter === 'Solved' && !isSolved) return false;
                   if (solvedFilter === 'Unsolved' && isSolved) return false;
+                  if (difficultyFilter !== 'All' && (p.difficulty || p.level) !== difficultyFilter) return false;
+                  if (selectedCategory !== 'All' && !isTopicMatch(p.topic, selectedCategory)) return false;
+                  if (search && !(p.title || '').toLowerCase().includes(search.toLowerCase())) return false;
                   return true;
                 });
                 const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -1626,8 +2073,11 @@ export default function ProblemsPage() {
 
           {/* List */}
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {allFilteredProblems.filter(p => selectedCategory !== 'All' ? true : p.isMla).map(p => {
+            {allFilteredProblems.filter(p => p && (selectedCategory !== 'All' ? true : p.isMla)).map(p => {
               const completed = solved.has(p.id);
+              const companyList = typeof p.askedBy === 'string'
+                ? p.askedBy.split(', ').slice(0, 3)
+                : (Array.isArray(p.askedBy) ? p.askedBy.slice(0, 3) : []);
               return (
                 <div key={p.id} style={{ padding:'12px 18px', background:'var(--surface)', border:'1.5px solid var(--border)', borderRadius:12, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
                   <div style={{ flex:1 }}>
@@ -1638,13 +2088,13 @@ export default function ProblemsPage() {
                         {p.difficulty}
                       </span>
                     </div>
-                    {p.askedBy && (
+                    {companyList.length > 0 && (
                       <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
-                        {p.askedBy.split(', ').slice(0, 3).map(item => {
-                          const [name] = item.split('-');
+                        {companyList.map(item => {
+                          const [name] = String(item).split('-');
                           return (
-                            <span key={item} style={{ fontSize:'.65rem', color:'var(--text-3)', padding:'1px 5px', borderRadius:4, background:'var(--background)', border:'1.5px solid var(--border)', display:'inline-flex', alignItems:'center', gap:2 }}>
-                              {COMPANY_LOGOS[name]} {item}
+                            <span key={String(item)} style={{ fontSize:'.65rem', color:'var(--text-3)', padding:'1px 5px', borderRadius:4, background:'var(--background)', border:'1.5px solid var(--border)', display:'inline-flex', alignItems:'center', gap:2 }}>
+                              {COMPANY_LOGOS[name]} {String(item)}
                             </span>
                           );
                         })}
@@ -1655,7 +2105,7 @@ export default function ProblemsPage() {
                     <button onClick={() => setActiveWorkspaceProblem(p)} style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
                       Practice Solution →
                     </button>
-                    <a href={`https://leetcode.com/problems/${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', gap:4, textDecoration:'none', color:'#f59e0b', fontSize:'.75rem', fontWeight:800, padding:'6px 10px', borderRadius:8, background:'rgba(245,158,11,0.1)' }}>
+                    <a href={`https://leetcode.com/problems/${(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', gap:4, textDecoration:'none', color:'#f59e0b', fontSize:'.75rem', fontWeight:800, padding:'6px 10px', borderRadius:8, background:'rgba(245,158,11,0.1)' }}>
                       <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" alt="Leetcode" style={{ width:14, filter:'invert(1)' }} />
                       LeetCode
                     </a>
@@ -1714,8 +2164,8 @@ export default function ProblemsPage() {
                           {comp ? '✅' : '○'} {p.title}
                         </span>
                         <div style={{ display:'flex', gap:6, alignItems:'center', flexShrink:0 }}>
-                          <span style={{ fontSize:'.65rem', color:DIFF[p.difficulty].color, background:DIFF[p.difficulty].bg, padding:'2px 8px', borderRadius:6, border:`1px solid ${DIFF[p.difficulty].border}` }}>{p.difficulty}</span>
-                          <a href={`https://leetcode.com/problems/${p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ padding:'4px 10px', borderRadius:8, border:'none', background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontWeight:800, textDecoration:'none', display:'flex', alignItems:'center', gap:4, fontSize:'.65rem' }}>
+                          <span style={{ fontSize:'.65rem', color:DIFF[p.difficulty]?.color || '#cbd5e1', background:DIFF[p.difficulty]?.bg || 'transparent', padding:'2px 8px', borderRadius:6, border:`1px solid ${DIFF[p.difficulty]?.border || 'transparent'}` }}>{p.difficulty}</span>
+                          <a href={`https://leetcode.com/problems/${(p?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}/`} target="_blank" rel="noreferrer" style={{ padding:'4px 10px', borderRadius:8, border:'none', background:'rgba(245,158,11,0.15)', color:'#f59e0b', fontWeight:800, textDecoration:'none', display:'flex', alignItems:'center', gap:4, fontSize:'.65rem' }}>
                             <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/LeetCode_logo_black.png" alt="Leetcode" style={{ width:12, filter:'invert(1)' }} />
                           </a>
                           <button onClick={()=>setActiveWorkspaceProblem(p)} style={{ padding:'4px 10px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.65rem' }}>

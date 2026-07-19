@@ -11,7 +11,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getNaturalVoice } from '../utils/voiceHelper';
+import { getNaturalVoice, speakText } from '../utils/voiceHelper';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -597,42 +597,26 @@ function MockInterview({targetRole,interviewType,userName,resumeText='',jdText='
     return()=>clearInterval(timerRef.current);
   },[selectedDuration,done]);
 
-  // TTS — speaks every interviewer message aloud (respects saved accent preference and gender)
-  const speak=useCallback((text)=>{
-    if(!ttsEnabled||!text?.trim()||!window.speechSynthesis)return;
-    window.speechSynthesis.cancel();
-    const accent=localStorage.getItem('pragati_accent')||'indian';
-    const utt=new SpeechSynthesisUtterance(text);
-    utt.volume=1;
-
-    const gender = interviewType === 'HR' ? 'female' : 'male';
-
-    if (gender === 'male') {
-      utt.pitch = 0.85;
-      utt.rate = 0.90;
-    } else {
-      utt.pitch = 1.12;
-      utt.rate = 0.93;
-    }
-
-    const voice = getNaturalVoice(accent, gender);
-    if (voice) {
-      utt.voice = voice;
-      utt.lang = voice.lang;
-    } else {
-      utt.lang = accent === 'foreign' ? 'en-US' : 'en-IN';
-    }
-
-    utt.onstart=()=>setAiSpeaking(true);
-    utt.onend=()=>setAiSpeaking(false);
-    utt.onerror=()=>setAiSpeaking(false);
+  // TTS — speaks every interviewer message aloud using premium backend neural TTS
+  const speak = useCallback(async (text) => {
+    if (!ttsEnabled || !text?.trim()) return;
     
-    const keepAlive=setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},5000);
-    utt.onend=()=>{clearInterval(keepAlive);setAiSpeaking(false);};
-    if(!window.speechSynthesis.getVoices().length){
-      window.speechSynthesis.onvoiceschanged=()=>{window.speechSynthesis.onvoiceschanged=null;const v=getNaturalVoice(accent, gender);if(v)utt.voice=v;window.speechSynthesis.speak(utt);};
-    }else{window.speechSynthesis.speak(utt);}
-  },[ttsEnabled, interviewType]);
+    // Stop any existing playing speech
+    if (window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch (e) {}
+    }
+    if (window.pragatiAudioPlayer) {
+      try { window.pragatiAudioPlayer.pause(); } catch (e) {}
+    }
+
+    const userGender = localStorage.getItem('pragati_voice_gender');
+    const gender = userGender || (interviewType === 'HR' ? 'female' : 'male');
+    const role = gender === 'male' ? 'system_male' : 'interviewer';
+
+    setAiSpeaking(true);
+    await speakText(text, role);
+    setAiSpeaking(false);
+  }, [ttsEnabled, interviewType]);
 
   const {listening,supported,permError:micPermError,start:startMic,stop:stopMic}=useContinuousSTT({
     lang:'en-IN',
