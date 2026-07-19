@@ -24,6 +24,7 @@ const debugRoutes        = require('./routes/debug.routes');
 const directMsgRoutes    = require('./routes/directmessage.routes');
 const practiceRoutes     = require('./routes/practice.routes');
 const compileRoutes      = require('./routes/compile.routes');
+const ttsRoutes          = require('./routes/tts.routes');
 const drivesRoutes       = require('./routes/drives.routes');
 const gdRoutes           = require('./routes/gd.routes');
 const GDRoom             = require('./models/GDRoom.model');
@@ -32,7 +33,7 @@ const { registerCompileSocket } = require('./utils/compileSocket');
 
 const app = express();
 
-// Security
+// Security config
 app.use(helmet());
 
 // Rate limiting
@@ -79,6 +80,7 @@ app.use('/api/debug',          debugRoutes);
 app.use('/api/direct-messages',directMsgRoutes);
 app.use('/api/practice',       practiceRoutes);
 app.use('/api/compile',        compileRoutes);
+app.use('/api/tts',            ttsRoutes);
 app.use('/api/drives',         drivesRoutes);
 app.use('/api/gd',             gdRoutes);
 app.use('/api/settings',       require('./routes/settings.routes'));
@@ -126,14 +128,33 @@ io.on('connection', (socket) => {
 registerGDSocket(io, GDRoom);
 registerCompileSocket(io);
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
+  .then(async () => {
     console.log('✅ MongoDB connected');
+
+    // ── Start server immediately — don't block on seeding ─────────────────
     httpServer.listen(PORT, () => {
       console.log(`🚀 PRAGATI Backend running on port ${PORT}`);
       console.log(`   GD WebSocket /gd namespace active`);
       console.log(`   Groq AI integration active`);
     });
+
+    // ── Seed LeetCode problems in background (only if DB is empty) ─────────
+    const { Problem } = require('./models/index');
+    const count = await Problem.countDocuments();
+    if (count < 10) {
+      console.log('📦 Problem DB empty — running background seed...');
+      (async () => {
+        try {
+          const { seedProblems } = require('./utils/leetcode-problems-seed');
+          await seedProblems({ shouldDisconnect: false });
+        } catch (e) {
+          console.warn('⚠️ Problem seed warning:', e.message);
+        }
+      })();
+    } else {
+      console.log(`📊 Problem DB ready (${count} problems loaded)`);
+    }
   })
   .catch(err => {
     console.error('❌ MongoDB connection failed:', err.message);

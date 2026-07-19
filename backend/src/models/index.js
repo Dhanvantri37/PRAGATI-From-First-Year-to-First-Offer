@@ -44,6 +44,7 @@ const problemSchema = new mongoose.Schema({
   hints: [String],                       // Approach hints without spoiling
   acceptanceRate: { type: Number },      // e.g. 49.5 (%)
   editorial: { type: String },           // Premium detailed Markdown editorial solution
+  testCases: [{ input: { type: String }, output: { type: String } }],
   assignedDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
@@ -54,7 +55,7 @@ problemSchema.index({ source: 1, problemId: 1 }, { unique: true, sparse: true })
 // ─── User Problem Progress ────────────────────────────────────────────────────
 const userProblemSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  problemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Problem', required: true },
+  problemId: { type: mongoose.Schema.Types.Mixed, ref: 'Problem', required: true },
   status: { type: String, enum: ['assigned', 'attempted', 'solved'], default: 'assigned' },
   solvedAt: { type: Date },
   approachNotes: { type: String },
@@ -64,6 +65,11 @@ const userProblemSchema = new mongoose.Schema({
   shuffled: { type: Boolean, default: false },
   isDaily: { type: Boolean, default: false }
 }, { timestamps: true });
+
+// Performance indexes for fast analytics aggregation
+userProblemSchema.index({ userId: 1, status: 1 });           // solved problems count
+userProblemSchema.index({ userId: 1, isDaily: 1, createdAt: -1 }); // daily problem lookup
+userProblemSchema.index({ userId: 1, updatedAt: -1 });       // heatmap date grouping
 
 // ─── Aptitude Question ────────────────────────────────────────────────────────
 const aptitudeQuestionSchema = new mongoose.Schema({

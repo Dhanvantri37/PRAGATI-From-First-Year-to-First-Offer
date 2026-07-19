@@ -33,7 +33,7 @@ router.get('/batch-percentile', authenticate, async (req, res) => {
     const user = req.user;
     const filter = { role: 'student' };
     if (user.department) filter.department = user.department;
-    if (user.year) filter.year = user.year;
+    // Exclude the year filter to calculate rank department-wide
     const students = await User.find(filter).select('atsScore skillLevel _id');
     const atsList = students.map(s => s.atsScore || 0);
     const myAts = user.atsScore || 0;
@@ -365,25 +365,26 @@ router.get('/leaderboard', authenticate, async (req, res) => {
       ]),
       // Submission dates for heatmap (Aptitude)
       AptitudeAttempt.aggregate([
+        { $match: { attemptedAt: { $type: 'date' } } },
         { $project:{ userId: 1, date:{ $dateToString:{ format:'%Y-%m-%d', date:'$attemptedAt' } } } },
         { $group:{ _id:'$userId', dates:{ $push:'$date' } } }
       ]),
       // Submission dates for heatmap (Coding)
       UserProblem.aggregate([
-        { $match: { status: 'solved' } },
+        { $match: { status: 'solved', updatedAt: { $type: 'date' } } },
         { $project:{ userId: 1, date:{ $dateToString:{ format:'%Y-%m-%d', date:'$updatedAt' } } } },
         { $group:{ _id:'$userId', dates:{ $push:'$date' } } }
       ])
     ]);
 
     // Build lookup maps
-    const aptMap   = {}; aptStats.forEach(a   => { aptMap[a._id.toString()]   = a; });
-    const probMap  = {}; problemStats.forEach(p => { probMap[p._id.toString()] = p; });
-    const discMap  = {}; discussionStats.forEach(d => { discMap[d._id.toString()] = d; });
-    const spMap    = {}; skillpathStats.forEach(s => { spMap[s._id.toString()]   = s; });
+    const aptMap   = {}; aptStats.forEach(a   => { if (a && a._id) aptMap[a._id.toString()]   = a; });
+    const probMap  = {}; problemStats.forEach(p => { if (p && p._id) probMap[p._id.toString()] = p; });
+    const discMap  = {}; discussionStats.forEach(d => { if (d && d._id) discMap[d._id.toString()] = d; });
+    const spMap    = {}; skillpathStats.forEach(s => { if (s && s._id) spMap[s._id.toString()]   = s; });
     const dateMap  = {}; 
-    attemptDates.forEach(d => { dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
-    problemDates.forEach(d => { dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
+    attemptDates.forEach(d => { if (d && d._id) dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
+    problemDates.forEach(d => { if (d && d._id) dateMap[d._id.toString()] = [...(dateMap[d._id.toString()] || []), ...d.dates]; });
 
     const scored = students.map(s => {
       const id  = s._id.toString();
@@ -451,7 +452,7 @@ router.get('/my-profile', authenticate, async (req, res) => {
       student.streak = getDecayedStreak(student);
     }
 
-    const [aptStats, codingStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups] = await Promise.all([
+    const [aptStats, recentActivity, discussionCount, skillpathResults, aptDateGroups, problemDateGroups, solvedUPs] = await Promise.all([
       AptitudeAttempt.aggregate([
         { $match:{ userId: student._id } },
         { $group:{ _id:'$topic', total:{$sum:1}, correct:{$sum:{$cond:['$correct',1,0]}},
@@ -460,40 +461,60 @@ router.get('/my-profile', authenticate, async (req, res) => {
             accuracy:{ $round:[{ $multiply:[{ $divide:['$correct',{ $cond:[{$eq:['$total',0]},1,'$total'] }] },100] },1] } }},
         { $sort:{ total:-1 } }
       ]),
-      UserProblem.aggregate([
-        { $match:{ userId: student._id } },
-        { $lookup:{ from:'problems', localField:'problemId', foreignField:'_id', as:'p' } },
-        { $unwind:{ path:'$p', preserveNullAndEmptyArrays:true } },
-        { $group:{ _id:'$p.topic', total:{$sum:1},
-            solved:{$sum:{$cond:[{$eq:['$status','solved']},1,0]}},
-            easy:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Easy']}]},1,0]}},
-            medium:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Medium']}]},1,0]}},
-            hard:{$sum:{$cond:[{$and:[{$eq:['$status','solved']},{$eq:['$p.difficulty','Hard']}]},1,0]}}
-        }},
-        { $project:{ topic:'$_id', total:1, solved:1, easy:1, medium:1, hard:1 } }
-      ]),
       AptitudeAttempt.find({ userId: student._id }).sort({ attemptedAt:-1 }).limit(20)
         .populate('questionId','question topic difficulty'),
       Discussion.countDocuments({ createdBy: student._id }),
       SkillpathResult.find({ userId: student._id }).sort({ analyzedAt:-1 }).limit(5),
       AptitudeAttempt.aggregate([
-        { $match:{ userId: student._id } },
+        { $match:{ userId: student._id, attemptedAt: { $type: 'date' } } },
         { $group:{ _id:{ $dateToString:{ format:'%Y-%m-%d', date:'$attemptedAt' } }, count:{ $sum:1 } } },
         { $sort:{ _id:1 } }
       ]),
       UserProblem.aggregate([
-        { $match:{ userId: student._id, status: 'solved' } },
+        { $match:{ userId: student._id, status: 'solved', updatedAt: { $type: 'date' } } },
         { $group:{ _id:{ $dateToString:{ format:'%Y-%m-%d', date:'$updatedAt' } }, count:{ $sum:1 } } },
         { $sort:{ _id:1 } }
-      ])
+      ]),
+      // Fetch solved problem IDs directly — no $lookup so no CastError for Mixed IDs
+      UserProblem.find({ userId: student._id, status: 'solved' }).select('problemId').lean()
     ]);
 
-    const totalApt    = await AptitudeAttempt.countDocuments({ userId: student._id });
-    const correctApt  = await AptitudeAttempt.countDocuments({ userId: student._id, correct:true });
-    const totalSolved = await UserProblem.countDocuments({ userId: student._id, status:'solved' });
-    const easyS  = codingStats.reduce((a,c)=>a+(c.easy||0),0);
-    const medS   = codingStats.reduce((a,c)=>a+(c.medium||0),0);
-    const hardS  = codingStats.reduce((a,c)=>a+(c.hard||0),0);
+    // Cast-safe difficulty lookup: separate ObjectIds from string IDs (like "nc-101")
+    const mongoose = require('mongoose');
+    const solvedObjIds = [], solvedStrIds = [];
+    solvedUPs.forEach(up => {
+      const id = up.problemId;
+      if (!id) return;
+      const s = String(id);
+      if (mongoose.Types.ObjectId.isValid(s) && s.length === 24) solvedObjIds.push(id);
+      else solvedStrIds.push(s);
+    });
+    const { Problem: ProbModel } = require('../models/index');
+    const [diffByObj, diffByStr] = await Promise.all([
+      solvedObjIds.length ? ProbModel.find({ _id: { $in: solvedObjIds } }).select('difficulty topic').lean() : [],
+      solvedStrIds.length ? ProbModel.find({ problemId: { $in: solvedStrIds } }).select('difficulty topic').lean() : [],
+    ]);
+    const allSolvedProbs = [...diffByObj, ...diffByStr];
+    const easyS  = allSolvedProbs.filter(p => p.difficulty === 'Easy').length;
+    const medS   = allSolvedProbs.filter(p => p.difficulty === 'Medium').length;
+    const hardS  = allSolvedProbs.filter(p => p.difficulty === 'Hard').length;
+    const totalSolved = solvedUPs.length;
+    // Build codingStats by topic (backward compat)
+    const topicMap = {};
+    allSolvedProbs.forEach(p => {
+      const t = p.topic || 'General';
+      if (!topicMap[t]) topicMap[t] = { topic:t, total:0, solved:0, easy:0, medium:0, hard:0 };
+      topicMap[t].solved++; topicMap[t].total++;
+      if (p.difficulty==='Easy') topicMap[t].easy++;
+      else if (p.difficulty==='Medium') topicMap[t].medium++;
+      else if (p.difficulty==='Hard') topicMap[t].hard++;
+    });
+    const codingStats = Object.values(topicMap);
+
+
+
+    const totalApt   = aptStats.reduce((a,c)=>a+(c.total||0),0);
+    const correctApt = aptStats.reduce((a,c)=>a+(c.correct||0),0);
     const contestRatings = skillpathResults.map(r=>({
       rating: Math.max(1200, Math.round((r.atsScore||0)*8+1200)), date: r.analyzedAt
     })).reverse();
@@ -553,12 +574,12 @@ router.get('/student-profile/:id', authenticate, async (req, res) => {
       Discussion.countDocuments({ createdBy: student._id }),
       SkillpathResult.find({ userId: student._id }).sort({ analyzedAt:-1 }).limit(5),
       AptitudeAttempt.aggregate([
-        { $match:{ userId: student._id } },
+        { $match:{ userId: student._id, attemptedAt: { $type: 'date' } } },
         { $group:{ _id:{ $dateToString:{ format:'%Y-%m-%d', date:'$attemptedAt' } }, count:{ $sum:1 } } },
         { $sort:{ _id:1 } }
       ]),
       UserProblem.aggregate([
-        { $match:{ userId: student._id, status: 'solved' } },
+        { $match:{ userId: student._id, status: 'solved', updatedAt: { $type: 'date' } } },
         { $group:{ _id:{ $dateToString:{ format:'%Y-%m-%d', date:'$updatedAt' } }, count:{ $sum:1 } } },
         { $sort:{ _id:1 } }
       ])

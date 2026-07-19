@@ -33,32 +33,55 @@ function isSameLocalDay(d1, d2) {
 // Returns the same problems on every subsequent visit that day.
 router.get('/daily', authenticate, async (req, res) => {
   try {
-    const user       = req.user;
-    const today      = todayLocal();
+    const user  = req.user;
+    const today = todayLocal();
 
     // ── Already assigned today? Return them immediately ──
-    const existing = await UserProblem.find({
+    const existingRaw = await UserProblem.find({
       userId:    user._id,
       isDaily:   true,
       createdAt: { $gte: today },
-    }).populate('problemId');
+    }).lean();
 
-    if (existing.length === 3) {
-      // Calculate hours remaining until tomorrow midnight
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const hoursLeft = Math.max(0, Math.floor((tomorrow - Date.now()) / 3600000));
-
-      const dailyProblems = existing.map(up => ({
-        userProblem: up,
-        problem: up.problemId
-      }));
-
-      return res.json({
-        dailyProblems,
-        hoursUntilNext:       hoursLeft,
-        alreadyAssignedToday: true,
+    // Cast-safe manual populate (problemId can be ObjectId OR string like "nc-101")
+    if (existingRaw.length >= 3) {
+      const pIds = existingRaw.map(up => up.problemId).filter(Boolean);
+      const objIds = [], strIds = [];
+      pIds.forEach(id => {
+        if (mongoose.Types.ObjectId.isValid(String(id)) && String(id).length === 24)
+          objIds.push(id);
+        else strIds.push(String(id));
       });
+      const [byObj, byStr] = await Promise.all([
+        objIds.length ? Problem.find({ _id: { $in: objIds } }).lean() : [],
+        strIds.length ? Problem.find({ problemId: { $in: strIds } }).lean() : [],
+      ]);
+      const pMap = {};
+      byObj.forEach(p => { pMap[p._id.toString()] = p; });
+      byStr.forEach(p => { if (p.problemId) pMap[String(p.problemId)] = p; });
+
+      const populated = existingRaw.map(up => ({
+        ...up,
+        problemId: pMap[String(up.problemId)] || null,
+      }));
+      const validExisting = populated.filter(up => up && up.problemId);
+
+      if (validExisting.length === 3) {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const hoursLeft = Math.max(0, Math.floor((tomorrow - Date.now()) / 3600000));
+
+        const dailyProblems = validExisting.map(up => ({
+          userProblem: up,
+          problem: up.problemId
+        }));
+
+        return res.json({
+          dailyProblems,
+          hoursUntilNext:       hoursLeft,
+          alreadyAssignedToday: true,
+        });
+      }
     }
 
     // Clean up any incomplete daily assignments for today (if any exist)
@@ -74,7 +97,7 @@ router.get('/daily', authenticate, async (req, res) => {
 
     const recentIds = (await UserProblem
       .find({ userId: user._id, createdAt: { $gte: twoWeeksAgo } })
-      .select('problemId')).map(u => u.problemId);
+      .select('problemId')).map(u => u.problemId).filter(Boolean);
 
     // Helper to pick a problem of specific difficulty
     async function pickProblem(difficulty) {
@@ -94,6 +117,12 @@ router.get('/daily', authenticate, async (req, res) => {
           { $sample: { size: 1 } },
         ]);
       }
+      if (!problem.length) {
+        // Fallback: pick any random problem from DB
+        problem = await Problem.aggregate([
+          { $sample: { size: 1 } },
+        ]);
+      }
       return problem[0];
     }
 
@@ -103,7 +132,7 @@ router.get('/daily', authenticate, async (req, res) => {
 
     if (!easyProb || !medProb || !hardProb) {
       return res.status(404).json({
-        message: 'Problems database empty. Please wait a few seconds for LeetCode background sync to complete, then refresh!',
+        message: 'Problems database empty. Please refresh in a moment to complete initialization!',
       });
     }
 
@@ -180,6 +209,18 @@ router.post('/shuffle', authenticate, async (req, res) => {
   }
 });
 
+async function resolveTargetId(paramId) {
+  if (!paramId) return paramId;
+  if (mongoose.Types.ObjectId.isValid(paramId)) return paramId;
+  const dbProb = await Problem.findOne({
+    $or: [
+      { problemId: paramId },
+      { title: { $regex: new RegExp(`^${String(paramId).replace(/[-_]/g, ' ').trim()}$`, 'i') } }
+    ]
+  });
+  return dbProb ? dbProb._id : paramId;
+}
+
 // ─── POST /api/problems/:id/solve ─────────────────────────────────────────────
 router.post('/:id/solve', authenticate, async (req, res) => {
   try {
@@ -191,8 +232,10 @@ router.post('/:id/solve', authenticate, async (req, res) => {
       });
     }
 
+    const targetId = await resolveTargetId(req.params.id);
+
     let up = await UserProblem.findOneAndUpdate(
-      { userId: req.user._id, problemId: req.params.id },
+      { userId: req.user._id, problemId: targetId },
       {
         status:           'solved',
         solvedAt:         new Date(),
@@ -208,7 +251,7 @@ router.post('/:id/solve', authenticate, async (req, res) => {
       // Create new solved record if not pre-assigned
       up = await UserProblem.create({
         userId:           req.user._id,
-        problemId:        req.params.id,
+        problemId:        targetId,
         status:           'solved',
         solvedAt:         new Date(),
         approachNotes,
@@ -261,8 +304,9 @@ router.post('/:id/solve', authenticate, async (req, res) => {
 // ─── POST /api/problems/:id/attempt ──────────────────────────────────────────
 router.post('/:id/attempt', authenticate, async (req, res) => {
   try {
+    const targetId = await resolveTargetId(req.params.id);
     await UserProblem.findOneAndUpdate(
-      { userId: req.user._id, problemId: req.params.id, status: 'assigned' },
+      { userId: req.user._id, problemId: targetId, status: 'assigned' },
       { status: 'attempted' }
     );
     res.json({ message: 'Marked as attempted' });
@@ -271,15 +315,68 @@ router.post('/:id/attempt', authenticate, async (req, res) => {
   }
 });
 
+// ─── POST /api/problems/:id/save-notes ────────────────────────────────────────
+router.post('/:id/save-notes', authenticate, async (req, res) => {
+  try {
+    const { approachNotes, solutionCode } = req.body;
+    const targetId = await resolveTargetId(req.params.id);
+    let up = await UserProblem.findOne({ userId: req.user._id, problemId: targetId });
+    if (up) {
+      if (approachNotes !== undefined) up.approachNotes = approachNotes;
+      if (solutionCode !== undefined) up.solutionCode = solutionCode;
+      await up.save();
+    } else {
+      up = await UserProblem.create({
+        userId: req.user._id,
+        problemId: targetId,
+        status: 'attempted',
+        approachNotes: approachNotes || '',
+        solutionCode: solutionCode || ''
+      });
+    }
+    res.json({ message: 'Draft saved successfully', userProblem: up });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/problems/history ────────────────────────────────────────────────
+// Cast-safe: problemId is Mixed (ObjectId OR custom string like "nc-101").
+// Using .populate() throws CastError for string IDs → 500. We manually populate.
 router.get('/history', authenticate, async (req, res) => {
   try {
-    const history = await UserProblem.find({ userId: req.user._id })
-      .populate('problemId')
+    const rawHistory = await UserProblem.find({ userId: req.user._id })
       .sort({ createdAt: -1 })
-      .limit(60);
+      .limit(60)
+      .lean();
+
+    // Separate valid 24-char ObjectIds from custom string IDs
+    const objIds = [], strIds = [];
+    rawHistory.forEach(up => {
+      const id = up.problemId;
+      if (!id) return;
+      if (mongoose.Types.ObjectId.isValid(String(id)) && String(id).length === 24)
+        objIds.push(id);
+      else strIds.push(String(id));
+    });
+
+    const [byObj, byStr] = await Promise.all([
+      objIds.length ? Problem.find({ _id: { $in: objIds } }).lean() : [],
+      strIds.length ? Problem.find({ problemId: { $in: strIds } }).lean() : [],
+    ]);
+
+    const pMap = {};
+    byObj.forEach(p => { pMap[p._id.toString()] = p; });
+    byStr.forEach(p => { if (p.problemId) pMap[String(p.problemId)] = p; });
+
+    const history = rawHistory.map(up => ({
+      ...up,
+      problemId: pMap[String(up.problemId)] || null,
+    }));
+
     res.json({ history });
   } catch (err) {
+    console.error('[/history error]', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -363,22 +460,43 @@ router.get('/:idOrTitle', authenticate, async (req, res) => {
       let titleSlug = '';
       if (problem.url) {
         const parts = problem.url.split('/').filter(Boolean);
-        // LeetCode URLs are typically https://leetcode.com/problems/title-slug/
         titleSlug = parts[parts.length - 1]; 
       }
       if (!titleSlug || titleSlug === 'problems') {
         titleSlug = problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       }
 
-      const details = await fetchLeetCodeProblemDetails(titleSlug);
-      if (details) {
-        if (details.content) {
-          problem.description = details.content;
-          updated = true;
-        }
+      let details = null;
+      try {
+        details = await fetchLeetCodeProblemDetails(titleSlug);
+      } catch (err) {
+        console.warn(`[LeetCode Scrape Error] for ${problem.title}:`, err.message);
+      }
+
+      if (details && details.content) {
+        problem.description = details.content;
+        updated = true;
         if (details.hints && details.hints.length > 0) {
           problem.hints = details.hints;
-          updated = true;
+        }
+      } else {
+        // Fallback to Gemini AI generation!
+        console.log(`[AI Description] Scrape failed. Generating description for: ${problem.title}`);
+        try {
+          const aiData = await generateAIDescription(problem.title, problem.difficulty, problem.topic);
+          if (aiData) {
+            problem.description = aiData.description;
+            problem.constraints = aiData.constraints || '';
+            if (aiData.hints && aiData.hints.length > 0) {
+              problem.hints = aiData.hints;
+            }
+            if (aiData.testCases && aiData.testCases.length > 0) {
+              problem.testCases = aiData.testCases;
+            }
+            updated = true;
+          }
+        } catch (aiErr) {
+          console.error('[AI Description Error]', aiErr.message);
         }
       }
     }
@@ -413,6 +531,58 @@ router.get('/:idOrTitle', authenticate, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Helper to generate a detailed problem description using Gemini
+async function generateAIDescription(problemTitle, difficulty, topic) {
+  const key = process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY;
+  if (!key) {
+    console.warn('[AI Description] No GEMINI_API_KEY found, skipping AI description generation.');
+    return null;
+  }
+
+  const prompt = `You are a LeetCode problem creator. Create a highly professional, detailed, and complete LeetCode-style problem description for the problem titled "${problemTitle}".
+Difficulty: ${difficulty}
+Topic: ${topic || 'Algorithms'}
+
+Requirements:
+1. Provide a clear, detailed, and realistic problem statement.
+2. Provide 2-3 input/output examples with detailed explanations. Format each example clearly.
+3. Provide input constraints (e.g. array length, value ranges, time limit constraints).
+4. Provide 2-3 progressive hints to help the student solve it.
+5. Provide 2-3 test cases. Each test case MUST have an "input" (as a string representing stdin input) and "output" (as a string representing expected stdout output). Ensure the test cases are valid and matching. For array inputs, input can be space-separated integers or matching standard inputs. Keep stdin inputs simple.
+
+Return ONLY a JSON object with this exact structure:
+{
+  "description": "Problem statement and examples in clean Markdown format",
+  "constraints": "Constraints in Markdown format",
+  "hints": ["Hint 1", "Hint 2", "Hint 3"],
+  "testCases": [
+    { "input": "input string for stdin", "output": "expected stdout string" },
+    { "input": "input string for stdin", "output": "expected stdout string" }
+  ]
+}
+Do not add any Markdown code blocks wrapping the JSON. Return only the raw JSON string.`;
+
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2500,
+          responseMimeType: "application/json"
+        }
+      },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    );
+    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return JSON.parse(text.trim());
+  } catch (err) {
+    console.error(`[AI Description Generator Error] Failed for ${problemTitle}:`, err.message);
+    return null;
+  }
+}
 
 // Helper to generate a detailed Editorial solution using Gemini
 async function generateEditorial(problemTitle, description, difficulty, topic) {
