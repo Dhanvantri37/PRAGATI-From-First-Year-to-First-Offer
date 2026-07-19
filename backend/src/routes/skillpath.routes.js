@@ -29,7 +29,7 @@ async function callAI(prompt, maxTokens = 1500) {
     try {
       const resp = await axios.post(
         'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: prompt }],
+        { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }],
           max_tokens: maxTokens, temperature: 0.7 },
         { headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' }, timeout: 25000 }
       );
@@ -343,7 +343,7 @@ Rules: 5 technical questions, 4 behavioral questions, 3 gap questions, 4 quick w
     const gap = gapList[0] || 'core technical skills';
     const strength = topStrengths[0] || 'your core CS skills';
     res.json({
-      coaching_summary: `You are targeting ${targetRole||'Software Engineer'} with a readiness of ${readinessScore||50}/100. Your strongest asset is ${strength} — lead with this in interviews. For ${gap}, be honest about your learning journey and show a concrete plan. Note: This is mock data — add GROQ_API_KEY or GEMINI_API_KEY in .env for personalised AI responses.`,
+      coaching_summary: `You are targeting ${targetRole||'Software Engineer'} with a readiness of ${readinessScore||50}/100. Your strongest asset is ${strength} — lead with this in interviews. For ${gap}, be honest about your learning journey and show a concrete plan.`,
       technical_questions: [
         { question:`Explain how you would use ${gap} in a real project.`, skill:gap, difficulty:'medium', tip:'Focus on a concrete project example, not theory.' },
         { question:'What is the time and space complexity of Merge Sort? When would you prefer it over Quick Sort?', skill:'algorithms', difficulty:'medium', tip:'O(n log n) both — prefer Merge Sort for linked lists and stable sort requirements.' },
@@ -432,7 +432,7 @@ Reply in 3-5 sentences. Be specific, practical, and encouraging. Use 1-2 relevan
     else if (q.includes('tcs')||q.includes('infosys')||q.includes('wipro'))
       fallback = '🏢 For service companies: Focus on quant aptitude, pseudocode tracing, basic DSA, OOP, and SQL. Communication is key for HR rounds. Practice TCS NQT mock tests — timing is everything. Good luck! 💪';
     else
-      fallback = `🤖 Great question! For placement success, I recommend: 1) Upload your resume to SkillPath AI for a personalised gap analysis 2) Solve today's daily coding problem 3) Practice topic-wise aptitude 4) Check company prep guides. What specific topic can I help with? Note: Add GROQ_API_KEY to .env for full AI responses.`;
+      fallback = `🤖 Great question! For placement success, I recommend: 1) Upload your resume to SkillPath AI for a personalised gap analysis 2) Solve today's daily coding problem 3) Practice topic-wise aptitude 4) Check company prep guides. What specific topic can I help with?`;
 
     res.json({ reply: fallback });
   } catch (err) {
@@ -749,7 +749,7 @@ Instructions:
     } else if (q.includes('stress') || q.includes('anxious') || q.includes('scared') || q.includes('nervous') || q.includes('worried')) {
       fallback = `Hey ${u.name?.split(' ')[0] || 'friend'} 💙 — it's completely okay to feel nervous. Every student preparing for placements goes through this. Remember: you are not competing with everyone, just improving from yesterday's version of yourself. Your ${u.streak || 0}-day streak shows you're consistent — that matters more than one bad day. Take a 10-minute break, then come back. What's worrying you most right now?`;
     } else {
-      fallback = `🤖 Hey ${u.name?.split(' ')[0] || 'there'}! I'm here for all your placement questions — DSA concepts, interview prep, company-specific tips, resume help, or just to talk through your strategy. For the best AI responses, make sure GROQ_API_KEY is set in the backend .env file. What would you like to work on?`;
+      fallback = `🤖 Hey ${u.name?.split(' ')[0] || 'there'}! I'm here for all your placement questions — DSA concepts, interview prep, company-specific tips, resume help, or just to talk through your strategy. What would you like to work on?`;
     }
 
     res.json({ reply: fallback });

@@ -20,7 +20,7 @@ async function callGroq(prompt, retries = 2) {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model:       'openai/gpt-oss-20b',     // fast + free — replaces deprecated llama-3.1-8b-instant
+          model:       'llama-3.3-70b-versatile',     // fast + free flagship Groq model
           messages:    [{ role: 'user', content: prompt }],
           max_tokens:  4096,
           temperature: 0.0,
@@ -259,9 +259,7 @@ router.post('/', authenticate, async (req, res) => {
   }
   if (issues.some(i => i.type === 'error')) verdict = 'has_errors';
 
-  const noKeyMsg = !GROQ_API_KEY && !GEMINI_API_KEY
-    ? '⚠️ No AI key configured. Add GROQ_API_KEY in .env (free at console.groq.com).'
-    : '⚠️ AI temporarily unavailable — showing static analysis only.';
+  const noKeyMsg = '⚠️ AI review service is temporarily running in offline mode. Showing static rule checks.';
 
   return res.json({
     verdict,

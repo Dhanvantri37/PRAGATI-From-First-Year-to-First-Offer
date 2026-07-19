@@ -31,19 +31,19 @@ function getExt(url) {
 }
 const isDriveUrl = url => url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
 
-// GET /api/notes — with faculty name filter, subject, topic
+// GET /api/notes — with faculty name filter, companyName, resourceType
 router.get('/', authenticate, async (req, res) => {
   try {
-    const { department, year, subject, topic, facultyName, page = 1, limit = 40 } = req.query;
+    const { department, year, companyName, resourceType, facultyName, page = 1, limit = 40 } = req.query;
     const filter = { status: 'approved', $or: [{ visibility: 'public' }, { visibility: { $exists: false } }, { uploadedBy: req.user._id }] };
     if (department) filter.department = department;
     if (year) filter.year = Number(year);
-    if (subject) filter.subject = { $regex: subject, $options: 'i' };
-    if (topic) filter.topic = { $regex: topic, $options: 'i' };
+    if (companyName) filter.companyName = { $regex: companyName, $options: 'i' };
+    if (resourceType) filter.resourceType = { $regex: resourceType, $options: 'i' };
 
     let notes = await Note.find(filter)
       .populate('uploadedBy', 'name role department')
-      .sort({ subject: 1, createdAt: -1 })
+      .sort({ companyName: 1, createdAt: -1 })
       .limit(Number(limit) * 5)  // over-fetch so we can filter by facultyName in JS
       .skip((Number(page) - 1) * Number(limit));
 
@@ -59,16 +59,16 @@ router.get('/', authenticate, async (req, res) => {
     // Get unique filter values for the frontend dropdowns
     const allNotes = await Note.find({ status: 'approved' })
       .populate('uploadedBy', 'name role')
-      .select('subject topic uploadedBy adminUploadedFor');
+      .select('companyName resourceType uploadedBy adminUploadedFor');
 
-    const subjects   = [...new Set(allNotes.map(n => n.subject).filter(Boolean))].sort();
-    const topics     = [...new Set(allNotes.map(n => n.topic).filter(Boolean))].sort();
-    const faculties  = [...new Set(allNotes.map(n => n.adminUploadedFor || n.uploadedBy?.name).filter(Boolean))].sort();
+    const companies     = [...new Set(allNotes.map(n => n.companyName).filter(Boolean))].sort();
+    const resourceTypes = [...new Set(allNotes.map(n => n.resourceType).filter(Boolean))].sort();
+    const faculties     = [...new Set(allNotes.map(n => n.adminUploadedFor || n.uploadedBy?.name).filter(Boolean))].sort();
 
     const total = notes.length;
     const paginated = notes.slice(0, Number(limit));
 
-    res.json({ notes: paginated, total, pages: Math.ceil(total / limit), subjects, topics, faculties });
+    res.json({ notes: paginated, total, pages: Math.ceil(total / limit), companies, resourceTypes, faculties });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -104,12 +104,12 @@ router.get('/download/:id', authenticate, async (req, res) => {
 // POST /api/notes/upload
 router.post('/upload', authenticate, upload.single('file'), async (req, res) => {
   try {
-    const { title, description, department, subject, year, topic, tags, driveUrl } = req.body;
+    const { title, description, department, companyName, year, resourceType, tags, driveUrl } = req.body;
     if (!req.file && !driveUrl) return res.status(400).json({ error: 'File or Drive link required' });
     if (!title) return res.status(400).json({ error: 'Title required' });
     const note = await Note.create({
       title, description, department: department || req.user.department,
-      subject: subject || 'General', year: Number(year) || 1, topic,
+      companyName: companyName || 'General', year: Number(year) || 1, resourceType: resourceType || 'Other',
       fileUrl: driveUrl || req.file?.path,
       fileType: driveUrl ? 'drive' : (req.file?.mimetype || 'application/pdf'),
       isDriveLink: !!driveUrl,
@@ -120,7 +120,7 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res) => 
       status: (req.user.role === 'student' && req.body.visibility === 'private') ? 'approved' : (req.user.role === 'student' ? 'pending' : 'approved'),
       tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     });
-    const msg = req.user.role === 'student' ? 'Note submitted — awaiting admin approval' : 'Note published successfully ✅';
+    const msg = req.user.role === 'student' ? 'Resource submitted — awaiting admin approval' : 'Resource published successfully ✅';
     res.status(201).json({ message: msg, note });
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -128,11 +128,11 @@ router.post('/upload', authenticate, upload.single('file'), async (req, res) => 
 // POST /api/notes/upload-admin
 router.post('/upload-admin', authenticate, authorize('admin'), upload.single('file'), async (req, res) => {
   try {
-    const { title, description, department, subject, year, topic, tags, driveUrl, uploaderName } = req.body;
+    const { title, description, department, companyName, year, resourceType, tags, driveUrl, uploaderName } = req.body;
     if (!req.file && !driveUrl) return res.status(400).json({ error: 'File or Drive link required' });
     const note = await Note.create({
       title, description: description || `Uploaded by admin on behalf of ${uploaderName || 'faculty'}`,
-      department, subject: subject || 'General', year: Number(year) || 1, topic,
+      department, companyName: companyName || 'General', year: Number(year) || 1, resourceType: resourceType || 'Other',
       fileUrl: driveUrl || req.file?.path,
       fileType: driveUrl ? 'drive' : req.file?.mimetype,
       isDriveLink: !!driveUrl,
@@ -140,7 +140,7 @@ router.post('/upload-admin', authenticate, authorize('admin'), upload.single('fi
       adminUploadedFor: uploaderName, status: 'approved',
       tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     });
-    res.status(201).json({ message: 'Note published ✅', note });
+    res.status(201).json({ message: 'Resource published ✅', note });
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
@@ -154,7 +154,7 @@ router.patch('/:id/approve', authenticate, authorize('admin', 'faculty'), async 
         const users = await User.find({ role: 'student', department: note.department, pushSubscription: { $exists: true, $ne: null } }).select('pushSubscription _id');
         const payload = JSON.stringify({
           title: 'PRAGATI',
-          body: `New Note Approved: ${note.title} for ${note.subject}`,
+          body: `New Resource Approved: ${note.title} for ${note.companyName}`,
           url: '/notes',
           tag: 'note-approved',
           id: note._id.toString()

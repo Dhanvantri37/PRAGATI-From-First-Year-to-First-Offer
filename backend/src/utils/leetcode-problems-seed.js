@@ -143,20 +143,23 @@ const LEETCODE_PROBLEMS = [
 ];
 
 // ── Seed function ─────────────────────────────────────────────────────────
-async function seedProblems() {
+async function seedProblems({ shouldDisconnect = false } = {}) {
   const uri = buildMongoURI();
   console.log(`\n🔌 Connecting to MongoDB...`);
   console.log(`   URI: ${uri.replace(/:([^@]+)@/, ':****@')}`); // mask password
 
-  try {
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 10000, // fail fast (10s) instead of hanging
-      connectTimeoutMS:         10000,
-    });
-    console.log('✅ MongoDB connected\n');
-  } catch (err) {
-    console.error('❌ Could not connect to MongoDB:', err.message);
-    process.exit(1);
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS:         10000,
+      });
+      console.log('✅ MongoDB connected for problem seeding\n');
+    } catch (err) {
+      console.error('❌ Could not connect to MongoDB:', err.message);
+      if (shouldDisconnect) process.exit(1);
+      return;
+    }
   }
 
   // Remove old placeholder problems
@@ -181,12 +184,9 @@ async function seedProblems() {
           title: p.title || p.problem,
           source: 'LeetCode',
           problemId: p.problemId || p.id || String(Math.floor(Math.random() * 10000)),
-          // Prefer explicit leetcode_url, then generic link, then fallback slug
           url: p.leetcode_url || p.url || p.link || `https://leetcode.com/problems/${(p.title || p.problem || '').toLowerCase().replace(/ /g, '-')}`,
           difficulty: p.difficulty,
-          // Use topics array if present; fallback to existing fields
           topic: Array.isArray(p.topics) ? p.topics.join(', ') : (p.topic || p.pattern || 'Algorithms'),
-          // Use tags if present; otherwise reuse topics as tags
           tags: Array.isArray(p.tags) ? p.tags : (Array.isArray(p.topics) ? p.topics : [p.pattern || 'Algorithms']),
           description: p.description || 'No description provided.',
           constraints: p.constraints || '',
@@ -227,8 +227,15 @@ async function seedProblems() {
   console.log(`✅ ${added} problems added, ${updated} updated`);
   console.log(`📊 Total problems in DB: ${total}`);
   console.log('\n🎉 Seeding complete!\n');
-  await mongoose.disconnect();
-  process.exit(0);
+  if (shouldDisconnect) {
+    await mongoose.disconnect();
+    process.exit(0);
+  }
+  return { added, updated, total };
 }
 
-seedProblems();
+module.exports = { seedProblems };
+
+if (require.main === module) {
+  seedProblems({ shouldDisconnect: true });
+}

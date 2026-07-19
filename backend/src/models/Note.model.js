@@ -8,9 +8,9 @@ const noteSchema = new mongoose.Schema({
     enum: ['CSE', 'CSAIML', 'IT', 'ECE', 'Mechanical', 'Civil', 'All'],
     required: true
   },
-  subject: { type: String, required: true },
+  companyName: { type: String, required: true },
   year: { type: Number, enum: [1, 2, 3, 4], required: true },
-  topic: { type: String },
+  resourceType: { type: String, required: true },
   fileUrl: { type: String, required: true },      // Cloudinary URL
   fileType: { type: String },                      // pdf, docx, ppt, etc.
   uploadedBy: {

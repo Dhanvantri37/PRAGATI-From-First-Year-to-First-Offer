@@ -15,7 +15,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 // ── Groq helper ───────────────────────────────────────────────────────────
 async function groqChat(system, user, maxTokens = 500) {
   const res = await groq.chat.completions.create({
-    model: 'openai/gpt-oss-120b',
+    model: 'llama-3.3-70b-versatile',
     messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
     max_tokens: maxTokens,
     temperature: 0.6,

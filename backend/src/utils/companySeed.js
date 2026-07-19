@@ -8,11 +8,9 @@ async function seed() {
 
   const { Company, Problem, AptitudeQuestion } = require('../models/index');
 
-  // ─── RESET COMPANY + APTITUDE + PROBLEMS (NOT USERS) ──────────────────────
+  // ─── RESET COMPANY (NOT USERS, APTITUDE, OR PROBLEMS) ──────────────────────
   await Company.deleteMany({});
-  await AptitudeQuestion.deleteMany({});
-  await Problem.deleteMany({});
-  console.log('🧹 Old Companies, Aptitude & Problems removed\n');
+  console.log('🧹 Old Companies reset\n');
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 🏢 COMPANIES — Fully detailed with comparison-ready data

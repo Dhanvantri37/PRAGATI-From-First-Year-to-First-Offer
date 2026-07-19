@@ -12,6 +12,10 @@
  */
 
 const Groq = require('groq-sdk');
+const { VOICE_CONFIG } = require('../config/voiceConfig');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -46,7 +50,7 @@ function getAIParticipant(usedNames = []) {
 async function groqChat(systemPrompt, userMessage, maxTokens = 300) {
   try {
     const res = await groq.chat.completions.create({
-      model: 'openai/gpt-oss-120b',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userMessage },
@@ -59,6 +63,93 @@ async function groqChat(systemPrompt, userMessage, maxTokens = 300) {
     console.error('[groqChat]', err.message);
     return '';
   }
+}
+
+
+// ── Voice config selector mapping names to roles ───────────────────────────
+function getVoiceConfigForSpeaker(name, isParticipant) {
+  const lower = (name || '').toLowerCase();
+  if (!isParticipant) {
+    return VOICE_CONFIG.moderator_female;
+  }
+  if (lower.includes('priya')) {
+    return VOICE_CONFIG.candidate_female_1;
+  }
+  if (lower.includes('neha')) {
+    return VOICE_CONFIG.candidate_female_2;
+  }
+  if (lower.includes('arjun') || lower.includes('rohan')) {
+    return VOICE_CONFIG.candidate_male_1;
+  }
+  if (lower.includes('vikram')) {
+    return VOICE_CONFIG.candidate_male_2;
+  }
+  return VOICE_CONFIG.candidate_female_1;
+}
+
+// ── ElevenLabs TTS ──────────────────────────────────────────────────────────
+async function speakElevenLabs(text, voiceId) {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey || apiKey === 'your_elevenlabs_api_key_here' || voiceId.startsWith('PASTE_')) {
+    throw new Error('ElevenLabs not configured');
+  }
+
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json',
+      'Accept': 'audio/mpeg',
+    },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: {
+        stability: 0.55,
+        similarity_boost: 0.80,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text();
+    throw new Error(`ElevenLabs error: ${errBody}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return buffer.toString('base64');
+}
+
+// ── Edge-TTS ───────────────────────────────────────────────────────────────
+function speakEdge(text, voiceName) {
+  return new Promise((resolve, reject) => {
+    const tempDir = path.join(__dirname, '../../temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const tempFile = path.join(tempDir, `tts_gd_${Date.now()}_${Math.floor(Math.random() * 1000)}.mp3`);
+    const escapedText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    const cmd = `python -m edge_tts --text "${escapedText}" --voice "${voiceName}" --write-media "${tempFile}"`;
+
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) {
+        if (fs.existsSync(tempFile)) {
+          try { fs.unlinkSync(tempFile); } catch (e) {}
+        }
+        return reject(new Error(stderr || error.message));
+      }
+      if (!fs.existsSync(tempFile)) {
+        return reject(new Error('Edge-TTS output not found'));
+      }
+      try {
+        const buffer = fs.readFileSync(tempFile);
+        fs.unlinkSync(tempFile);
+        resolve(buffer.toString('base64'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
 
 // ── Groq TTS — returns base64 audio ───────────────────────────────────────
@@ -156,21 +247,32 @@ async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', 
     ts: Date.now(),
   });
 
-  // Determine voice model based on speaker role
+  const voiceCfg = getVoiceConfigForSpeaker(sp.name, sp.isParticipant || false);
   const ttsModel = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
 
-  groqTTS(text, ttsModel).then(audioBase64 => {
+  // Cascading TTS: ElevenLabs → Edge-TTS → Groq Play.ht
+  let ttsPromise = speakElevenLabs(text, voiceCfg.elevenlabs)
+    .catch(err => {
+      console.warn(`[GD-TTS] ElevenLabs failed for ${sp.name}: ${err.message}. Trying Edge-TTS...`);
+      return speakEdge(text, voiceCfg.edge);
+    })
+    .catch(err => {
+      console.warn(`[GD-TTS] Edge-TTS failed for ${sp.name}: ${err.message}. Trying Groq...`);
+      return groqTTS(text, ttsModel);
+    });
+
+  ttsPromise.then(audioBase64 => {
     namespace.to(roomCode).emit('ai-voice', {
       audioBase64: audioBase64 || null,
       text,
       type,
       speakerId: sp.id,
       speakerName: sp.name,
-      ttsVoice: ttsModel,
+      ttsVoice: voiceCfg.elevenlabs,
       isParticipant: sp.isParticipant || false
     });
   }).catch((err) => {
-    console.error('[broadcastAIVoice] TTS failed:', err.message);
+    console.error('[broadcastAIVoice] TTS failed entirely:', err.message);
     namespace.to(roomCode).emit('ai-voice', {
       audioBase64: null,
       text,
