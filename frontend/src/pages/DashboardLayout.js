@@ -227,6 +227,9 @@ export default function DashboardLayout() {
     setVoiceAccent(v);
     localStorage.setItem('pragati_accent', v);
   }
+  const [voiceGender, setVoiceGender] = React.useState(() =>
+    localStorage.getItem('pragati_voice_gender') || 'female'
+  );
 
   const [showEditProfile,   setShowEditProfile]   = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -235,16 +238,19 @@ export default function DashboardLayout() {
 
   // ── Hey Pragati Assistant ────────────────────────────────────────────────
   const [pragatiOpen,    setPragatiOpen]    = useState(false);
-  const [pragatiMsgs,   setPragatiMsgs]    = useState([{ role:'ai', text:"👋 Hey! I'm PRAGATI, your AI companion. Ask me anything about interviews, DSA, companies, or your career. Say \"Hey PRAGATI\" anytime to summon me — or try commands like \"Take me to Dashboard\"!", ts: Date.now() }]);
+  const [pragatiMsgs,   setPragatiMsgs]    = useState([{ role:'ai', text:"🙏 Namaste! I'm PRAGATI, your AI placement companion. I'm here to help you ace interviews, master DSA, and land your dream job. Ask me anything, or say \"Hey PRAGATI\" anytime!", ts: Date.now() }]);
   const [pragatiInput,  setPragatiInput]   = useState('');
   const [pragatiLoading,setPragatiLoading] = useState(false);
   const [wakePulse,     setWakePulse]      = useState(false);
   const [wakeListening, setWakeListening]  = useState(false);
   const [pragatiVoice,  setPragatiVoice]   = useState(true);  // voice on/off toggle
   const [pragatiMicOn,  setPragatiMicOn]   = useState(false); // in-chat mic
+  const [ttsLoading,    setTtsLoading]     = useState(false); // voice generation loading
+  const [ttsSpeaking,   setTtsSpeaking]    = useState(false); // voice speaking
   const pragatiEndRef   = useRef(null);
   const wakeSRRef       = useRef(null);
   const pragatiSRRef    = useRef(null); // in-chat speech recognition
+  const welcomeSpokenRef = useRef(false); // guard: speak welcome only once per session
   const pragatiInputRef = useRef(null);
   const wakeRestartRef  = useRef(null); // callback to restart wake SR after mic releases
   const wakePausedRef   = useRef(false); // true while in-chat mic is active — stops wake SR from restarting
@@ -275,35 +281,104 @@ export default function DashboardLayout() {
     return null;
   }
 
-  // PRAGATI TTS
-  function pragatiSpeak(text) {
-    if (!pragatiVoice || !text?.trim() || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    // Strip markdown bold/asterisks for cleaner speech
-    const clean = text.replace(/\*\*(.*?)\*\*/g,'$1').replace(/\*(.*?)\*/g,'$1').replace(/#{1,3} /g,'').substring(0,400);
-    const utt = new SpeechSynthesisUtterance(clean);
-    
-    // Pick the best natural browser voice matching preferences
-    const voice = getNaturalVoice(voiceAccent, 'female');
-    
-    // Fine-tune rates/pitches for premium quality female voice
-    utt.pitch = 1.12;
-    utt.rate  = 0.93;
-    utt.volume = 1.0;
+  // PRAGATI TTS — Browser-first/Backend Dual-Provider (ElevenLabs/Edge-TTS)
+  async function pragatiSpeak(text) {
+    if (!pragatiVoice || !text?.trim()) return;
 
-    if (voice) {
-      utt.voice = voice;
-      utt.lang  = voice.lang;
-    } else {
-      utt.lang  = voiceAccent === 'foreign' ? 'en-US' : 'en-IN';
+    // Pause wake word detection while speaking
+    wakePausedRef.current = true;
+    try { wakeSRRef.current?.abort(); } catch {}
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (window.pragatiAudioPlayer) {
+      try { window.pragatiAudioPlayer.pause(); } catch (e) {}
+      window.pragatiAudioPlayer = null;
     }
 
-    const keepAlive = setInterval(()=>{if(window.speechSynthesis.paused)window.speechSynthesis.resume();},4000);
-    utt.onend = ()=>clearInterval(keepAlive);
-    utt.onerror = ()=>clearInterval(keepAlive);
+    // Strip markdown for clean speech
+    const clean = text
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g,    '$1')
+      .replace(/#{1,6} /g,      '')
+      .replace(/[\[\]()]/g,     '')
+      .substring(0, 500);
+
+    const resumeWake = () => {
+      setTtsSpeaking(false);
+      setTtsLoading(false);
+      wakePausedRef.current = false;
+      if (wakeRestartRef.current) wakeRestartRef.current();
+    };
+
+    // ── 1. Try Backend Neural TTS (ElevenLabs / Edge-TTS) ──────────────────
+    setTtsLoading(true);
+    try {
+      const token = localStorage.getItem('pragati_token') || localStorage.getItem('token');
+      const response = await fetch(`${API}/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          text: clean,
+          role: voiceGender === 'male' ? 'system_male' : 'system_female'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Backend TTS service offline or not configured');
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      window.pragatiAudioPlayer = audio;
+
+      setTtsLoading(false);
+      setTtsSpeaking(true);
+
+      audio.onended = () => {
+        resumeWake();
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        resumeWake();
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      return; // Played successfully!
+    } catch (err) {
+      console.warn('Backend TTS failed, falling back to local speech:', err.message);
+    }
+
+    // ── 2. Fallback: Browser Web Speech API SpeechSynthesis ────────────────
+    setTtsLoading(false);
+    if (!window.speechSynthesis) {
+      resumeWake();
+      return;
+    }
+
+    setTtsSpeaking(true);
+    const utt = new SpeechSynthesisUtterance(clean);
+    const voice = getNaturalVoice(voiceAccent, voiceGender);
+    utt.pitch = 1.05;
+    utt.rate  = 1.0;
+    utt.volume = 1.0;
+
+    if (voice) { utt.voice = voice; utt.lang = voice.lang; }
+    else { utt.lang = voiceAccent === 'foreign' ? 'en-US' : 'en-IN'; }
+
+    const ka = setInterval(() => { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }, 3000);
+    utt.onend = () => { clearInterval(ka); resumeWake(); };
+    utt.onerror = () => { clearInterval(ka); resumeWake(); };
+
+    const speak = () => window.speechSynthesis.speak(utt);
     if (!window.speechSynthesis.getVoices().length) {
-      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged=null; window.speechSynthesis.speak(utt); };
-    } else { window.speechSynthesis.speak(utt); }
+      window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; speak(); };
+    } else {
+      speak();
+    }
   }
 
   // Wake word detection — "Hey PRAGATI" — continuous mode, always listening
@@ -313,20 +388,13 @@ export default function DashboardLayout() {
     let active = true;
     let retryTimer = null;
     let permissionDenied = false;
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-    // Request mic permission upfront and keep the stream active to avoid Chrome "ding" loop on SR restart (Desktop only)
-    if (!isMobile) {
-      navigator.mediaDevices?.getUserMedia({ audio: true })
-        .then(stream => { 
-          // We do NOT stop the stream here; keeping it active in background prevents the recurring mic access sound 
-          window._dummyAudioStream = stream; 
-        }) 
-        .catch(() => {}); // permission prompt handled by onerror below
-    }
+    // Request mic permission upfront — keeps Chrome from playing "ding" on SR restart
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then(stream => { window._dummyAudioStream = stream; })
+      .catch(() => {});
 
     function startWake() {
-      if (!active || permissionDenied || isMobile) return;
+      if (!active || permissionDenied) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;
@@ -336,26 +404,63 @@ export default function DashboardLayout() {
         sr.lang            = 'en-IN';
         sr.maxAlternatives = 3;
 
+        const wakeWords = [
+          'hey pragati', 'hey pragatee', 'hey pragathy', 'hey progati',
+          'hey prakati', 'ey pragati', 'pragati open', 'pragati wake',
+          'hi pragati', 'pragati help', 'pragati'
+        ];
+
         sr.onresult = e => {
           for (let i = e.resultIndex; i < e.results.length; i++) {
+            const isFinal = e.results[i].isFinal;
             for (let j = 0; j < e.results[i].length; j++) {
-              const heard = e.results[i][j].transcript.toLowerCase().trim();
-              if (
-                heard.includes('hey pragati') || heard.includes('hey pragatee') ||
-                heard.includes('hey pragathy') || heard.includes('hey progati') ||
-                heard.includes('hey prakati')  || heard.includes('ey pragati')  ||
-                heard.includes('pragati open') || heard.includes('pragati wake') ||
-                heard.includes('hi pragati')   || heard.includes('pragati help')
-              ) {
-                setWakePulse(true);
-                setWakeListening(true);
-                setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+              const heard = e.results[i][j].transcript;
+              const lowerHeard = heard.toLowerCase().trim();
+              
+              // Check if any wake word is mentioned
+              let matched = null;
+              for (const w of wakeWords) {
+                if (lowerHeard.includes(w)) {
+                  matched = w;
+                  break;
+                }
+              }
+              
+              if (matched) {
+                // If wake word matched, open the assistant panel
                 setPragatiOpen(true);
-                setTimeout(() => {
-                  pragatiSpeak("Hey! I'm here. What can I help you with?");
-                  pragatiInputRef.current?.focus();
-                }, 300);
-                return;
+                
+                const startIndex = lowerHeard.indexOf(matched) + matched.length;
+                const command = heard.substring(startIndex).trim();
+                
+                if (command) {
+                  // Update input box with the command live (interim preview)
+                  setPragatiInput(command);
+                  
+                  if (isFinal) {
+                    // When user finishes speaking, execute the command
+                    setWakePulse(true);
+                    setWakeListening(true);
+                    setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+                    
+                    // Stop wake SR temporarily so we don't double trigger
+                    try { wakeSRRef.current?.stop(); } catch {}
+                    
+                    sendPragati(command);
+                    return;
+                  }
+                } else {
+                  // Wake word only - standard wakeup
+                  if (isFinal) {
+                    setWakePulse(true);
+                    setWakeListening(true);
+                    setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+                    
+                    pragatiSpeak("Hey! I'm here. What can I help you with?");
+                    pragatiInputRef.current?.focus();
+                    return;
+                  }
+                }
               }
             }
           }
@@ -404,6 +509,23 @@ export default function DashboardLayout() {
     if (pragatiOpen) pragatiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [pragatiMsgs, pragatiOpen]);
 
+  // ── Dashboard Load Welcome Greeting — fires once per browser session ─────
+  React.useEffect(() => {
+    if (!user || welcomeSpokenRef.current) return;
+    const sessionKey = 'pragati_welcomed_session';
+    if (sessionStorage.getItem(sessionKey)) return; // already greeted this session
+    welcomeSpokenRef.current = true;
+    sessionStorage.setItem(sessionKey, '1');
+    const firstName = (user?.name || 'friend').split(' ')[0];
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const welcomeMsg = `${greeting}, ${firstName}! I'm Pragati, your AI placement companion. I'm here to help you ace your interviews, master DSA, and land your dream job. Just say Hey Pragati anytime, and I'll be right here!`;
+    // Delay slightly to let browser voices load fully
+    const timer = setTimeout(() => { pragatiSpeak(welcomeMsg); }, 2000);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line
+  }, [user]);
+
   async function sendPragati(textOverride) {
     const text = (textOverride !== undefined ? textOverride : pragatiInput).trim();
     if (!text || pragatiLoading) return;
@@ -418,7 +540,8 @@ export default function DashboardLayout() {
       const reply = `Sure! Taking you to ${label.charAt(0).toUpperCase()+label.slice(1).replace(/-/g,' ')} now 🚀`;
       setPragatiMsgs(m => [...m, { role:'ai', text: reply, ts: Date.now() }]);
       pragatiSpeak(reply);
-      setTimeout(() => { nav(navPath); setPragatiOpen(false); }, 800);
+      // Keep panel open after navigation — user can dismiss it manually
+      setTimeout(() => { nav(navPath); }, 800);
       return;
     }
 
@@ -469,9 +592,10 @@ export default function DashboardLayout() {
     }
 
     // Request mic permission explicitly so browser shows a clear prompt
+    // We keep the stream briefly — releasing it immediately before SR starts can cause failure on some OS/browsers
+    let permStream = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop()); // release immediately, SR takes over
+      permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setPragatiMsgs(m => [...m, { role: 'ai', text: '🎙️ Microphone access was denied. Please click the 🔒 icon in your browser address bar and allow microphone access, then try again.', ts: Date.now() }]);
       return;
@@ -527,9 +651,12 @@ export default function DashboardLayout() {
         setTimeout(() => wakeRestartRef.current?.(), 400);
       };
       sr.start();
+      // Release the permission stream now that SR has taken over
+      if (permStream) { permStream.getTracks().forEach(t => t.stop()); permStream = null; }
     } catch {
       setPragatiMicOn(false);
       wakePausedRef.current = false;
+      if (permStream) { permStream.getTracks().forEach(t => t.stop()); }
       setTimeout(() => wakeRestartRef.current?.(), 400);
     }
   }
@@ -1001,6 +1128,40 @@ export default function DashboardLayout() {
                     </div>
                   </div>
 
+                  {/* Voice Gender Selector */}
+                  <div style={{ borderTop: `1px solid ${dropBrd}`, padding: '11px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontSize: '1rem', width: 22, textAlign: 'center' }}>👥</span>
+                      <span style={{ fontSize: '.83rem', fontWeight: 600, color: txt }}>Voice Gender</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {['female', 'male'].map(g => (
+                        <button
+                          key={g}
+                          onClick={() => {
+                            setVoiceGender(g);
+                            localStorage.setItem('pragati_voice_gender', g);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            borderRadius: 6,
+                            border: voiceGender === g ? '1.5px solid #531697' : `1.5px solid ${inpBrd}`,
+                            background: voiceGender === g ? 'rgba(83,22,151,0.08)' : 'transparent',
+                            color: voiceGender === g ? '#531697' : sub,
+                            fontSize: '.72rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            textTransform: 'capitalize',
+                            fontFamily: "'Nunito',sans-serif",
+                            transition: 'all .12s',
+                          }}>
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{ borderTop:`1px solid ${dropBrd}` }}>
                     <button onClick={()=>{setShowDeleteConfirm(true);setDropOpen(false);}}
                       style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 16px', background:'transparent', border:'none', cursor:'pointer', textAlign:'left', fontFamily:"'Nunito',sans-serif", transition:'background .12s' }}
@@ -1080,8 +1241,21 @@ export default function DashboardLayout() {
               <div style={{ width:40, height:40, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.3rem', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>✨</div>
               <div style={{ flex:1 }}>
                 <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem', color:'#fff' }}>Hey PRAGATI!</div>
-                <div style={{ fontSize:'.68rem', color:'rgba(255,255,255,0.6)', marginTop:1 }}>
-                  {micBlocked ? '🚫 Mic blocked — see instructions below' : 'Your AI companion · Navigation + Career Help'}
+                <div style={{ fontSize:'.68rem', color:'#fff', marginTop:1, display:'flex', alignItems:'center', gap:5 }}>
+                  {micBlocked ? (
+                    <span style={{ color:'rgba(255,255,255,0.7)' }}>🚫 Mic blocked — see instructions below</span>
+                  ) : ttsLoading ? (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontWeight:700, animation:'pulse 1.2s infinite' }}>
+                      ⏳ Generating ElevenLabs voice...
+                    </span>
+                  ) : ttsSpeaking ? (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontWeight:700, color:'#47d372' }}>
+                      🔊 Speaking...
+                      <span style={{ width:6, height:6, borderRadius:'50%', background:'#47d372', display:'inline-block', animation:'pragatiPing 1s infinite' }} />
+                    </span>
+                  ) : (
+                    <span style={{ color:'rgba(255,255,255,0.7)' }}>Your AI placement companion</span>
+                  )}
                 </div>
               </div>
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
@@ -1092,6 +1266,19 @@ export default function DashboardLayout() {
                   style={{ padding:'4px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.25)', background: pragatiVoice?'rgba(71,211,114,0.25)':'rgba(255,255,255,0.08)', color:'#fff', cursor:'pointer', fontSize:'.7rem', fontWeight:700, fontFamily:"'Nunito',sans-serif" }}>
                   {pragatiVoice ? '🔊' : '🔇'}
                 </button>
+                {/* Voice Gender selector */}
+                {pragatiVoice && (
+                  <button
+                    onClick={() => {
+                      const next = voiceGender === 'female' ? 'male' : 'female';
+                      setVoiceGender(next);
+                      localStorage.setItem('pragati_voice_gender', next);
+                    }}
+                    title={`Current voice: ${voiceGender === 'female' ? 'Female' : 'Male'} — click to switch`}
+                    style={{ padding:'4px 8px', borderRadius:7, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(255,255,255,0.08)', color:'#fff', cursor:'pointer', fontSize:'.7rem', fontWeight:700, fontFamily:"'Nunito',sans-serif" }}>
+                    {voiceGender === 'female' ? '👩' : '👨'}
+                  </button>
+                )}
                 {/* Refresh / Restart */}
                 <button
                   onClick={resetPragatiChat}

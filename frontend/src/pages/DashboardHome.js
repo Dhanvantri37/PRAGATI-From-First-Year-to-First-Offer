@@ -135,59 +135,76 @@ function EditProfileModal({ user, onClose, onSaved }) {
 
 /* ── LeetCode-style Leaderboard Modal ────────────────────────────────────── */
 
-/* Donut chart for solved problems */
+/* ── Problem Breakdown: stable stacked-bar chart, no SVG arc math, never glitches ── */
 function DonutChart({ easy=0, medium=0, hard=0, total=0 }) {
-  const e = Number(easy) || 0;
-  const m = Number(medium) || 0;
-  const h = Number(hard) || 0;
+  const e = Math.max(0, Number(easy)   || 0);
+  const m = Math.max(0, Number(medium) || 0);
+  const h = Math.max(0, Number(hard)   || 0);
   const solved = e + m + h;
-  const R = 54, stroke = 10, norm = 2*Math.PI*R;
-  const safeTotal = Number(total) || 1;
-  const eP = (e/safeTotal)*norm, mP = (m/safeTotal)*norm, hP = (h/safeTotal)*norm;
-  const gaps = 2;
-  let offset = norm*0.25;
-  const segs = [
-    { pct:eP, color:'#47d372', label:'Easy',   val:e },
-    { pct:mP, color:'#f59e0b', label:'Medium', val:m },
-    { pct:hP, color:'#ef4444', label:'Hard',   val:h },
+  const safe   = solved || 1;
+
+  const tiers = [
+    { label:'Easy',   val:e, color:'#47d372', bg:'rgba(71,211,114,0.12)',  track:'rgba(71,211,114,0.18)'  },
+    { label:'Medium', val:m, color:'#f59e0b', bg:'rgba(245,158,11,0.12)',  track:'rgba(245,158,11,0.18)'  },
+    { label:'Hard',   val:h, color:'#ef4444', bg:'rgba(239,68,68,0.12)',   track:'rgba(239,68,68,0.18)'   },
   ];
-  const paths = segs.map(s => {
-    const len = Math.max(0, s.pct - gaps);
-    const d = { ...s, dasharray:`${len} ${norm-len}`, offset };
-    offset = (offset - s.pct + norm*10) % (norm*10);
-    return d;
-  });
+
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-      <div style={{ position:'relative', width:128, height:128, flexShrink:0 }}>
-        <svg width={128} height={128} style={{ transform:'rotate(-90deg)' }}>
-          <circle cx={64} cy={64} r={R} fill="none" stroke="var(--border)" strokeWidth={stroke}/>
-          {paths.map((s,i) => (
-            s.val > 0 ? (
-              <circle key={i} cx={64} cy={64} r={R} fill="none" stroke={s.color}
-                strokeWidth={stroke} strokeDasharray={s.dasharray} strokeDashoffset={-s.offset}
-                strokeLinecap="round" style={{ transition:'stroke-dasharray .6s ease' }}/>
-            ) : null
-          ))}
-        </svg>
-        <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.5rem', color:'var(--text)', lineHeight:1 }}>{solved}</div>
-          <div style={{ fontSize:'.6rem', color:'#b0bec9', fontWeight:700, marginTop:2 }}>/{total} Solved</div>
+    <div style={{ width:'100%' }}>
+      {/* Stacked bar */}
+      <div style={{ display:'flex', height:10, borderRadius:999, overflow:'hidden', background:'var(--border)', marginBottom:14, gap:2 }}>
+        {tiers.map(t => t.val > 0 ? (
+          <div key={t.label}
+            style={{ width:`${(t.val/safe)*100}%`, background:t.color,
+              transition:'width .6s cubic-bezier(.4,0,.2,1)', borderRadius:999 }}
+          />
+        ) : null)}
+        {solved === 0 && <div style={{ width:'100%', background:'var(--border)', borderRadius:999 }}/>}
+      </div>
+
+      {/* Stat rows */}
+      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        {tiers.map(t => {
+          const pct = Math.round((t.val / safe) * 100);
+          return (
+            <div key={t.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {/* Color dot */}
+              <div style={{ width:8, height:8, borderRadius:'50%', background:t.color, flexShrink:0 }}/>
+              {/* Label */}
+              <div style={{ fontSize:'.72rem', color:'var(--text-3)', fontWeight:700, width:42 }}>{t.label}</div>
+              {/* Mini progress track */}
+              <div style={{ flex:1, height:5, borderRadius:999, background:t.track, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${pct}%`, background:t.color,
+                  borderRadius:999, transition:'width .6s cubic-bezier(.4,0,.2,1)' }}/>
+              </div>
+              {/* Count badge */}
+              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem',
+                color:t.color, minWidth:22, textAlign:'right' }}>{t.val}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Total footer */}
+      <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'7px 10px', borderRadius:9, background:'rgba(83,22,151,0.05)',
+        border:'1px solid rgba(83,22,151,0.1)' }}>
+        <span style={{ fontSize:'.7rem', color:'var(--text-3)', fontWeight:700 }}>Total Solved</span>
+        <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem',
+          background:'linear-gradient(135deg,#531697,#13a1a5)',
+          WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
+          {solved}{total > solved ? ` / ${total}` : ''}
+        </span>
+      </div>
+
+      {solved === 0 && (
+        <div style={{ textAlign:'center', fontSize:'.68rem', color:'#b0bec9', marginTop:6 }}>
+          Solve problems to see breakdown
         </div>
-      </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {paths.map(s => (
-          <div key={s.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:10, height:10, borderRadius:3, background:s.color, flexShrink:0 }}/>
-            <div style={{ fontSize:'.75rem', color:'var(--text-3)', minWidth:46, fontWeight:600 }}>{s.label}</div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.85rem', color:'var(--text)' }}>{s.val}</div>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
-
 
 /* Contest rating mini-chart (sparkline) */
 function RatingChart({ ratings=[] }) {
@@ -641,51 +658,66 @@ function StudentDash() {
   const [fullLeaderboard, setFullLeaderboard] = useState([]);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [myActivityData, setMyActivityData] = useState(null);
+  const [myActivityData, setMyActivityData] = useState(() => {
+    // Seed from localStorage so DonutChart shows immediately (not zero)
+    try { return JSON.parse(localStorage.getItem('pragati_activity_cache') || 'null'); } catch { return null; }
+  });
+  const updateActivityData = (d) => {
+    if (!d) return;
+    // Only update if new data has better (non-zero) problem stats, to avoid overwriting good cache with stale zeros
+    setMyActivityData(prev => {
+      const prevSolved = (prev?.problemStats?.easy||0) + (prev?.problemStats?.medium||0) + (prev?.problemStats?.hard||0);
+      const newSolved  = (d?.problemStats?.easy||0)   + (d?.problemStats?.medium||0)   + (d?.problemStats?.hard||0);
+      const merged = { ...d };
+      if (newSolved === 0 && prevSolved > 0) {
+        // Backend returned zeros (may be stale) — keep previous good stats but update heatmap
+        merged.problemStats = prev.problemStats;
+      }
+      try { localStorage.setItem('pragati_activity_cache', JSON.stringify(merged)); } catch {}
+      return merged;
+    });
+  };
   
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [activeDrive, setActiveDrive] = useState(null);
 
   const load = useCallback(async () => {
-    const [dash, me, co, hist, batch, cr, lb, ann, driveData] = await Promise.all([
+    // ── WAVE 1: Critical data — renders the page immediately ──────────────────
+    const [dash, me, hist] = await Promise.all([
       apiFetch('/analytics/dashboard'),
       apiFetch('/auth/me'),
-      apiFetch('/companies'),
       apiFetch('/skillpath/history'),
-      apiFetch('/analytics/batch-percentile'),
-      apiFetch('/analytics/company-readiness'),
-      apiFetch('/analytics/leaderboard?limit=200'),
-      apiFetch('/announcements'),
-      apiFetch('/drives').catch(() => null),
     ]);
     setData(dash || {});
     if (me?.user && setUser) setUser(me.user);
-    // Load student's own activity after we have the user ID
+    setHistory(hist?.results || []);
+    setLoading(false); // ← show page NOW with partial data
+
+    // Load student's own heatmap/donut activity data
     const uid = me?.user?._id;
     if (uid) {
-      // my-profile returns submissionDates, problemStats, contestRatings for heatmap
       apiFetch('/analytics/my-profile').then(d => {
-        if (d) setMyActivityData(d);
+        if (d) updateActivityData(d);
       }).catch(() => {
-        // fallback to student-profile if my-profile fails
-        apiFetch(`/analytics/student-profile/${uid}`).then(d => { if (d) setMyActivityData(d); });
+        apiFetch(`/analytics/student-profile/${uid}`).then(d => { if (d) updateActivityData(d); });
       });
     }
-    setCompanies(co?.companies || []);
-    setHistory(hist?.results || []);
-    if (batch) setBatch(batch);
-    if (cr?.results) setCompReadiness(cr.results);
-    if (lb?.leaderboard) setLeaderboard(lb.leaderboard);
-    if (ann?.announcements) {
-      setAnnouncements(ann.announcements);
-      // Count announcements seen since last visit
-      const lastSeen = parseInt(localStorage.getItem('pragati_notif_seen') || '0');
-      const newCount = ann.announcements.filter(a => new Date(a.createdAt).getTime() > lastSeen).length;
-      setNewAnnouncementsCount(newCount);
-    }
-    if (driveData?.drives) setDrives(driveData.drives);
-    setLoading(false);
+
+    // ── WAVE 2: Each API fires independently — state updates as each one lands ──
+    apiFetch('/companies').then(co => { if (co?.companies) setCompanies(co.companies); }).catch(()=>{});
+    apiFetch('/analytics/batch-percentile').then(batch => { if (batch) setBatch(batch); }).catch(()=>{});
+    apiFetch('/analytics/company-readiness').then(cr => { if (cr?.results) setCompReadiness(cr.results); }).catch(()=>{});
+    apiFetch('/analytics/leaderboard?limit=200').then(lb => { if (lb?.leaderboard) setLeaderboard(lb.leaderboard); }).catch(()=>{});
+    apiFetch('/announcements').then(ann => {
+      if (ann?.announcements) {
+        setAnnouncements(ann.announcements);
+        const lastSeen = parseInt(localStorage.getItem('pragati_notif_seen') || '0');
+        setNewAnnouncementsCount(ann.announcements.filter(a => new Date(a.createdAt).getTime() > lastSeen).length);
+      }
+    }).catch(()=>{});
+    apiFetch('/drives').then(driveData => { if (driveData?.drives) setDrives(driveData.drives); }).catch(()=>{});
+
   }, [setUser]);
 
   useEffect(() => { load(); }, [load]);
@@ -1025,7 +1057,7 @@ function StudentDash() {
             { icon:'🧠', label:'SkillPath AI', sub:'Resume analysis & gaps', to:'/dashboard/skillpath', grad:'linear-gradient(135deg,#042c5d,#531697)' },
             { icon:'🏢', label:'Company Research', sub:'JDs, rounds, prep tips', to:'/dashboard/companies', grad:'linear-gradient(135deg,#13a1a5,#47d372)' },
             { icon:'🎯', label:'Aptitude Practice', sub:'Quiz + GFG/IndiaBix links', to:'/dashboard/aptitude', grad:'linear-gradient(135deg,#3b82f6,#531697)' },
-            { icon:'🎤', label:'Interview Prep', sub:'AI mock interviews', to:'/dashboard/interview', grad:'linear-gradient(135deg,#f59e0b,#ef4444)' },
+            { icon:'🎤', label:'Interview Prep', sub:'AI mock interviews', to:'/dashboard/ai-interview', grad:'linear-gradient(135deg,#f59e0b,#ef4444)' },
             { icon:'📝', label:'Discussions', sub:'Post doubts, get answers', to:'/dashboard/discussions', grad:'linear-gradient(135deg,#10b981,#13a1a5)' },
           ].map(a=>(
             <button key={a.to} onClick={()=>nav(a.to)}
