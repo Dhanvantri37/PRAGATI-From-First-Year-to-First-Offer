@@ -385,6 +385,17 @@ export default function DashboardLayout() {
   React.useEffect(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR || !pragatiVoice) return; // only run when voice is enabled
+
+    // ── Block on Android / mobile browsers ────────────────────────────────────
+    // Android Chrome plays an audible "ding" on every SpeechRecognition start.
+    // Because wake word restarts continuously, this causes non-stop ding-dong.
+    // Mobile users can still use the in-chat microphone button manually.
+    const ua = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(ua);
+    const isMobile  = /iPhone|iPad|iPod|Android|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    if (isAndroid || isMobile) return; // ← restore original mobile block
+    // ──────────────────────────────────────────────────────────────────────────
+
     let active = true;
     let retryTimer = null;
     let permissionDenied = false;
