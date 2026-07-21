@@ -152,6 +152,51 @@ router.get('/set', authenticate, async (req, res) => {
   }
 });
 
+// ── Helper: Robust Answer Comparison ──────────────────────────────────────
+function isAnswerCorrect(selected, correctAns, options = []) {
+  if (!selected || !correctAns) return false;
+  const s = selected.toString().trim();
+  const c = correctAns.toString().trim();
+
+  if (s === c) return true;
+
+  // Clean prefixes: "A) 60" -> "60", "A. 60" -> "60"
+  const cleanS = s.replace(/^[A-D][)\.-]\s*/i, '').trim();
+  const cleanC = c.replace(/^[A-D][)\.-]\s*/i, '').trim();
+
+  if (cleanS.toLowerCase() === cleanC.toLowerCase()) return true;
+
+  // Compare letter prefixes if both exist
+  const letterS = s.match(/^([A-D])[)\.-]/i)?.[1]?.toUpperCase();
+  const letterC = c.match(/^([A-D])[)\.-]/i)?.[1]?.toUpperCase();
+
+  if (letterS && letterC && letterS === letterC) return true;
+
+  // If correct is single letter like "A", "B", "C", "D"
+  if (/^[A-D]$/i.test(cleanC)) {
+    const letter = cleanC.toUpperCase();
+    if (letterS && letterS === letter) return true;
+    const idx = letter.charCodeAt(0) - 65;
+    if (options && options[idx]) {
+      const optVal = options[idx].replace(/^[A-D][)\.-]\s*/i, '').trim();
+      if (cleanS.toLowerCase() === optVal.toLowerCase() || s.toLowerCase() === options[idx].toLowerCase()) return true;
+    }
+  }
+
+  // If selected is single letter like "C"
+  if (/^[A-D]$/i.test(cleanS)) {
+    if (letterC && letterC === cleanS.toUpperCase()) return true;
+    const letter = cleanS.toUpperCase();
+    const idx = letter.charCodeAt(0) - 65;
+    if (options && options[idx]) {
+      const optVal = options[idx].replace(/^[A-D][)\.-]\s*/i, '').trim();
+      if (cleanC.toLowerCase() === optVal.toLowerCase() || c.toLowerCase() === options[idx].toLowerCase()) return true;
+    }
+  }
+
+  return false;
+}
+
 // ── POST /api/aptitude/submit — verify answers server-side ──────────────────
 router.post('/submit', authenticate, async (req, res) => {
   try {
@@ -161,13 +206,13 @@ router.post('/submit', authenticate, async (req, res) => {
 
     // Server-side verification: look up real answers from DB
     const questionIds = answers.map(a => a.questionId).filter(Boolean);
-    const dbQuestions = await AptitudeQuestion.find({ _id: { $in: questionIds } }).select('answer topic subtopic');
+    const dbQuestions = await AptitudeQuestion.find({ _id: { $in: questionIds } }).select('answer options topic subtopic');
     const answerMap = {};
     dbQuestions.forEach(q => { answerMap[q._id.toString()] = q; });
 
     const verified = answers.map(a => {
       const dbQ = answerMap[a.questionId];
-      const correct = dbQ ? (a.selectedAnswer === dbQ.answer) : false;
+      const correct = dbQ ? isAnswerCorrect(a.selectedAnswer, dbQ.answer, dbQ.options) : false;
       return {
         userId: req.user._id,
         questionId: a.questionId,
@@ -180,7 +225,6 @@ router.post('/submit', authenticate, async (req, res) => {
     });
 
     await AptitudeAttempt.insertMany(verified, { ordered: false });
-
 
     const correct = verified.filter(a => a.correct).length;
     // Batch fetch explanations + correct answers for full review
@@ -375,42 +419,45 @@ router.post('/ai-quiz', authenticate, aiQuizLimiter, async (req, res) => {
     }
 
     // ── Save unique AI questions to DB ────────────────────────────────────
-    const savedIds = [];
+    const safeQuestions = [];
     for (const q of questions) {
       try {
-        const existing = await AptitudeQuestion.findOne({
-          question: { $regex: new RegExp(q.question.slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        let doc = await AptitudeQuestion.findOne({
+          question: { $regex: new RegExp(q.question.slice(0, 60).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
         });
-        if (!existing) {
-          const doc = await AptitudeQuestion.create({
-            topic: q.topic || topic,
+        if (!doc) {
+          doc = await AptitudeQuestion.create({
+            topic: q.topic || topic || 'Quantitative',
             subtopic: q.subtopic || 'General',
             question: q.question,
             options: q.options,
             answer: q.answer,
-            explanation: q.explanation,
-            difficulty: q.difficulty || diffLabel === 'Mixed' ? ['Easy','Medium','Hard'][Math.floor(Math.random()*3)] : diffLabel,
+            explanation: q.explanation || '',
+            difficulty: q.difficulty || (diffLabel === 'Mixed' ? ['Easy','Medium','Hard'][Math.floor(Math.random()*3)] : diffLabel),
             companies: [safeCompany],
             year: new Date().getFullYear().toString(),
             source: `AI-${safeCompany}-${new Date().getFullYear()}`,
           });
-          savedIds.push(doc._id.toString());
-          q._id = doc._id;
-        } else {
-          q._id = existing._id;
         }
-      } catch (saveErr) { /* skip duplicates */ }
+        safeQuestions.push({
+          _id: doc._id.toString(),
+          topic: doc.topic,
+          subtopic: doc.subtopic,
+          question: doc.question,
+          options: doc.options,
+          difficulty: doc.difficulty,
+          companies: doc.companies,
+        });
+      } catch (saveErr) {
+        console.warn('[AI-Quiz] Save question error:', saveErr.message);
+      }
     }
 
-    // Return WITHOUT answers (security)
-    const safeQuestions = questions.map(q => {
-      const obj = { ...q };
-      delete obj.answer;
-      delete obj.explanation;
-      return obj;
-    });
+    if (!safeQuestions.length) {
+      return res.status(500).json({ error: 'Failed to process AI questions' });
+    }
 
-    res.json({ questions: safeQuestions, source: 'ai', savedCount: savedIds.length });
+    res.json({ questions: safeQuestions, source: 'ai', savedCount: safeQuestions.length });
   } catch (err) {
     console.error('[AI-Quiz] Error:', err);
     res.status(500).json({ error: 'AI quiz generation failed. Please try again.' });

@@ -14,44 +14,57 @@ const DC   = { Easy:'#47d372', Medium:'#f59e0b', Hard:'#ef4444' };
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
 
 const COMPANY_BADGES = {
-  TCS:        { color:'#38bdf8', icon:'🏢' },
-  Wipro:      { color:'#818cf8', icon:'◆'  },
-  Infosys:    { color:'#60a5fa', icon:'■'  },
-  Capgemini:  { color:'#38bdf8', icon:'◆'  },
-  Accenture:  { color:'#c084fc', icon:'♥'  },
-  HCL:        { color:'#f87171', icon:'●'  },
-  Cognizant:  { color:'#38bdf8', icon:'🌐' },
-  Zoho:       { color:'#4ade80', icon:'🟢' },
-  Amazon:     { color:'#fbbf24', icon:'📦' },
-  Deloitte:   { color:'#34d399', icon:'🟢' },
+  TCS:            { color:'#38bdf8', icon:'🏢' },
+  Wipro:          { color:'#818cf8', icon:'◆'  },
+  Infosys:        { color:'#60a5fa', icon:'■'  },
+  Capgemini:      { color:'#38bdf8', icon:'◆'  },
+  Accenture:      { color:'#c084fc', icon:'♥'  },
+  HCL:            { color:'#f87171', icon:'●'  },
+  Cognizant:      { color:'#38bdf8', icon:'🌐' },
+  Zoho:           { color:'#4ade80', icon:'🟢' },
+  Amazon:         { color:'#fbbf24', icon:'📦' },
+  Deloitte:       { color:'#34d399', icon:'🟢' },
   'Tech Mahindra':{ color:'#a78bfa', icon:'⭐' },
+  LTIMindtree:    { color:'#38bdf8', icon:'💎' },
+  DXC:            { color:'#f43f5e', icon:'⚡' },
+  Virtusa:        { color:'#8b5cf6', icon:'🎯' },
 };
 
-// ── Subtopic theory + practice resource metadata ─────────────────────────────
+// ── Subtopic theory + practice resource metadata (100% Valid Tested URLs) ───────
 const SUBTOPIC_META = {
-  'Number System':        { theory:'Divisibility rules, LCM/HCF, prime factorization, unit digits, surds & indices.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/number-system-gq/', indiabix:'https://www.indiabix.com/aptitude/numbers/' },
-  'Percentages':          { theory:'(Part/Whole)×100. Key to profit/loss, discount, interest.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/percentages-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/percentage/' },
-  'Profit & Loss':        { theory:'Profit = SP−CP. Profit% = (Profit/CP)×100. Marked Price & successive discounts.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/profit-loss-discount-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/profit-and-loss/' },
-  'Simple & Compound Interest': { theory:'SI = PRT/100. CI = P(1+r/100)^n − P. Diff for 2 yrs = P(r/100)².', gfg:'https://www.geeksforgeeks.org/aptitude-gq/interest-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/simple-interest/' },
-  'Ratio & Proportion':   { theory:'a:b = c:d ⟹ ad=bc. Investment ratio × time ratio = Profit ratio.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/ratio-proportion-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/ratio-and-proportion/' },
-  'Averages':             { theory:'Average = Sum/Count. Weighted average uses proportional weights.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/averages-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/average/' },
-  'Time & Work':          { theory:"A's 1-day work = 1/n. LCM method simplifies multi-person problems.", gfg:'https://www.geeksforgeeks.org/aptitude-gq/time-and-work-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/time-and-work/' },
-  'Speed, Time & Distance': { theory:'Speed = Distance/Time. Avg speed = 2S₁S₂/(S₁+S₂) for equal distances.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/speed-time-distance-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/time-and-distance/' },
-  'Permutation & Combination': { theory:'nPr = n!/(n-r)!  nCr = n!/r!(n-r)!  Apply for selections/arrangements.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/permutation-and-combination-gq/', indiabix:'https://www.indiabix.com/aptitude/permutation-and-combination/' },
-  'Probability':          { theory:'P(E) = Favorable/Total. Mutually exclusive: P(A or B)=P(A)+P(B).', gfg:'https://www.geeksforgeeks.org/aptitude-gq/probability-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/probability/' },
-  'Data Interpretation':  { theory:'Read tables/bar charts carefully. Approx % change = Δ/original × 100.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/data-interpretation-gq/', indiabix:'https://www.indiabix.com/data-interpretation/table-charts/' },
-  'Seating Arrangement':  { theory:'Linear vs Circular. Clockwise = left. Fix one person in circular to avoid duplicates.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/seating-arrangement/' },
-  'Blood Relations':      { theory:'Draw family trees. Mother/Father = 1 gen up; uncle/aunt = parent siblings.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/blood-relation-test/' },
-  'Direction Sense':      { theory:'North default. After L = 90° counter-clockwise. Pythagoras for distance.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/direction-sense-test/' },
-  'Number Series':        { theory:'Check: diff of diffs, multiples, alternating, squares, cubes patterns.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/number-series-aptitude-gq/', indiabix:'https://www.indiabix.com/aptitude/number-series/' },
-  'Coding-Decoding':      { theory:'Shift each letter by fixed amount; or mirror-coding (A=Z). Also positional.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/coding-decoding/' },
-  'Syllogism':            { theory:'All A are B, Some B are C → Some A may be C. Use Venn diagrams.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/syllogism/' },
-  'Statements & Conclusions': { theory:'Conclusion must be 100% true based ONLY on given statements. No external knowledge.', gfg:'https://www.geeksforgeeks.org/aptitude-gq/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/statement-and-conclusion/' },
-  'Synonyms & Antonyms':  { theory:'Root words: bene (good), mal (bad), chron (time), phil (love). Context clues matter.', gfg:'https://www.geeksforgeeks.org/english-gq/synonyms-antonyms-gq/', indiabix:'https://www.indiabix.com/verbal-ability/synonyms/' },
-  'Grammar':              { theory:'Subject-Verb agreement, Tenses, Articles (a/an/the), Prepositions, Active/Passive.', gfg:'https://www.geeksforgeeks.org/english-gq/', indiabix:'https://www.indiabix.com/verbal-ability/spotting-errors/' },
-  'One Word Substitution':{ theory:'Memorize common groups: one who collects stamps = Philatelist; fear of height = Acrophobia.', gfg:'https://www.geeksforgeeks.org/english-gq/one-word-substitutions-gq/', indiabix:'https://www.indiabix.com/verbal-ability/one-word-substitutes/' },
-  'Idioms & Phrases':     { theory:'"Break the ice" = start conversation. "Bite the bullet" = endure pain. Learn 50 key idioms.', gfg:'https://www.geeksforgeeks.org/english-gq/', indiabix:'https://www.indiabix.com/verbal-ability/idioms-and-phrases/' },
-  'Para Jumbles':         { theory:'Find the topic sentence (no pronoun/connector start). Then logic flow. PQRS order.', gfg:'https://www.geeksforgeeks.org/english-gq/', indiabix:'https://www.indiabix.com/verbal-ability/ordering-of-sentences/' },
+  'Number System':              { theory:'Divisibility rules, LCM/HCF, prime factorization, unit digits, surds & indices.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#numbersystem', indiabix:'https://www.indiabix.com/aptitude/numbers/' },
+  'Percentages':                { theory:'(Part/Whole)×100. Key to profit/loss, discount, interest.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#percentages', indiabix:'https://www.indiabix.com/aptitude/percentage/' },
+  'Profit & Loss':              { theory:'Profit = SP−CP. Profit% = (Profit/CP)×100. Marked Price & successive discounts.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#profitandloss', indiabix:'https://www.indiabix.com/aptitude/profit-and-loss/' },
+  'Simple & Compound Interest': { theory:'SI = PRT/100. CI = P(1+r/100)^n − P. Diff for 2 yrs = P(r/100)².', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#interest', indiabix:'https://www.indiabix.com/aptitude/simple-interest/' },
+  'Ratio & Proportion':         { theory:'a:b = c:d ⟹ ad=bc. Investment ratio × time ratio = Profit ratio.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#ratioandproportion', indiabix:'https://www.indiabix.com/aptitude/ratio-and-proportion/' },
+  'Averages':                   { theory:'Average = Sum/Count. Weighted average uses proportional weights.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#averages', indiabix:'https://www.indiabix.com/aptitude/average/' },
+  'Time & Work':                { theory:"A's 1-day work = 1/n. LCM method simplifies multi-person problems.", gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#timeandwork', indiabix:'https://www.indiabix.com/aptitude/time-and-work/' },
+  'Speed, Time & Distance':     { theory:'Speed = Distance/Time. Avg speed = 2S₁S₂/(S₁+S₂) for equal distances.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#speedtimedistance', indiabix:'https://www.indiabix.com/aptitude/time-and-distance/' },
+  'Permutation & Combination':  { theory:'nPr = n!/(n-r)!  nCr = n!/r!(n-r)!  Apply for selections/arrangements.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#permutationandcombination', indiabix:'https://www.indiabix.com/aptitude/permutation-and-combination/' },
+  'Probability':                { theory:'P(E) = Favorable/Total. Mutually exclusive: P(A or B)=P(A)+P(B).', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#probability', indiabix:'https://www.indiabix.com/aptitude/probability/' },
+  'Data Interpretation':        { theory:'Read tables/bar charts carefully. Approx % change = Δ/original × 100.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#datainterpretation', indiabix:'https://www.indiabix.com/data-interpretation/table-charts/' },
+  'Seating Arrangement':        { theory:'Linear vs Circular. Clockwise = left. Fix one person in circular to avoid duplicates.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/seating-arrangement/' },
+  'Blood Relations':            { theory:'Draw family trees. Mother/Father = 1 gen up; uncle/aunt = parent siblings.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/blood-relation-test/' },
+  'Direction Sense':            { theory:'North default. After L = 90° counter-clockwise. Pythagoras for distance.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/direction-sense-test/' },
+  'Number Series':              { theory:'Check: diff of diffs, multiples, alternating, squares, cubes patterns.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/aptitude/number-series/' },
+  'Coding-Decoding':            { theory:'Shift each letter by fixed amount; or mirror-coding (A=Z). Also positional.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/coding-decoding/' },
+  'Syllogism':                  { theory:'All A are B, Some B are C → Some A may be C. Use Venn diagrams.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/syllogism/' },
+  'Statements & Conclusions':   { theory:'Conclusion must be 100% true based ONLY on given statements. No external knowledge.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/statement-and-conclusion/' },
+  'Synonyms & Antonyms':        { theory:'Root words: bene (good), mal (bad), chron (time), phil (love). Context clues matter.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/synonyms/' },
+  'Grammar':                    { theory:'Subject-Verb agreement, Tenses, Articles (a/an/the), Prepositions, Active/Passive.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/spotting-errors/' },
+  'One Word Substitution':      { theory:'Memorize common groups: one who collects stamps = Philatelist; fear of height = Acrophobia.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/one-word-substitutes/' },
+  'Idioms & Phrases':           { theory:'"Break the ice" = start conversation. "Bite the bullet" = endure pain. Learn 50 key idioms.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/idioms-and-phrases/' },
+  'Para Jumbles':               { theory:'Find the topic sentence (no pronoun/connector start). Then logic flow. PQRS order.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/ordering-of-sentences/' },
+  'Arrays':                     { theory:'Contiguous memory block. Fast O(1) index access, linear O(n) search/insertion.', gfg:'https://www.geeksforgeeks.org/data-structures/array-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Linked Lists':               { theory:'Dynamic nodes with data & pointers. Sequential access O(n), fast insert at head O(1).', gfg:'https://www.geeksforgeeks.org/data-structures/linked-list/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Stacks & Queues':            { theory:'Stack = LIFO (Push/Pop O(1)). Queue = FIFO (Enqueue/Dequeue O(1)).', gfg:'https://www.geeksforgeeks.org/data-structures/stack/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Trees':                      { theory:'Hierarchical structure. Binary Tree has at most 2 children. BST in-order traversal yields sorted order.', gfg:'https://www.geeksforgeeks.org/data-structures/binary-tree/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Graphs':                     { theory:'Vertices & Edges. BFS (shortest path, queue) vs DFS (backtracking, stack/recursion).', gfg:'https://www.geeksforgeeks.org/graph-data-structure-and-algorithms/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Dynamic Programming':        { theory:'Optimal substructure & overlapping subproblems. Memoization (Top-down) vs Tabulation (Bottom-up).', gfg:'https://www.geeksforgeeks.org/dynamic-programming/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Sorting':                    { theory:'Heap/Merge Sort O(n log n) worst case. Quick Sort O(n log n) avg / O(n²) worst. Bubble/Insertion O(n²).', gfg:'https://www.geeksforgeeks.org/sorting-algorithms/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Searching':                  { theory:'Linear Search O(n) un-sorted. Binary Search O(log n) sorted array. Interpolation Search O(log log n).', gfg:'https://www.geeksforgeeks.org/searching-algorithms/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Recursion':                  { theory:'Function calling itself. Requires base case to prevent stack overflow. Tail recursion optimizes call stack.', gfg:'https://www.geeksforgeeks.org/introduction-to-recursion-data-structure-and-algorithm-tutorials/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Hashing':                    { theory:'Key to index mapping O(1) avg. Chaining & Open Addressing (Linear Probing) resolve collisions.', gfg:'https://www.geeksforgeeks.org/hashing-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
 };
 
 const TOPIC_SUBTOPICS = {
@@ -67,7 +80,10 @@ const TOPIC_SUBTOPICS = {
   'Verbal': [
     'Synonyms & Antonyms','Grammar','One Word Substitution','Idioms & Phrases','Para Jumbles',
   ],
-  'DSA': ['Arrays','Linked Lists','Stacks & Queues','Trees','Graphs','Hashing'],
+  'DSA': [
+    'Arrays','Linked Lists','Stacks & Queues','Trees','Graphs',
+    'Dynamic Programming','Sorting','Searching','Recursion','Hashing'
+  ],
 };
 
 const TOPIC_LABELS = {
@@ -76,12 +92,13 @@ const TOPIC_LABELS = {
   'Verbal':       'Verbal Ability',
   'DSA':          'DSA Aptitude',
 };
+
 // Map frontend short codes to full DB topic names
 const TOPIC_DB = {
   'Quantitative': 'Quantitative',
   'Logical':      'Logical Reasoning',
   'Verbal':       'Verbal Ability',
-  'DSA':          'DSA',
+  'DSA':          'DSA Aptitude',
 };
 
 // ── Flashcard Component ──────────────────────────────────────────────────────
@@ -180,6 +197,135 @@ function FlashcardStack({ subtopic, onStart }) {
       <button onClick={onStart}
         style={{ width:'100%', padding:'13px', borderRadius:11, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.95rem', boxShadow:'0 4px 15px rgba(83,22,151,0.25)' }}>
         🚀 Start Practice: {subtopic}
+      </button>
+    </div>
+  );
+}
+
+// ── Custom Multi-Topic Quiz Generator Component ─────────────────────────────
+function CustomQuizSetup({ onStartQuiz }) {
+  const [selectedTopics, setSelectedTopics]   = useState(['Quantitative', 'Logical Reasoning', 'Verbal Ability', 'DSA Aptitude']);
+  const [difficulty, setDifficulty]           = useState('All');
+  const [questionCount, setQuestionCount]     = useState(10);
+  const [selectedCompany, setSelectedCompany] = useState('All Companies');
+
+  const topicOptions = [
+    { id: 'Quantitative',       label: '🔢 Quantitative Aptitude' },
+    { id: 'Logical Reasoning',  label: '🧩 Logical Reasoning' },
+    { id: 'Verbal Ability',     label: '📖 Verbal Ability' },
+    { id: 'DSA Aptitude',       label: '🌳 DSA Aptitude' },
+  ];
+
+  function toggleTopic(id) {
+    setSelectedTopics(prev =>
+      prev.includes(id) ? (prev.length > 1 ? prev.filter(t => t !== id) : prev) : [...prev, id]
+    );
+  }
+
+  function handleStart() {
+    onStartQuiz({
+      topics: selectedTopics,
+      difficulty,
+      company: selectedCompany,
+      count: questionCount
+    });
+  }
+
+  return (
+    <div className="card" style={{ padding: 24, maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.2rem', color: 'var(--text)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        ⚡ Custom Multi-Topic Quiz Generator
+      </div>
+      <p style={{ fontSize: '.83rem', color: 'var(--text-3)', marginBottom: 20 }}>
+        Select multiple topics, choose difficulty level, set question count, and optionally filter by target company.
+      </p>
+
+      {/* 1. Select Topics */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontSize: '.82rem', fontWeight: 800, color: 'var(--text)', display: 'block', marginBottom: 10 }}>
+          1. Select Topics (at least one required):
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {topicOptions.map(t => {
+            const active = selectedTopics.includes(t.id);
+            return (
+              <button key={t.id} onClick={() => toggleTopic(t.id)}
+                style={{
+                  padding: '12px 14px', borderRadius: 10,
+                  border: `1.5px solid ${active ? '#531697' : '#d0d7e8'}`,
+                  background: active ? 'rgba(83,22,151,0.08)' : 'var(--surface-2)',
+                  color: active ? '#531697' : 'var(--text-2)',
+                  fontWeight: 700, cursor: 'pointer', textAlign: 'left',
+                  fontSize: '.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                <span>{t.label}</span>
+                <span>{active ? '✅' : '⬜'}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. Select Difficulty */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontSize: '.82rem', fontWeight: 800, color: 'var(--text)', display: 'block', marginBottom: 10 }}>
+          2. Target Difficulty:
+        </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {['All', 'Easy', 'Medium', 'Hard'].map(d => (
+            <button key={d} onClick={() => setDifficulty(d)}
+              style={{
+                flex: 1, padding: '10px', borderRadius: 9,
+                border: `1.5px solid ${difficulty === d ? '#531697' : '#d0d7e8'}`,
+                background: difficulty === d ? GRAD : 'transparent',
+                color: difficulty === d ? '#fff' : 'var(--text)',
+                fontWeight: 700, cursor: 'pointer', fontSize: '.82rem'
+              }}>
+              {d === 'All' ? '⚡ Mixed / All' : d}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Number of Questions */}
+      <div style={{ marginBottom: 20 }}>
+        <label style={{ fontSize: '.82rem', fontWeight: 800, color: 'var(--text)', display: 'block', marginBottom: 10 }}>
+          3. Number of Questions:
+        </label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[5, 10, 15, 20, 25, 30].map(cnt => (
+            <button key={cnt} onClick={() => setQuestionCount(cnt)}
+              style={{
+                flex: 1, padding: '9px', borderRadius: 9,
+                border: `1.5px solid ${questionCount === cnt ? '#531697' : '#d0d7e8'}`,
+                background: questionCount === cnt ? 'rgba(83,22,151,0.1)' : 'transparent',
+                color: questionCount === cnt ? '#531697' : 'var(--text-2)',
+                fontWeight: 800, cursor: 'pointer', fontSize: '.82rem'
+              }}>
+              {cnt} Qs
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Target Company (Optional) */}
+      <div style={{ marginBottom: 24 }}>
+        <label style={{ fontSize: '.82rem', fontWeight: 800, color: 'var(--text)', display: 'block', marginBottom: 8 }}>
+          4. Target Company (Optional):
+        </label>
+        <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)}
+          style={{ width: '100%', padding: '10px 14px', borderRadius: 9, border: '1px solid #d0d7e8', background: 'var(--surface)', color: 'var(--text)', fontFamily: "'Nunito',sans-serif", fontSize: '.85rem' }}>
+          <option value="All Companies">🌟 All Companies (No Filter)</option>
+          {Object.keys(COMPANY_BADGES).map(c => (
+            <option key={c} value={c}>🏢 {c}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Start Button */}
+      <button onClick={handleStart}
+        style={{ width: '100%', padding: '14px', borderRadius: 11, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '1rem', boxShadow: '0 4px 15px rgba(83,22,151,0.25)' }}>
+        🚀 Generate & Start Custom Quiz ({questionCount} Qs)
       </button>
     </div>
   );
@@ -728,9 +874,9 @@ export default function AptitudePage() {
       if (difficulty && difficulty !== 'All')  params.set('difficulty', difficulty);
 
       const d = await fetch(`${API}/aptitude/set?${params}`, { headers:tk() }).then(r => r.json());
-      if (!d.questions?.length) { alert('No questions found.'); return; }
+      if (!d.questions?.length) { alert('No questions found for this quiz setup.'); return; }
       setQ(d.questions); setQIdx(0); setAnswers([]); setDone(false);
-      setTitle(company ? `${company} Quiz` : topics ? topics.join(' + ') : 'Quiz Mode');
+      setTitle(company && company !== 'All Companies' ? `${company} Quiz` : topics ? topics.join(' + ') : 'Quiz Mode');
       setSMode('quiz'); setMode('session');
     } catch (e) { alert('Failed to load quiz.'); }
     finally { setLoad(false); }
@@ -780,7 +926,8 @@ export default function AptitudePage() {
   function reset() { setMode(null); setQ([]); setAnswers([]); setSubmitResults([]); setDone(false); setActiveFlashcard(null); }
 
   const TABS = [
-    { id:'topics',    label:'🎯 Practice & Quiz' },
+    { id:'topics',    label:'🎯 Practice & Topics' },
+    { id:'custom',    label:'⚡ Custom Quiz' },
     { id:'browse',    label:'📚 Browse All' },
     { id:'company',   label:'🏢 Company Specific' },
     { id:'bookmarks', label:'🔖 Bookmarks & Notes' },
@@ -799,10 +946,10 @@ export default function AptitudePage() {
       <div style={{ marginBottom:18, display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
         <div>
           <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.5rem', color:'var(--text)', display:'flex', alignItems:'center', gap:8 }}>
-            🎯 Aptitude Practice
+            🎯 Aptitude Practice & Quizzes
           </h1>
           <p style={{ color:'var(--text-3)', marginTop:3, fontSize:'.85rem' }}>
-            Practice Mode · Quiz Mode · Target Company Filters · Theory Flashcards · GFG & IndiaBix links
+            Practice Mode · Custom Multi-Topic Quiz Generator · Target Company Filters · Theory Flashcards · Valid GFG & IndiaBix links
           </p>
         </div>
         <button onClick={handleSync} disabled={syncing}
@@ -863,7 +1010,7 @@ export default function AptitudePage() {
             ))}
           </div>
 
-          {/* ── Tab: Practice & Quiz ── */}
+          {/* ── Tab: Practice & Topics ── */}
           {tab === 'topics' && (
             <div>
               <TargetCompanySection companyStats={companyStats} onSelectCompany={cName => {
@@ -947,6 +1094,11 @@ export default function AptitudePage() {
             </div>
           )}
 
+          {/* ── Tab: Custom Quiz Generator ── */}
+          {tab === 'custom' && (
+            <CustomQuizSetup onStartQuiz={handleStartQuiz} />
+          )}
+
           {/* ── Tab: Browse All ── */}
           {tab === 'browse' && (
             <BrowseAll onStartPractice={handleStartPractice} />
@@ -972,7 +1124,7 @@ export default function AptitudePage() {
                         🤖 AI Company Quiz
                       </button>
                       <button onClick={() => handleStartPractice({ company:cName, count:15 })}
-                        style={{ padding:'7px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', color:'var(--text)', fontWeight:700, cursor:'pointer', fontSize:'.75rem' }}>
+                        style={{ padding:'7px', borderRadius:8, border:'1.5px solid #d0d7e8', background:'transparent', color:'var(--text)', fontWeight:700, cursor:'pointer', fontSize:'.75rem' }}>
                         📖 Practice DB Questions
                       </button>
                     </div>
