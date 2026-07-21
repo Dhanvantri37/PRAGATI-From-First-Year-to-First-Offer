@@ -575,8 +575,9 @@ export default function DashboardLayout() {
         rollNumber: user?.rollNumber, streak: user?.streak,
         bio: user?.bio, linkedinUrl: user?.linkedinUrl, githubUrl: user?.githubUrl,
       };
+      const chatHistory = pragatiMsgs.slice(-6).filter(m=>!m.loading).map(m=>`${m.role==='user'?'Student':'Pragati'}: ${m.text}`).join('\n');
       const response = await axios.post(`${API}/skillpath/pragati-assistant`, {
-        message: text, userData, conversationHistory: history
+        message: text, userData, conversationHistory: chatHistory
       });
       const d = response.data;
       const reply = d.reply || 'I had a hiccup! Try again.';
