@@ -485,13 +485,15 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode, bookmarks=[], n
 
 // ── Results Component ────────────────────────────────────────────────────────
 function Results({ answers, results, title, mode, onRestart }) {
-  const correct = answers.filter(a => a.correct).length;
-  const score   = answers.length ? Math.round((correct/answers.length)*100) : 0;
+  const dataset = (results && results.length) ? results : answers;
+  const correct = dataset.filter(r => r.correct).length;
+  const total   = dataset.length;
+  const score   = total ? Math.round((correct / total) * 100) : 0;
   const col     = score >= 70 ? '#47d372' : score >= 45 ? '#f59e0b' : '#ef4444';
 
   // Identify weak subtopics for resource links
   const weakMap = {};
-  answers.filter(a => !a.correct).forEach(a => { weakMap[a.subtopic] = (weakMap[a.subtopic]||0)+1; });
+  dataset.filter(a => !a.correct).forEach(a => { weakMap[a.subtopic] = (weakMap[a.subtopic]||0)+1; });
   const weak = Object.keys(weakMap).filter(s => SUBTOPIC_META[s]);
 
   return (
@@ -500,7 +502,7 @@ function Results({ answers, results, title, mode, onRestart }) {
         <div style={{ fontSize:'2.5rem', marginBottom:8 }}>{score>=70?'🏆':score>=45?'👍':'📚'}</div>
         <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'2.8rem', color:col, lineHeight:1 }}>{score}%</div>
         <div style={{ fontWeight:700, color:'var(--text-2)', marginBottom:12, marginTop:4 }}>
-          {correct} / {answers.length} correct · {mode==='practice'?'Practice':'Quiz'} — {title}
+          {correct} / {total} correct · {mode==='practice'?'Practice':'Quiz'} — {title}
         </div>
         <div style={{ height:8, background:'#f0f3fa', borderRadius:999, marginBottom:8 }}>
           <div style={{ height:'100%', width:`${score}%`, background:`linear-gradient(90deg,${col},#13a1a5)`, borderRadius:999, transition:'width 1s' }} />
