@@ -69,3 +69,6 @@ datasets/resume/UpdatedResumeDataSet/Resume/Resume.csv
 # ── Generated audio test files ────────────────────────────────────────────────
 *.mp3
 *.wav
+
+# ── Generated seeder data (regenerate with comprehensiveParser.py) ────────────
+backend/src/utils/parsed-questions.json
