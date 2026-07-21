@@ -141,67 +141,108 @@ function DonutChart({ easy=0, medium=0, hard=0, total=0 }) {
   const m = Math.max(0, Number(medium) || 0);
   const h = Math.max(0, Number(hard)   || 0);
   const solved = e + m + h;
-  const safe   = solved || 1;
 
-  const tiers = [
-    { label:'Easy',   val:e, color:'#47d372', bg:'rgba(71,211,114,0.12)',  track:'rgba(71,211,114,0.18)'  },
-    { label:'Medium', val:m, color:'#f59e0b', bg:'rgba(245,158,11,0.12)',  track:'rgba(245,158,11,0.18)'  },
-    { label:'Hard',   val:h, color:'#ef4444', bg:'rgba(239,68,68,0.12)',   track:'rgba(239,68,68,0.18)'   },
-  ];
+  const [hovered, setHovered] = React.useState(null); // 'Easy' | 'Medium' | 'Hard' | null
+
+  // Circle properties
+  const R = 22;
+  const C = 2 * Math.PI * R; // ~138.23
+
+  const totalSafe = solved || 1;
+  const pctE = (e / totalSafe) * 100;
+  const pctM = (m / totalSafe) * 100;
+  const pctH = (h / totalSafe) * 100;
+
+  // Easy starts at -90deg (top). Medium starts after Easy. Hard starts after Medium.
+  const dashE = `${(e / totalSafe) * C} ${C}`;
+  const offsetE = 0; // starts at top if rotated -90deg
+
+  const dashM = `${(m / totalSafe) * C} ${C}`;
+  const offsetM = -((e / totalSafe) * C);
+
+  const dashH = `${(h / totalSafe) * C} ${C}`;
+  const offsetH = -(((e + m) / totalSafe) * C);
+
+  const activeVal = hovered === 'Easy' ? e : hovered === 'Medium' ? m : hovered === 'Hard' ? h : solved;
+  const activeLabel = hovered ? hovered : 'Solved';
+  const activeColor = hovered === 'Easy' ? '#47d372' : hovered === 'Medium' ? '#f59e0b' : hovered === 'Hard' ? '#ef4444' : 'var(--text)';
 
   return (
-    <div style={{ width:'100%' }}>
-      {/* Stacked bar */}
-      <div style={{ display:'flex', height:10, borderRadius:999, overflow:'hidden', background:'var(--border)', marginBottom:14, gap:2 }}>
-        {tiers.map(t => t.val > 0 ? (
-          <div key={t.label}
-            style={{ width:`${(t.val/safe)*100}%`, background:t.color,
-              transition:'width .6s cubic-bezier(.4,0,.2,1)', borderRadius:999 }}
-          />
-        ) : null)}
-        {solved === 0 && <div style={{ width:'100%', background:'var(--border)', borderRadius:999 }}/>}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      <div style={{ position: 'relative', width: 96, height: 96, marginBottom: 12 }}>
+        <svg viewBox="0 0 64 64" style={{ width: 96, height: 96, transform: 'rotate(-90deg)', overflow: 'visible' }}>
+          {/* Empty Track */}
+          <circle cx="32" cy="32" r={R} fill="none" stroke="var(--border)" strokeWidth="5.5" />
 
-      {/* Stat rows */}
-      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-        {tiers.map(t => {
-          const pct = Math.round((t.val / safe) * 100);
-          return (
-            <div key={t.label} style={{ display:'flex', alignItems:'center', gap:8 }}>
-              {/* Color dot */}
-              <div style={{ width:8, height:8, borderRadius:'50%', background:t.color, flexShrink:0 }}/>
-              {/* Label */}
-              <div style={{ fontSize:'.72rem', color:'var(--text-3)', fontWeight:700, width:42 }}>{t.label}</div>
-              {/* Mini progress track */}
-              <div style={{ flex:1, height:5, borderRadius:999, background:t.track, overflow:'hidden' }}>
-                <div style={{ height:'100%', width:`${pct}%`, background:t.color,
-                  borderRadius:999, transition:'width .6s cubic-bezier(.4,0,.2,1)' }}/>
-              </div>
-              {/* Count badge */}
-              <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.82rem',
-                color:t.color, minWidth:22, textAlign:'right' }}>{t.val}</div>
-            </div>
-          );
-        })}
-      </div>
+          {solved > 0 ? (
+            <>
+              {/* Easy Slice */}
+              {e > 0 && (
+                <circle cx="32" cy="32" r={R} fill="none" stroke="#47d372" strokeWidth={hovered === 'Easy' ? '7.5' : '6'}
+                  strokeDasharray={dashE} strokeDashoffset={offsetE} strokeLinecap="round"
+                  onMouseEnter={() => setHovered('Easy')} onMouseLeave={() => setHovered(null)}
+                  style={{ cursor: 'pointer', transition: 'stroke-width 0.2s, stroke 0.2s' }}
+                />
+              )}
+              {/* Medium Slice */}
+              {m > 0 && (
+                <circle cx="32" cy="32" r={R} fill="none" stroke="#f59e0b" strokeWidth={hovered === 'Medium' ? '7.5' : '6'}
+                  strokeDasharray={dashM} strokeDashoffset={offsetM} strokeLinecap="round"
+                  onMouseEnter={() => setHovered('Medium')} onMouseLeave={() => setHovered(null)}
+                  style={{ cursor: 'pointer', transition: 'stroke-width 0.2s, stroke 0.2s' }}
+                />
+              )}
+              {/* Hard Slice */}
+              {h > 0 && (
+                <circle cx="32" cy="32" r={R} fill="none" stroke="#ef4444" strokeWidth={hovered === 'Hard' ? '7.5' : '6'}
+                  strokeDasharray={dashH} strokeDashoffset={offsetH} strokeLinecap="round"
+                  onMouseEnter={() => setHovered('Hard')} onMouseLeave={() => setHovered(null)}
+                  style={{ cursor: 'pointer', transition: 'stroke-width 0.2s, stroke 0.2s' }}
+                />
+              )}
+            </>
+          ) : null}
+        </svg>
 
-      {/* Total footer */}
-      <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'7px 10px', borderRadius:9, background:'rgba(83,22,151,0.05)',
-        border:'1px solid rgba(83,22,151,0.1)' }}>
-        <span style={{ fontSize:'.7rem', color:'var(--text-3)', fontWeight:700 }}>Total Solved</span>
-        <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'.95rem',
-          background:'linear-gradient(135deg,#531697,#13a1a5)',
-          WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent' }}>
-          {solved}{total > solved ? ` / ${total}` : ''}
-        </span>
-      </div>
-
-      {solved === 0 && (
-        <div style={{ textAlign:'center', fontSize:'.68rem', color:'#b0bec9', marginTop:6 }}>
-          Solve problems to see breakdown
+        {/* Center Text */}
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', pointerEvents: 'none'
+        }}>
+          <span style={{ fontSize: '.58rem', color: 'var(--text-3)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {activeLabel}
+          </span>
+          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1.15rem', color: activeColor, marginTop: 1 }}>
+            {activeVal}
+          </span>
         </div>
-      )}
+      </div>
+
+      {/* Legend below */}
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', gap: 4, marginTop: 4 }}>
+        {[
+          { label: 'Easy', val: e, color: '#47d372' },
+          { label: 'Medium', val: m, color: '#f59e0b' },
+          { label: 'Hard', val: h, color: '#ef4444' }
+        ].map(t => (
+          <div key={t.label}
+            onMouseEnter={() => setHovered(t.label)}
+            onMouseLeave={() => setHovered(null)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1,
+              padding: '3px 4px', borderRadius: 6, cursor: 'pointer',
+              background: hovered === t.label ? 'rgba(83,22,151,0.05)' : 'transparent',
+              transition: 'background 0.2s'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} />
+              <span style={{ fontSize: '.62rem', color: 'var(--text-3)', fontWeight: 700 }}>{t.label}</span>
+            </div>
+            <span style={{ fontSize: '.72rem', fontWeight: 800, color: t.color }}>{t.val}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -644,6 +685,16 @@ function StudentDash() {
   const [ipAnswer, setIpAnswer] = useState('');
   const [ipQIdx, setIpQIdx]     = useState(0);
   const [showIP, setShowIP]     = useState(false);
+  // Dynamic top AI Interview Prep Widget states
+  const [prepQuestions, setPrepQuestions] = useState([]);
+  const [prepIdx, setPrepIdx] = useState(0);
+  const [prepAns, setPrepAns] = useState('');
+  const [prepStatus, setPrepStatus] = useState('idle'); // 'idle' | 'started' | 'completed'
+  const [prepFeedback, setPrepFeedback] = useState('');
+  const [prepLoading, setPrepLoading] = useState(false);
+  const [prepResults, setPrepResults] = useState([]);
+  const [prepMic, setPrepMic] = useState(false);
+  const [prepOverallFeedback, setPrepOverallFeedback] = useState('');
   const [loading, setLoading]   = useState(true);
   const [leaderboard, setLeaderboard] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -833,6 +884,160 @@ function StudentDash() {
     } catch(e){}
   }
 
+  const DYNAMIC_INTERVIEW_QUESTIONS = [
+    { question: "Explain the difference between method overloading and method overriding with a real-world example.", type: "OOPs" },
+    { question: "What is the difference between a primary key, a unique key, and a foreign key in SQL?", type: "DBMS" },
+    { question: "How does a Hash Map handle collisions? Explain chaining and open addressing.", type: "DSA" },
+    { question: "What is the difference between an Abstract Class and an Interface? When would you use which?", type: "OOPs" },
+    { question: "Tell me about a challenging technical project you worked on and how you resolved a major bug.", type: "Behavioral" },
+    { question: "Explain the difference between a process and a thread. How do they communicate?", type: "OS" },
+    { question: "What are ACID properties in a database transaction? Can you explain each?", type: "DBMS" },
+    { question: "What is dynamic programming, and how does it differ from recursion or memoization?", type: "DSA" },
+    { question: "Explain the Model-View-Controller (MVC) architecture with an example.", type: "System Design" },
+    { question: "Why do we use indexes in databases? When does adding an index decrease performance?", type: "DBMS" },
+    { question: "What is the difference between TCP and UDP? In what scenario would you prefer UDP?", type: "Networking" },
+    { question: "How does garbage collection work in languages like Java or Python?", type: "Languages" },
+    { question: "What is a deadlock? What are the four necessary conditions for a deadlock to occur?", type: "OS" },
+    { question: "Describe a situation where you had to work under a tight deadline. How did you handle it?", type: "Behavioral" },
+    { question: "What is the difference between symmetric and asymmetric encryption?", type: "Security" }
+  ];
+
+  const loadAndPlayQuestion = async (text, welcome = false, targetIdx = 0) => {
+    setPrepLoading(true);
+    const speechText = welcome 
+      ? `Welcome to your AI Placement Interview Prep module. Here is your first question. ${text}`
+      : `Question ${targetIdx + 1}. ${text}`;
+
+    try {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (window.interviewAudioPlayer) {
+        try { window.interviewAudioPlayer.pause(); } catch(e){}
+        window.interviewAudioPlayer = null;
+      }
+      
+      const response = await fetch(`${API}/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('pragati_token')}`
+        },
+        body: JSON.stringify({
+          text: speechText,
+          role: 'system_female'
+        })
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        window.interviewAudioPlayer = audio;
+        
+        // Sync question display on screen with exact moment audio starts playing!
+        setPrepIdx(targetIdx);
+        setPrepAns('');
+        setPrepFeedback('');
+        setPrepLoading(false);
+        await audio.play();
+      } else {
+        throw new Error('TTS failed');
+      }
+    } catch (e) {
+      // Fallback
+      setPrepIdx(targetIdx);
+      setPrepAns('');
+      setPrepFeedback('');
+      setPrepLoading(false);
+      
+      const ut = new SpeechSynthesisUtterance(speechText);
+      const voices = window.speechSynthesis?.getVoices() || [];
+      const englishVoice = voices.find(v => v.lang.startsWith('en-US')) || voices[0];
+      if (englishVoice) ut.voice = englishVoice;
+      window.speechSynthesis?.speak(ut);
+    }
+  };
+
+  const startWidgetInterview = () => {
+    const shuffled = [...DYNAMIC_INTERVIEW_QUESTIONS].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 10); // 10 questions per round!
+    setPrepQuestions(selected);
+    setPrepResults([]);
+    setPrepStatus('started');
+    setPrepOverallFeedback('');
+    
+    // Welcome user and immediately load + voice Q1
+    loadAndPlayQuestion(selected[0].question, true, 0);
+  };
+
+  const handleWidgetSubmit = async () => {
+    if (!prepAns.trim() || prepLoading) return;
+    setPrepLoading(true);
+    try {
+      const activeQ = prepQuestions[prepIdx];
+      const res = await fetch(`${API}/skillpath/interview-feedback`, {
+        method: 'POST',
+        headers: { ...tk(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: activeQ.question,
+          answer: prepAns,
+          candidateName: ctxUser?.name || 'Student',
+          targetRole: 'Software Developer'
+        })
+      });
+      const d = await res.json();
+      setPrepFeedback(d.feedback);
+      
+      const newResult = { question: activeQ.question, answer: prepAns, feedback: d.feedback };
+      const updatedResults = [...prepResults, newResult];
+      setPrepResults(updatedResults);
+      
+      if (prepIdx < prepQuestions.length - 1) {
+        setTimeout(() => {
+          const nextIdx = prepIdx + 1;
+          // Synchronized generation & playback first before displaying Q on screen!
+          loadAndPlayQuestion(prepQuestions[nextIdx].question, false, nextIdx);
+        }, 5000); // Give 5 seconds to review feedback of current question
+      } else {
+        // Compute overall score
+        let scoreSum = 0;
+        updatedResults.forEach(r => {
+          const words = r.answer.trim().split(/\s+/).length;
+          if (words >= 45) scoreSum += 9;
+          else if (words >= 25) scoreSum += 7;
+          else scoreSum += 4;
+        });
+        const finalScore = Math.round(scoreSum / updatedResults.length);
+        setPrepOverallFeedback(`Grade: ${finalScore}/10. Great job completing the mock interview series!`);
+        setPrepStatus('completed');
+        
+        // Voice final success note
+        const congratsMsg = `Congratulations! You have completed all mock questions. Wishing you the absolute best of luck for your upcoming interviews! You've got this!`;
+        try {
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          const response = await fetch(`${API}/tts`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('pragati_token')}`
+            },
+            body: JSON.stringify({ text: congratsMsg, role: 'system_female' })
+          });
+          if (response.ok) {
+            const blob = await response.blob();
+            const audio = new Audio(URL.createObjectURL(blob));
+            await audio.play();
+          }
+        } catch (e) {
+          const ut = new SpeechSynthesisUtterance(congratsMsg);
+          window.speechSynthesis?.speak(ut);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPrepLoading(false);
+    }
+  };
+
   if (loading) return (
     <div style={{ display:'flex', justifyContent:'center', alignItems:'center', minHeight:'60vh', flexDirection:'column', gap:12 }}>
       <div style={{ width:40, height:40, border:'3px solid #e8edf5', borderTopColor:'#531697', borderRadius:'50%', animation:'_s .7s linear infinite' }}/>
@@ -951,33 +1156,157 @@ function StudentDash() {
           <div style={{ background:'var(--surface)', borderRadius:14, padding:'18px 20px', boxShadow:'0 2px 12px rgba(0,0,0,0.06)', border:'1px solid #f0f3fa', marginBottom:12 }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14, flexWrap:'wrap', gap:8 }}>
               <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)' }}>
-                📊 My Coding Activity
+                📊 My Coding Activity & Interview Prep
               </div>
               <div style={{ fontSize:'.72rem', color:'var(--text-3)', fontWeight:600 }}>
                 {myProblems} problems solved total
               </div>
             </div>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:24, alignItems:'start' }}>
-              {/* Heatmap */}
-              <div style={{ flex: '1 1 auto', minWidth: 280, maxWidth: '100%', overflowX: 'hidden' }}>
-                <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:10 }}>📅 Monthly Activity</div>
-                <CalendarHeatmap
-                  noCard={true}
-                  title=""
-                  subtitle=""
-                  submissions={myActivityData?.submissionDates || []}
-                  currentStreak={streak}
-                  maxStreak={user?.maxStreak || streak}
-                />
-              </div>
-              {/* Donut */}
-              <div style={{ borderLeft:'1px solid #e8edf5', paddingLeft:24, minWidth:190 }}>
-                <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:10 }}>💻 Problems Breakdown</div>
+
+            {/* Heatmap Row (Full Width) */}
+            <div style={{ width: '100%', marginBottom: 24, overflowX: 'hidden' }}>
+              <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:10 }}>📅 Monthly Activity</div>
+              <CalendarHeatmap
+                noCard={true}
+                title=""
+                subtitle=""
+                submissions={myActivityData?.submissionDates || []}
+                currentStreak={streak}
+                maxStreak={user?.maxStreak || streak}
+              />
+            </div>
+
+            {/* Below Heatmap: 2-Column layout */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:24, borderTop:'1px solid #e8edf5', paddingTop:20 }}>
+              {/* Left Column: Donut Chart */}
+              <div style={{ minWidth:190 }}>
+                <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:12 }}>💻 Problems Breakdown</div>
                 <DonutChart easy={easy} medium={medium} hard={hard} total={myProblems}/>
                 <button onClick={()=>nav('/dashboard/problems')}
-                  style={{ marginTop:12, width:'100%', padding:'7px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.75rem' }}>
+                  style={{ marginTop:14, width:'100%', padding:'8px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.75rem' }}>
                   Solve More Problems →
                 </button>
+              </div>
+
+              {/* Right Column: AI Interview Prep Widget */}
+              <div style={{ borderLeft:'1px solid #e8edf5', paddingLeft:24 }}>
+                <div style={{ fontSize:'.82rem', fontWeight:800, color:'var(--text)', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
+                  🎙️ AI Placement Interview Prep
+                </div>
+                
+                {prepStatus === 'idle' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ fontSize:'.75rem', color:'var(--text-3)', lineHeight:1.6 }}>
+                      Ready to test your skills? Try our fast 10-question AI mock interview to practice speaking, get graded, and get placement ready!
+                    </div>
+                    <button onClick={startWidgetInterview}
+                      style={{ padding:'8px 14px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', boxShadow:'0 4px 12px rgba(83,22,151,0.15)' }}>
+                      Start Quick Mock Interview 🎤
+                    </button>
+                  </div>
+                )}
+
+                {prepStatus === 'started' && prepQuestions.length > 0 && (() => {
+                  const activeQ = prepQuestions[prepIdx];
+                  return (
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:'.68rem', color:'#b0bec9', fontWeight:700 }}>Question {prepIdx + 1} of 10</span>
+                        <span style={{ padding:'2px 6px', borderRadius:4, background:'rgba(83,22,151,0.06)', color:'#531697', fontSize:'.65rem', fontWeight:800 }}>{activeQ.type}</span>
+                      </div>
+                      <div style={{ height:4, background:'#f0f3fa', borderRadius:999, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${((prepIdx + 1) / 10) * 100}%`, background:'linear-gradient(90deg,#531697,#13a1a5)', borderRadius:999 }} />
+                      </div>
+                      
+                      <div style={{ fontWeight:700, fontSize:'.8rem', color:'var(--text)', lineHeight:1.45, marginTop:4 }}>
+                        {activeQ.question}
+                      </div>
+
+                      <div style={{ position:'relative', marginTop:6 }}>
+                        <textarea
+                          value={prepAns}
+                          onChange={e => setPrepAns(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleWidgetSubmit();
+                            }
+                          }}
+                          placeholder="Type your answer... (Press Enter to submit)"
+                          rows={3}
+                          style={{ width:'100%', padding:'10px 40px 10px 10px', borderRadius:10, border:'1.5px solid #d0d7e8', fontFamily:"'Nunito',sans-serif", fontSize:'.82rem', resize:'none', outline:'none', boxSizing:'border-box' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                            if (!SR) { alert('Speech recognition is not supported in this browser.'); return; }
+                            if (prepMic) {
+                              setPrepMic(false);
+                              return;
+                            }
+                            
+                            // Pause wake word detection before starting widget mic
+                            window.dispatchEvent(new CustomEvent('pragati-pause-wake-word'));
+                            
+                            setPrepMic(true);
+                            const rec = new SR();
+                            rec.lang = 'en-IN';
+                            rec.continuous = false;
+                            rec.interimResults = false;
+                            rec.onresult = event => {
+                              setPrepAns(a => a + ' ' + event.results[0][0].transcript);
+                            };
+                            rec.onerror = () => {
+                              setPrepMic(false);
+                              window.dispatchEvent(new CustomEvent('pragati-resume-wake-word'));
+                            };
+                            rec.onend = () => {
+                              setPrepMic(false);
+                              window.dispatchEvent(new CustomEvent('pragati-resume-wake-word'));
+                            };
+                            rec.start();
+                          }}
+                          style={{ position:'absolute', right:8, top:8, border:'none', background:prepMic?'#ef4444':'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', width:26, height:26, borderRadius:'50%', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'.8rem' }}
+                        >
+                          {prepMic ? '🛑' : '🎙️'}
+                        </button>
+                      </div>
+
+                      {prepLoading && (
+                        <div style={{ fontSize:'.7rem', color:'var(--text-3)' }}>⏳ Analyzing answer, please wait...</div>
+                      )}
+
+                      {prepFeedback && !prepLoading && (
+                        <div style={{ padding:'8px 10px', background:'rgba(71,211,114,0.06)', border:'1px solid rgba(71,211,114,0.2)', borderRadius:8, fontSize:'.73rem', color:'#166534', lineHeight:1.5 }}>
+                          <strong>Feedback:</strong> {prepFeedback}
+                        </div>
+                      )}
+
+                      <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+                        <button onClick={handleWidgetSubmit} disabled={!prepAns.trim() || prepLoading}
+                          style={{ padding:'6px 12px', borderRadius:8, border:'none', background:prepAns.trim()?'linear-gradient(135deg,#531697,#13a1a5)':'#d0d7e8', color:'#fff', fontWeight:700, cursor:prepAns.trim()?'pointer':'not-allowed', fontFamily:"'Nunito',sans-serif", fontSize:'.73rem' }}>
+                          Submit & Next →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {prepStatus === 'completed' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    <div style={{ fontSize:'.78rem', color:'#166534', fontWeight:800, background:'rgba(71,211,114,0.08)', padding:'8px 10px', borderRadius:8, border:'1px solid rgba(71,211,114,0.2)' }}>
+                      🏆 {prepOverallFeedback}
+                    </div>
+                    <div style={{ fontSize:'.73rem', color:'var(--text-2)', lineHeight:1.6, fontStyle:'italic' }}>
+                      🌟 Great effort! Keep practicing. Wishing you the absolute best of luck for your upcoming campus placement interviews! You've got this! 🔥
+                    </div>
+                    <button onClick={startWidgetInterview}
+                      style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #531697', background:'transparent', color:'#531697', fontWeight:700, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.73rem', marginTop:4 }}>
+                      🔄 Restart Interview
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

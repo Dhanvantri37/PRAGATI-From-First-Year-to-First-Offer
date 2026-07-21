@@ -6,12 +6,12 @@ const generateTokens = (userId, role) => {
   const accessToken = jwt.sign(
     { userId, role },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+    { expiresIn: '24h' } // Increased to 24 hours to prevent frequent active session expirations
   );
   const refreshToken = jwt.sign(
     { userId },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    { expiresIn: '30d' } // Increased to 30 days
   );
   return { accessToken, refreshToken };
 };

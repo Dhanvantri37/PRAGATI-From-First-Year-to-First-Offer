@@ -17,6 +17,21 @@ cloudinary.config({
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+// ── Helper: Clean & filter SkillPath gap skills ─────────────────────────────
+function cleanSkillList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const stopWords = new Set([
+    'return', 'strong', 'knowledge', 'basic', 'the', 'and', 'good', 'must', 'have',
+    'using', 'for', 'with', 'from', 'about', 'type', 'user', 'role', 'work', 'experience',
+    'skills', 'skill', 'ability', 'understanding', 'working', 'knowledge of', 'none'
+  ]);
+  return arr
+    .filter(s => typeof s === 'string')
+    .map(s => s.trim())
+    .filter(s => s.length >= 2 && !stopWords.has(s.toLowerCase()))
+    .slice(0, 8);
+}
+
 // ── AI Provider: Groq (primary, free) → Gemini (fallback) ─────────────────────
 // Groq models: openai/gpt-oss-20b (fast, free) — replaces deprecated llama-3.1-8b-instant
 // Gemini: gemini-2.0-flash (free 15 req/min, 1M tokens/day)
@@ -245,8 +260,8 @@ Return ONLY valid JSON exactly matching this structure:
     }
 
     const skill_gap = mlData.skill_gap || {};
-    const missing_skills_arr = mlData.keyword_analysis?.missing || skill_gap.missing_skills || skill_gap.missingSkills || (mlData.skill_gaps||[]).map(g=>g.skill);
-    const matched_skills_arr = mlData.keyword_analysis?.found || skill_gap.matched_skills || skill_gap.matchedSkills || mlData.strengths || [];
+    const missing_skills_arr = cleanSkillList(mlData.keyword_analysis?.missing || skill_gap.missing_skills || skill_gap.missingSkills || (mlData.skill_gaps||[]).map(g=>g.skill));
+    const matched_skills_arr = cleanSkillList(mlData.keyword_analysis?.found || skill_gap.matched_skills || skill_gap.matchedSkills || mlData.strengths || []);
 
     const dbResult = await SkillpathResult.create({
       userId: req.user._id, resumeUrl,
@@ -671,21 +686,6 @@ Return ONLY JSON: {"response":"...","tone":"challenging|encouraging|neutral|summ
   }
 });
 
-
-// ── Helper: Clean & filter SkillPath gap skills ─────────────────────────────
-function cleanSkillList(arr) {
-  if (!Array.isArray(arr)) return [];
-  const stopWords = new Set([
-    'return', 'strong', 'knowledge', 'basic', 'the', 'and', 'good', 'must', 'have',
-    'using', 'for', 'with', 'from', 'about', 'type', 'user', 'role', 'work', 'experience',
-    'skills', 'skill', 'ability', 'understanding', 'working', 'knowledge of', 'none'
-  ]);
-  return arr
-    .filter(s => typeof s === 'string')
-    .map(s => s.trim())
-    .filter(s => s.length >= 2 && !stopWords.has(s.toLowerCase()))
-    .slice(0, 8);
-}
 
 // ── Helper: Free Web Search (DuckDuckGo) ──────────────────────────────────
 async function searchWeb(query) {

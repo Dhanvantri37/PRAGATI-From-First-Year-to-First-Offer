@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getNaturalVoice } from '../utils/voiceHelper';
 import { io } from 'socket.io-client';
+import axios from 'axios';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk  = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -282,7 +283,7 @@ export default function DashboardLayout() {
   }
 
   // PRAGATI TTS — Browser-first/Backend Dual-Provider (ElevenLabs/Edge-TTS)
-  async function pragatiSpeak(text) {
+  async function pragatiSpeak(text, forceGender = null, forceAccent = null, forceToneAlt = false) {
     if (!pragatiVoice || !text?.trim()) return;
 
     // Pause wake word detection while speaking
@@ -294,8 +295,10 @@ export default function DashboardLayout() {
       window.pragatiAudioPlayer = null;
     }
 
-    // Strip markdown for clean speech
+    // Strip markdown & code blocks for clean speech
     const clean = text
+      .replace(/```[\s\S]*?```/g, '')  // strip code blocks
+      .replace(/`[^`]*`/g, '')        // strip inline code
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/\*(.*?)\*/g,    '$1')
       .replace(/#{1,6} /g,      '')
@@ -312,26 +315,17 @@ export default function DashboardLayout() {
     // ── 1. Try Backend Neural TTS (ElevenLabs / Edge-TTS) ──────────────────
     setTtsLoading(true);
     try {
-      const token = localStorage.getItem('pragati_token') || localStorage.getItem('token');
-      const response = await fetch(`${API}/tts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify({
-          text: clean,
-          gender: voiceGender,
-          accent: voiceAccent,
-          role: voiceGender === 'male' ? 'system_male' : 'system_female'
-        })
+      const response = await axios.post(`${API}/tts`, {
+        text: clean,
+        gender: forceGender || voiceGender,
+        accent: forceAccent || voiceAccent,
+        toneAlt: forceToneAlt,
+        role: (forceGender || voiceGender) === 'male' ? 'system_male' : 'system_female'
+      }, {
+        responseType: 'blob'
       });
 
-      if (!response.ok) {
-        throw new Error('Backend TTS service offline or not configured');
-      }
-
-      const audioBlob = await response.blob();
+      const audioBlob = response.data;
       const audioUrl = URL.createObjectURL(audioBlob);
       const audio = new Audio(audioUrl);
       window.pragatiAudioPlayer = audio;
@@ -401,17 +395,18 @@ export default function DashboardLayout() {
     let active = true;
     let retryTimer = null;
     let permissionDenied = false;
+    let silenceTimer = null;
+
     // Request mic permission upfront — keeps Chrome from playing "ding" on SR restart
     navigator.mediaDevices?.getUserMedia({ audio: true })
       .then(stream => { window._dummyAudioStream = stream; })
       .catch(() => {});
 
     function startWake() {
-      if (!active || permissionDenied) return;
+      if (!active || permissionDenied || wakePausedRef.current) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;
-        // continuous=true keeps the session alive — no gaps where "Hey PRAGATI" can be missed
         sr.continuous      = true;
         sr.interimResults  = true;  // catch partials for faster response
         sr.lang            = 'en-IN';
@@ -419,8 +414,7 @@ export default function DashboardLayout() {
 
         const wakeWords = [
           'hey pragati', 'hey pragatee', 'hey pragathy', 'hey progati',
-          'hey prakati', 'ey pragati', 'pragati open', 'pragati wake',
-          'hi pragati', 'pragati help', 'pragati'
+          'hey prakati', 'ey pragati', 'hi pragati', 'hi pragatee'
         ];
 
         sr.onresult = e => {
@@ -440,47 +434,49 @@ export default function DashboardLayout() {
               }
               
               if (matched) {
-                // If wake word matched, open the assistant panel
                 setPragatiOpen(true);
-                
                 const startIndex = lowerHeard.indexOf(matched) + matched.length;
                 const command = heard.substring(startIndex).trim();
                 
                 if (command) {
-                  // Update input box with the command live (interim preview)
                   setPragatiInput(command);
+
+                  // Setup silence timer to submit command immediately after user stops speaking (reduced to 1.0s!)
+                  if (silenceTimer) clearTimeout(silenceTimer);
+                  silenceTimer = setTimeout(() => {
+                    if (active) {
+                      try { wakeSRRef.current?.stop(); } catch {}
+                      sendPragati(command);
+                    }
+                  }, 1000);
                   
                   if (isFinal) {
-                    // When user finishes speaking, execute the command
+                    if (silenceTimer) clearTimeout(silenceTimer);
                     setWakePulse(true);
                     setWakeListening(true);
                     setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
                     
-                    // Stop wake SR temporarily so we don't double trigger
                     try { wakeSRRef.current?.stop(); } catch {}
-                    
                     sendPragati(command);
                     return;
                   }
                 } else {
-                  // Wake word only - standard wakeup
-                  if (isFinal) {
-                    setWakePulse(true);
-                    setWakeListening(true);
-                    setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
-                    
-                    pragatiSpeak("Hey! I'm here. What can I help you with?");
-                    pragatiInputRef.current?.focus();
-                    return;
-                  }
+                  // Wake word only - trigger INSTANTLY! No isFinal wait.
+                  try { wakeSRRef.current?.stop(); } catch {}
+                  
+                  setWakePulse(true);
+                  setWakeListening(true);
+                  setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+                  
+                  pragatiSpeak("Hey! I'm here. What can I help you with?");
+                  pragatiInputRef.current?.focus();
+                  return;
                 }
               }
             }
           }
         };
 
-        // continuous=true sessions end on network error or browser timeout — restart immediately
-        // wakePausedRef.current is set true while in-chat mic is active so we don't race back up
         sr.onend = () => {
           if (active && !permissionDenied && !wakePausedRef.current) {
             retryTimer = setTimeout(startWake, 200);
@@ -489,13 +485,11 @@ export default function DashboardLayout() {
 
         sr.onerror = e => {
           if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-            // Mic permission denied — show a visible warning to the user
             permissionDenied = true;
             active = false;
             setMicBlocked(true);
             return;
           }
-          // All other errors (network, aborted, no-speech) — just restart unless paused
           if (active && !wakePausedRef.current) retryTimer = setTimeout(startWake, 800);
         };
 
@@ -505,14 +499,28 @@ export default function DashboardLayout() {
       }
     }
 
+    // Global custom event listeners to pause/resume wake word cleanly during other page activities (e.g. AI Interview prep)
+    const handlePauseWake = () => {
+      wakePausedRef.current = true;
+      try { wakeSRRef.current?.abort(); } catch {}
+    };
+    const handleResumeWake = () => {
+      wakePausedRef.current = false;
+      startWake();
+    };
+
+    window.addEventListener('pragati-pause-wake-word', handlePauseWake);
+    window.addEventListener('pragati-resume-wake-word', handleResumeWake);
+
     startWake();
-    // Expose restart function so in-chat mic can re-trigger wake word after it's done
     wakeRestartRef.current = () => { if (active && !permissionDenied) startWake(); };
     return () => {
       active = false;
       clearTimeout(retryTimer);
-      // Also abort immediately if in-chat mic is about to take over
+      if (silenceTimer) clearTimeout(silenceTimer);
       try { wakeSRRef.current?.abort(); } catch {}
+      window.removeEventListener('pragati-pause-wake-word', handlePauseWake);
+      window.removeEventListener('pragati-resume-wake-word', handleResumeWake);
       wakeRestartRef.current = null;
     };
   // eslint-disable-next-line
@@ -567,27 +575,31 @@ export default function DashboardLayout() {
         rollNumber: user?.rollNumber, streak: user?.streak,
         bio: user?.bio, linkedinUrl: user?.linkedinUrl, githubUrl: user?.githubUrl,
       };
-      const history = pragatiMsgs.slice(-6).filter(m=>!m.loading).map(m=>`${m.role==='user'?'Student':'Pragati'}: ${m.text}`).join('\n');
-      const res = await fetch(`${API}/skillpath/pragati-assistant`, {
-        method:'POST',
-        headers:{ Authorization: `Bearer ${localStorage.getItem('pragati_token')}`, 'Content-Type':'application/json' },
-        body: JSON.stringify({ message: text, userData, conversationHistory: history }),
+      const response = await axios.post(`${API}/skillpath/pragati-assistant`, {
+        message: text, userData, conversationHistory: history
       });
-      const d = await res.json();
+      const d = response.data;
       const reply = d.reply || 'I had a hiccup! Try again.';
       setPragatiMsgs(m => m.map((msg, i) => i === m.length-1 ? { role:'ai', text: reply, ts: Date.now() } : msg));
 
       // Process and execute Assistant Action
+      let forceGender = null;
+      let forceAccent = null;
+      let forceToneAlt = false;
+
       if (d.action) {
         if (d.action.type === 'CHANGE_VOICE') {
           if (d.action.gender) {
+            forceGender = d.action.gender;
             setVoiceGender(d.action.gender);
             localStorage.setItem('pragati_voice_gender', d.action.gender);
           }
           if (d.action.accent) {
+            forceAccent = d.action.accent;
             saveAccent(d.action.accent);
           }
           if (d.action.cycle) {
+            forceToneAlt = true;
             const nextG = voiceGender === 'male' ? 'female' : 'male';
             setVoiceGender(nextG);
             localStorage.setItem('pragati_voice_gender', nextG);
@@ -599,7 +611,7 @@ export default function DashboardLayout() {
         }
       }
 
-      pragatiSpeak(reply);
+      pragatiSpeak(reply, forceGender, forceAccent, forceToneAlt);
     } catch {
       const errMsg = 'Connection error. Check your network and try again.';
       setPragatiMsgs(m => m.map((msg,i) => i===m.length-1 ? { role:'ai', text: errMsg, ts: Date.now() } : msg));
