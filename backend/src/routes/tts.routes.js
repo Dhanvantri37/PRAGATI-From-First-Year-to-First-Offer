@@ -97,8 +97,22 @@ function speakEdge(text, voiceName) {
 // ── POST /api/tts ─────────────────────────────────────────────────────────
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { text, role = 'system_female' } = req.body;
+    let { text, role = 'system_female', gender, accent, toneAlt } = req.body;
     if (!text?.trim()) return res.status(400).json({ error: 'text is required' });
+
+    // Dynamic Role Resolution based on gender & accent preferences
+    if (gender || accent || toneAlt) {
+      const g = (gender || 'female').toLowerCase();
+      const a = (accent || 'indian').toLowerCase();
+
+      if (toneAlt) {
+        role = g === 'male' ? 'system_male_alt' : 'system_female_alt';
+      } else if (a === 'foreign' || a === 'american' || a === 'uk') {
+        role = g === 'male' ? 'system_male_foreign' : 'system_female_foreign';
+      } else {
+        role = g === 'male' ? 'system_male' : 'system_female';
+      }
+    }
 
     const cleanText = cleanForTTS(text);
     const voiceCfg  = VOICE_CONFIG[role] || VOICE_CONFIG['system_female'];

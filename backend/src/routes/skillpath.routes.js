@@ -672,87 +672,164 @@ Return ONLY JSON: {"response":"...","tone":"challenging|encouraging|neutral|summ
 });
 
 
+// ── Helper: Clean & filter SkillPath gap skills ─────────────────────────────
+function cleanSkillList(arr) {
+  if (!Array.isArray(arr)) return [];
+  const stopWords = new Set([
+    'return', 'strong', 'knowledge', 'basic', 'the', 'and', 'good', 'must', 'have',
+    'using', 'for', 'with', 'from', 'about', 'type', 'user', 'role', 'work', 'experience',
+    'skills', 'skill', 'ability', 'understanding', 'working', 'knowledge of', 'none'
+  ]);
+  return arr
+    .filter(s => typeof s === 'string')
+    .map(s => s.trim())
+    .filter(s => s.length >= 2 && !stopWords.has(s.toLowerCase()))
+    .slice(0, 8);
+}
+
+// ── Helper: Free Web Search (DuckDuckGo) ──────────────────────────────────
+async function searchWeb(query) {
+  try {
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const resp = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      timeout: 6000
+    });
+    const html = resp.data || '';
+    const snippets = [];
+    const regex = /<a class="result__snippet[^>]*>(.*?)<\/a>/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null && snippets.length < 4) {
+      const cleanText = match[1].replace(/<[^>]+>/g, '').trim();
+      if (cleanText) snippets.push(cleanText);
+    }
+    return snippets.join('\n');
+  } catch (e) {
+    return '';
+  }
+}
+
 // ── POST /api/skillpath/pragati-assistant ──────────────────────────────────────
-// "Hey Pragati" — personal AI companion with full account context
+// "Hey Pragati" — personal AI companion with full account context & action execution
 router.post('/pragati-assistant', authenticate, async (req, res) => {
   try {
     const { message, userData, conversationHistory } = req.body;
     if (!message?.trim()) return res.status(400).json({ error: 'Message required' });
 
-    // Fetch user's latest SkillPath result for deep context
+    const lower = message.toLowerCase().trim();
+    let action = null;
+    let overrideReply = null;
+
+    // ── 1. COMMAND EXECUTION: Voice & Accent Control ───────────────────────
+    if (lower.includes('female voice') || (lower.includes('voice') && lower.includes('female')) || lower.includes('change your voice to female') || lower.includes('change your voice from male to female')) {
+      action = { type: 'CHANGE_VOICE', gender: 'female' };
+      overrideReply = "Done! I have switched my voice to female 🎙️. How does this sound?";
+    } else if (lower.includes('male voice') || (lower.includes('voice') && lower.includes('male')) || lower.includes('change your voice to male') || lower.includes('change your voice from female to male')) {
+      action = { type: 'CHANGE_VOICE', gender: 'male' };
+      overrideReply = "Sure! I have switched my voice to male 🎙️. Let me know if you need anything else!";
+    } else if (lower.includes('foreign accent') || lower.includes('american accent') || lower.includes('uk accent') || lower.includes('change your accent to foreign') || lower.includes('change your accent from indian to foreign')) {
+      action = { type: 'CHANGE_VOICE', accent: 'foreign' };
+      overrideReply = "Got it! I have switched my accent to foreign 🌐. I'm ready for your questions!";
+    } else if (lower.includes('indian accent') || lower.includes('change your accent to indian')) {
+      action = { type: 'CHANGE_VOICE', accent: 'indian' };
+      overrideReply = "Switched my accent back to Indian 🇮🇳!";
+    } else if (lower.includes('dont like this voice') || lower.includes("don't like this voice") || lower.includes('change the voice') || lower.includes('another voice') || lower.includes('different voice')) {
+      action = { type: 'CHANGE_VOICE', cycle: true };
+      overrideReply = "No problem! I have shifted to an alternative voice tone for you 🎶. How is this one?";
+    }
+
+    // ── 2. COMMAND EXECUTION: Level Updates ────────────────────────────────
+    else if (lower.includes('level') && (lower.includes('update') || lower.includes('change') || lower.includes('set') || lower.includes('beginner') || lower.includes('intermediate') || lower.includes('advanced'))) {
+      let targetLevel = 'Intermediate';
+      if (lower.includes('beginner')) targetLevel = 'Beginner';
+      if (lower.includes('intermediate')) targetLevel = 'Intermediate';
+      if (lower.includes('advanced') || lower.includes('expert')) targetLevel = 'Advanced';
+
+      await User.findByIdAndUpdate(req.user._id, { skillLevel: targetLevel });
+      action = { type: 'UPDATE_LEVEL', level: targetLevel };
+      overrideReply = `Done! I have updated your skill level to **${targetLevel}** in your profile 🚀. Your dashboard and recommendations will now adapt to this level!`;
+    }
+
+    // ── 3. COMMAND EXECUTION: Faculty Commands ─────────────────────────────
+    else if (lower.includes('at risk student') || lower.includes('at-risk student') || lower.includes('at risk students')) {
+      action = { type: 'NAVIGATE', path: '/faculty/students', filter: 'at-risk' };
+      overrideReply = "Taking you to the At-Risk Students dashboard view now 📊. You can review students needing academic support.";
+    } else if (lower.includes('notes review') || lower.includes('review notes')) {
+      action = { type: 'NAVIGATE', path: '/faculty/notes' };
+      overrideReply = "Opening the Notes Review section for you 📝.";
+    }
+
+    // ── 4. COMMAND EXECUTION: Placement Prep Hub 10-min Practice ───────────
+    else if (lower.includes('placement preparation hub') || lower.includes('brushup my fundamentals') || lower.includes('10 min') || lower.includes('10 minutes')) {
+      action = { type: 'NAVIGATE', path: '/dashboard/aptitude', launchPractice: true };
+      overrideReply = `Here is a quick 10-minute Placement Prep Challenge 🚀:
+1. **Quantitative**: If A takes 12 days and B takes 15 days, combined 1-day work = 9/60 = 3/20. Total time = 6.67 days.
+2. **DSA**: Binary Search on sorted array operates in O(log n) time complexity.
+3. **OOP**: Polymorphism allows method overriding dynamically at runtime.
+
+Click below to launch your full Placement Prep practice set! 🎯`;
+    }
+
+    if (overrideReply) {
+      return res.json({ reply: overrideReply, action });
+    }
+
+    // ── 5. WEB SEARCH TRIGGER (if user asks for live/current web data) ──────
+    let webContext = '';
+    if (lower.startsWith('search') || lower.includes('google') || lower.includes('latest news') || lower.includes('latest cutoff') || lower.includes('web search')) {
+      const searchQuery = lower.replace(/search|google|the web|for/g, '').trim();
+      if (searchQuery) {
+        const results = await searchWeb(searchQuery);
+        if (results) webContext = `\n\nLive Web Search Results for "${searchQuery}":\n${results}\n`;
+      }
+    }
+
+    // ── 6. Fetch user's latest SkillPath result (Cleaned) ──────────────────
     let skillContext = '';
     try {
       const latest = await SkillpathResult.findOne({ userId: req.user._id }).sort({ analyzedAt: -1 }).lean();
       if (latest) {
-        skillContext = `\n\nStudent's SkillPath Data:\n- ATS Score: ${latest.atsScore}/100\n- Target Role: ${latest.jobTitle || 'Software Engineer'}\n- Matched Skills: ${(latest.skillGapAnalysis?.matchedSkills || []).slice(0,6).join(', ')}\n- Missing Skills: ${(latest.skillGapAnalysis?.missingSkills || []).slice(0,6).join(', ')}\n- Readiness: ${latest.readinessScore || 0}%`;
+        const matched = cleanSkillList(latest.skillGapAnalysis?.matchedSkills);
+        const missing = cleanSkillList(latest.skillGapAnalysis?.missingSkills);
+        skillContext = `\n\nStudent's SkillPath Data:\n- ATS Score: ${latest.atsScore}/100\n- Target Role: ${latest.jobTitle || 'Software Engineer'}\n- Matched Skills: ${matched.join(', ') || 'Core CS'}\n- Missing Skills: ${missing.join(', ') || 'Advanced Tech Stack'}\n- Readiness: ${latest.readinessScore || 0}%`;
       }
     } catch {}
 
     const u = userData || {};
-    const systemPrompt = `You are PRAGATI — a warm, knowledgeable, and highly capable AI companion built into the PRAGATI career readiness platform for Indian engineering students.
+    const systemPrompt = `You are PRAGATI — a warm, highly intelligent, and versatile AI companion built into the PRAGATI career readiness platform for engineering students & faculty.
 
-About the student you are talking to:
+About the user:
 - Name: ${u.name || 'Student'}
 - Role: ${u.role || 'Student'}  
 - Department: ${u.department || 'Engineering'}
 - Year: ${u.year ? `Year ${u.year}` : 'Unknown'}
-- Roll Number: ${u.rollNumber || 'N/A'}
 - Streak: ${u.streak || 0} days
-- Bio: ${u.bio || 'Not set'}
 ${skillContext}
+${webContext}
 
-Your personality:
-- Warm and encouraging like a senior who genuinely wants you to succeed
-- Knowledgeable: expert in DSA, system design, OOP, DBMS, OS, CN, web dev, Java, Python, React, Node.js
-- Company-specific: know what TCS, Infosys, Wipro, Cognizant, Capgemini, HCL, Accenture, Amazon, Google, Microsoft, Deloitte, KPMG look for
-- Behavioral coach: STAR format, HR answers, leadership examples
-- Resume expert: ATS optimization, project descriptions, quantification
-- Honest: if someone asks a hard question, give a direct answer
-- You call the student by their first name occasionally
+Capabilities & Personality:
+1. ACCURATE SOLVER: Give exact, step-by-step mathematical/code solutions for any Aptitude problem, LeetCode/DSA problem, SQL query, or Group Discussion topic.
+2. ADAPTIVE: If the user asks a question, answer it directly without generic fluff.
+3. CONVERSATIONAL: Warm, supportive, and clear.
+4. WEB AWARE: If web search results are attached, use them to provide up-to-date accurate information.
 
 Previous conversation:
-${conversationHistory || 'No previous conversation'}
+${conversationHistory || 'None'}
 
-The student just asked: "${message}"
+User message: "${message}"
 
 Instructions:
-- Answer conversationally and helpfully in 3-6 sentences max (unless they need a longer answer)
-- Use 1-2 relevant emojis naturally
-- If they ask about their weak areas, reference their missing skills from SkillPath if available
-- If they ask about a technical concept, explain it clearly with a quick example
-- If they ask about a company, give specific advice about that company's interview process
-- If they seem stressed or anxious, be supportive and encouraging
-- Use Indian context naturally (CGPA, LPA, campus placements, service companies vs product companies)
-- Never be robotic or give generic textbook answers
-- End with a follow-up question or suggestion occasionally to keep the conversation going`;
+- If asked a math/aptitude/DSA question, provide the correct formula/code and exact answer.
+- Keep response under 5-6 concise sentences unless a step-by-step code/math solution requires more detail.
+- Use 1-2 relevant emojis naturally.`;
 
-    const reply = await callAI(systemPrompt, 400);
-    if (reply) return res.json({ reply });
+    const reply = await callAI(systemPrompt, 500);
+    if (reply) return res.json({ reply, action });
 
-    // Rich local fallback
-    const q = message.toLowerCase();
-    let fallback = '';
-
-    if (q.includes('my weak') || q.includes('my skill') || q.includes('what should i') || q.includes('what do i')) {
-      fallback = `Hey ${u.name?.split(' ')[0] || 'there'}! 🎯 Based on your profile, focus on your skill gaps — upload your resume to SkillPath AI if you haven't for a personalised analysis. Generally for ${u.department || 'CS'} students in Year ${u.year || '3'}: master 2-3 DSA patterns daily, revise OOP and DBMS thoroughly, and have 2 solid projects you can explain end-to-end. What specific area feels weakest right now?`;
-    } else if (q.includes('tcs') || q.includes('infosys') || q.includes('wipro') || q.includes('cognizant') || q.includes('capgemini')) {
-      const co = q.includes('tcs') ? 'TCS' : q.includes('infosys') ? 'Infosys' : q.includes('wipro') ? 'Wipro' : q.includes('cognizant') ? 'Cognizant' : 'Capgemini';
-      fallback = `For ${co} placements 🏢: Focus on quantitative aptitude (profit/loss, time-work, number series), pseudocode tracing, basic DSA (arrays, strings), and email writing. ${co === 'TCS' ? 'TCS NQT has 4 sections — Numerical, Verbal, Reasoning, and Coding. Time management is key.' : 'The HR round tests communication more than technical depth.'} Your ${u.streak || 0}-day streak is great — keep it up! Want me to give you a quick mock question?`;
-    } else if (q.includes('amazon') || q.includes('google') || q.includes('microsoft') || q.includes('product company') || q.includes('faang')) {
-      fallback = `For product companies like Amazon/Google 💡: You need strong DSA (LeetCode Medium-Hard), system design fundamentals (for 2+ years exp), and behavioral stories (STAR format, Amazon's 16 LPs). Start with arrays → linked lists → trees → DP. Aim for 200+ LeetCode problems before applying. This is a marathon, not a sprint. What's your current LeetCode progress?`;
-    } else if (q.includes('resume') || q.includes('ats') || q.includes('cv')) {
-      fallback = `Resume tips for you, ${u.name?.split(' ')[0] || 'friend'} 📄: 1) Use exact keywords from the JD. 2) Every project needs: what you built + technology + measurable impact ("Reduced API response time by 40%"). 3) Keep it 1 page. 4) Upload to SkillPath AI for your personalized ATS score! Want help with a specific section?`;
-    } else if (q.includes('interview') || q.includes('prepare') || q.includes('mock')) {
-      fallback = `Great initiative on interview prep! 🎤 Use the AI Interviewer feature — it adapts questions based on YOUR answers, just like a real panel. For technical rounds: OOP concepts, DBMS normalization, OS process management, and your projects. For HR: prepare 5 STAR stories covering teamwork, conflict, leadership, failure, and achievement. Want to jump into a mock now?`;
-    } else if (q.includes('dsa') || q.includes('algorithm') || q.includes('leetcode') || q.includes('data structure')) {
-      fallback = `DSA Strategy 💻: Master patterns in order — Two Pointers → Sliding Window → Binary Search → Recursion → BFS/DFS → Dynamic Programming. Solve 3 problems daily on LeetCode: 1 easy + 1 medium + revisit 1 old. Time yourself — most interviews are 20-45 min per problem. Which pattern are you stuck on right now?`;
-    } else if (q.includes('stress') || q.includes('anxious') || q.includes('scared') || q.includes('nervous') || q.includes('worried')) {
-      fallback = `Hey ${u.name?.split(' ')[0] || 'friend'} 💙 — it's completely okay to feel nervous. Every student preparing for placements goes through this. Remember: you are not competing with everyone, just improving from yesterday's version of yourself. Your ${u.streak || 0}-day streak shows you're consistent — that matters more than one bad day. Take a 10-minute break, then come back. What's worrying you most right now?`;
-    } else {
-      fallback = `🤖 Hey ${u.name?.split(' ')[0] || 'there'}! I'm here for all your placement questions — DSA concepts, interview prep, company-specific tips, resume help, or just to talk through your strategy. What would you like to work on?`;
-    }
-
-    res.json({ reply: fallback });
+    // Fallback response
+    const q = lower;
+    let fallback = `Hey ${u.name?.split(' ')[0] || 'there'}! 🎯 I'm here for all your placement needs — Aptitude problems, LeetCode DSA queries, resume ATS tips, and platform settings. How can I help you right now?`;
+    res.json({ reply: fallback, action });
   } catch (err) {
     console.error('[pragati-assistant]', err.message);
     res.json({ reply: 'I had a brief hiccup! Please try again.' });

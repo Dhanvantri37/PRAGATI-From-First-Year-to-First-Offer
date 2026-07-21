@@ -321,6 +321,8 @@ export default function DashboardLayout() {
         },
         body: JSON.stringify({
           text: clean,
+          gender: voiceGender,
+          accent: voiceAccent,
           role: voiceGender === 'male' ? 'system_male' : 'system_female'
         })
       });
@@ -574,6 +576,29 @@ export default function DashboardLayout() {
       const d = await res.json();
       const reply = d.reply || 'I had a hiccup! Try again.';
       setPragatiMsgs(m => m.map((msg, i) => i === m.length-1 ? { role:'ai', text: reply, ts: Date.now() } : msg));
+
+      // Process and execute Assistant Action
+      if (d.action) {
+        if (d.action.type === 'CHANGE_VOICE') {
+          if (d.action.gender) {
+            setVoiceGender(d.action.gender);
+            localStorage.setItem('pragati_voice_gender', d.action.gender);
+          }
+          if (d.action.accent) {
+            saveAccent(d.action.accent);
+          }
+          if (d.action.cycle) {
+            const nextG = voiceGender === 'male' ? 'female' : 'male';
+            setVoiceGender(nextG);
+            localStorage.setItem('pragati_voice_gender', nextG);
+          }
+        } else if (d.action.type === 'UPDATE_LEVEL') {
+          if (user) user.skillLevel = d.action.level;
+        } else if (d.action.type === 'NAVIGATE') {
+          setTimeout(() => { nav(d.action.path); }, 1000);
+        }
+      }
+
       pragatiSpeak(reply);
     } catch {
       const errMsg = 'Connection error. Check your network and try again.';

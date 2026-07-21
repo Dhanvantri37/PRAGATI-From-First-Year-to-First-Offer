@@ -15,17 +15,32 @@ const VOICE_CONFIG = {
   system_female: {
     elevenlabs: 'dveobG1rlBV3LOoiDZTD', // Pragati AI Assistant F
     edge: 'en-IN-NeerjaNeural',
-    label: 'Pragati (Female)',
+    label: 'Pragati (Female - Indian)',
   },
-
-  /**
-   * system_male — Pragati AI Assistant(M)
-   * Warm, professional Indian male voice
-   */
   system_male: {
     elevenlabs: 'nwj0s2LU9bDWRKND5yzA', // Pragati AI Assistant(M)
     edge: 'en-IN-PrabhatNeural',
-    label: 'Pragati (Male)',
+    label: 'Pragati (Male - Indian)',
+  },
+  system_female_foreign: {
+    elevenlabs: 'EXAVITQu4vr4xnSDxMaL', // Bella (Female)
+    edge: 'en-US-AvaNeural',
+    label: 'Pragati (Female - Foreign)',
+  },
+  system_male_foreign: {
+    elevenlabs: 'ErXwobaYiN019PkySvjV', // Antoni (Male)
+    edge: 'en-US-AndrewNeural',
+    label: 'Pragati (Male - Foreign)',
+  },
+  system_female_alt: {
+    elevenlabs: '21m00Tcm4TlvDq8ikWAM', // Rachel (Female)
+    edge: 'en-IN-AnanyaNeural',
+    label: 'Pragati (Female - Alt)',
+  },
+  system_male_alt: {
+    elevenlabs: 'SOYHLrjzK2t1IabR4W68', // Harry (Male)
+    edge: 'en-IN-RahulNeural',
+    label: 'Pragati (Male - Alt)',
   },
 
   /**
