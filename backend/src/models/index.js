@@ -81,9 +81,13 @@ const aptitudeQuestionSchema = new mongoose.Schema({
   explanation:{ type: String },
   difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'] },
   companies:  [String],                           // ['TCS', 'Infosys', 'Amazon']
-  source:     { type: String },
+  year:       { type: String },                   // '2025', '2025/2026'
+  source:     { type: String },                   // 'manual', 'AI-Generated', 'DOCX'
   createdAt:  { type: Date, default: Date.now }
 }, { timestamps: true });
+aptitudeQuestionSchema.index({ topic: 1, subtopic: 1 });
+aptitudeQuestionSchema.index({ companies: 1 });
+aptitudeQuestionSchema.index({ question: 1 }, { unique: true, sparse: true });
 
 // ─── Aptitude Bookmark ────────────────────────────────────────────────────────
 const aptitudeBookmarkSchema = new mongoose.Schema({
@@ -165,6 +169,14 @@ const announcementSchema = new mongoose.Schema({
   priority: { type: String, enum: ['normal','high','urgent'], default: 'normal' },
 }, { timestamps: true });
 
+// ─── AptitudeNote ──────────────────────────────────────────────────────────
+const aptitudeNoteSchema = new mongoose.Schema({
+  userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  questionId: { type: mongoose.Schema.Types.ObjectId, ref: 'AptitudeQuestion', required: true },
+  note:       { type: String, maxlength: 2000 },
+}, { timestamps: true });
+aptitudeNoteSchema.index({ userId: 1, questionId: 1 }, { unique: true });
+
 // ─── AptitudeAttempt ──────────────────────────────────────────────────────────
 const aptitudeAttemptSchema = new mongoose.Schema({
   userId:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -200,6 +212,7 @@ module.exports = {
   UserProblem:       mongoose.model('UserProblem', userProblemSchema),
   AptitudeQuestion:  mongoose.model('AptitudeQuestion', aptitudeQuestionSchema),
   AptitudeBookmark:  mongoose.model('AptitudeBookmark', aptitudeBookmarkSchema),
+  AptitudeNote:      mongoose.model('AptitudeNote', aptitudeNoteSchema),
   Discussion:        mongoose.model('Discussion', discussionSchema),
   SkillpathResult:   mongoose.model('SkillpathResult', skillpathResultSchema),
   Application:       mongoose.model('Application', applicationSchema),
@@ -208,6 +221,7 @@ module.exports = {
   DirectMessage:     mongoose.model('DirectMessage', directMessageSchema),
   DepartmentSettings:mongoose.model('DepartmentSettings', departmentSettingsSchema),
 };
+
 // ─── Placement Drive (separate from Company for admin-managed drives) ─────────
 const placementDriveSchema = new mongoose.Schema({
   companyName:  { type: String, required: true },

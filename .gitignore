@@ -65,3 +65,7 @@ datasets/aptitude/*.csv
 # ── Docker volumes ────────────────────────────────────────────────────────────
 mongo_data/
 datasets/resume/UpdatedResumeDataSet/Resume/Resume.csv
+
+# ── Generated audio test files ────────────────────────────────────────────────
+*.mp3
+*.wav

@@ -8,7 +8,11 @@
  * Field: companies (array) matches AptitudeQuestion schema
  */
 
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 require('dotenv').config();
+
 const mongoose = require('mongoose');
 const { AptitudeQuestion } = require('../models'); 
 const TOPIC_SUBTOPICS = {};
@@ -2154,19 +2158,24 @@ const Q = [
 async function seed() {
   console.log("🚀 Seeding started");
 
-  const uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!uri) {
-    throw new Error("MONGODB_URI not found");
+    throw new Error("MONGO_URI not found");
   }
 
   await mongoose.connect(uri);
   console.log("✅ Connected to MongoDB");
 
-  await AptitudeQuestion.deleteMany({});
-  console.log("🧹 Old aptitude questions deleted");
+  let inserted = 0;
+  try {
+    const res = await AptitudeQuestion.insertMany(Q, { ordered: false });
+    inserted = res.length;
+  } catch (err) {
+    inserted = err.insertedDocs ? err.insertedDocs.length : 0;
+  }
+  console.log(`✅ ${inserted} questions inserted from full bank`);
 
-  await AptitudeQuestion.insertMany(Q);
-  console.log(`✅ ${Q.length} questions inserted`);
+
 }
 
 

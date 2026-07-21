@@ -1,10 +1,34 @@
 const router = require('express').Router();
-const { AptitudeQuestion, AptitudeAttempt, AptitudeBookmark } = require('../models/index');
+const rateLimit = require('express-rate-limit');
+const { AptitudeQuestion, AptitudeAttempt, AptitudeBookmark, AptitudeNote } = require('../models/index');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const Groq = require('groq-sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const LEVEL_MAP = { Beginner: 'Easy', Intermediate: 'Medium', Expert: 'Hard' };
+// ── Rate limiter: AI quiz endpoint — 10 req / 15 min per user ──────────────
+const aiQuizLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  message: { error: 'Too many AI quiz requests. Please wait 15 minutes.' },
+  standardHeaders: true, legacyHeaders: false,
+});
 
-// GET /api/aptitude/topics
+// ── Sanitize text input (strip HTML, trim) ──────────────────────────────────
+function sanitize(str, max = 2000) {
+  if (!str || typeof str !== 'string') return '';
+  return str.replace(/<[^>]*>/g, '').trim().slice(0, max);
+}
+
+// ── Strip answer from quiz questions (security) ─────────────────────────────
+function stripAnswer(q) {
+  const obj = q.toObject ? q.toObject() : { ...q };
+  delete obj.answer;
+  delete obj.explanation;
+  return obj;
+}
+
+// ── GET /api/aptitude/topics ────────────────────────────────────────────────
 router.get('/topics', authenticate, async (req, res) => {
   try {
     const agg = await AptitudeQuestion.aggregate([
@@ -18,28 +42,59 @@ router.get('/topics', authenticate, async (req, res) => {
       if (!topicMap[topic]) topicMap[topic] = [];
       if (subtopic && !topicMap[topic].includes(subtopic)) topicMap[topic].push(subtopic);
       questionCounts[subtopic || topic] = (questionCounts[subtopic || topic] || 0) + count;
+      questionCounts[topic] = (questionCounts[topic] || 0) + count;
       if (!subtopicMap[subtopic]) subtopicMap[subtopic] = topic;
     });
     res.json({
       topics: Object.keys(topicMap),
       subtopicMap: topicMap,
       questionCounts,
-      userLevel: LEVEL_MAP[req.user?.skillLevel] || 'Easy',
+      userLevel: 'Easy',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/aptitude — browse/paginated
+// ── GET /api/aptitude/companies ─────────────────────────────────────────────
+router.get('/companies', authenticate, async (req, res) => {
+  try {
+    const result = await AptitudeQuestion.aggregate([
+      { $unwind: '$companies' },
+      { $group: { _id: '$companies', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+    const companies = result.map(r => r._id).filter(Boolean);
+    res.json({ companies });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/aptitude/company-stats ─────────────────────────────────────────
+router.get('/company-stats', authenticate, async (req, res) => {
+  try {
+    const result = await AptitudeQuestion.aggregate([
+      { $unwind: '$companies' },
+      { $group: { _id: '$companies', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 20 },
+    ]);
+    res.json({ stats: result.map(r => ({ company: r._id, count: r.count })) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/aptitude — browse/paginated ────────────────────────────────────
 router.get('/', authenticate, async (req, res) => {
   try {
     const { topic, subtopic, company, difficulty, search, page = 1, limit = 15 } = req.query;
     const filter = {};
-    if (topic)      filter.topic = new RegExp(topic, 'i');
-    if (subtopic)   filter.subtopic = new RegExp(subtopic, 'i');
-    if (difficulty) filter.difficulty = difficulty;
-    if (company)    filter.company = company;
+    if (topic && topic !== 'All')      filter.topic = new RegExp(topic, 'i');
+    if (subtopic && subtopic !== 'All') filter.subtopic = new RegExp(subtopic, 'i');
+    if (difficulty && difficulty !== 'All') filter.difficulty = difficulty;
+    if (company && company !== 'All')   filter.companies = company;
     if (search)     filter.question = { $regex: search, $options: 'i' };
     const total = await AptitudeQuestion.countDocuments(filter);
     const skip  = (Number(page) - 1) * Number(limit);
@@ -51,17 +106,17 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/aptitude/set — quiz or practice set
-// BUG FIX: Now respects `limit` query param instead of hardcoding 10
+// ── GET /api/aptitude/set — practice/quiz set (answers HIDDEN in quiz mode) ─
 router.get('/set', authenticate, async (req, res) => {
   try {
-    const { topic, subtopic, difficulty, topics, limit } = req.query;
-    const requestedSize = Math.min(Math.max(parseInt(limit) || 10, 1), 50); // clamp 1–50
+    const { topic, subtopic, difficulty, topics, company, limit, quizMode } = req.query;
+    const requestedSize = Math.min(Math.max(parseInt(limit) || 10, 1), 50);
+    const hideAnswers = quizMode === 'true';
 
     const filter = {};
     if (difficulty && difficulty !== 'All') filter.difficulty = difficulty;
+    if (company && company !== 'All') filter.companies = company;
 
-    // Support multi-topic quiz
     if (topics) {
       const topicArr = topics.split(',').map(t => t.trim()).filter(Boolean);
       if (topicArr.length > 0) filter.topic = { $in: topicArr.map(t => new RegExp(t, 'i')) };
@@ -70,7 +125,6 @@ router.get('/set', authenticate, async (req, res) => {
     }
     if (subtopic) filter.subtopic = new RegExp(subtopic, 'i');
 
-    // Check available count
     const available = await AptitudeQuestion.countDocuments(filter);
     const sampleSize = Math.min(requestedSize, available);
 
@@ -78,10 +132,20 @@ router.get('/set', authenticate, async (req, res) => {
       return res.json({ questions: [], difficulty: difficulty || 'Easy', topic: topic || 'All', available: 0 });
     }
 
-    const questions = await AptitudeQuestion.aggregate([
+    let questions = await AptitudeQuestion.aggregate([
       { $match: filter },
       { $sample: { size: sampleSize } },
     ]);
+
+    // Security: strip answers in quiz mode
+    if (hideAnswers) {
+      questions = questions.map(q => {
+        const obj = { ...q };
+        delete obj.answer;
+        delete obj.explanation;
+        return obj;
+      });
+    }
 
     res.json({ questions, difficulty: difficulty || 'Easy', topic: topic || 'All', available });
   } catch (err) {
@@ -89,27 +153,53 @@ router.get('/set', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/aptitude/submit
+// ── POST /api/aptitude/submit — verify answers server-side ──────────────────
 router.post('/submit', authenticate, async (req, res) => {
   try {
     const { answers } = req.body;
     if (!Array.isArray(answers) || !answers.length)
       return res.status(400).json({ error: 'answers required' });
-    await AptitudeAttempt.insertMany(
-      answers.map(a => ({
-        userId: req.user._id, questionId: a.questionId, topic: a.topic,
-        subtopic: a.subtopic, selectedAnswer: a.selectedAnswer,
-        correct: a.correct, timeSpent: a.timeSpent || 0,
-      }))
-    );
-    const correct = answers.filter(a => a.correct).length;
-    res.json({ score: Math.round((correct / answers.length) * 100), correct, total: answers.length });
+
+    // Server-side verification: look up real answers from DB
+    const questionIds = answers.map(a => a.questionId).filter(Boolean);
+    const dbQuestions = await AptitudeQuestion.find({ _id: { $in: questionIds } }).select('answer topic subtopic');
+    const answerMap = {};
+    dbQuestions.forEach(q => { answerMap[q._id.toString()] = q; });
+
+    const verified = answers.map(a => {
+      const dbQ = answerMap[a.questionId];
+      const correct = dbQ ? (a.selectedAnswer === dbQ.answer) : false;
+      return {
+        userId: req.user._id,
+        questionId: a.questionId,
+        topic: dbQ?.topic || a.topic,
+        subtopic: dbQ?.subtopic || a.subtopic,
+        selectedAnswer: a.selectedAnswer,
+        correct,
+        timeSpent: a.timeSpent || 0,
+      };
+    });
+
+    await AptitudeAttempt.insertMany(verified, { ordered: false });
+
+    const correct = verified.filter(a => a.correct).length;
+    // Return answers so the frontend can show results
+    const resultsWithAnswers = verified.map(v => ({
+      ...v,
+      correctAnswer: answerMap[v.questionId?.toString()]?.answer,
+    }));
+    res.json({
+      score: Math.round((correct / verified.length) * 100),
+      correct,
+      total: verified.length,
+      results: resultsWithAnswers,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/aptitude/history
+// ── GET /api/aptitude/history ────────────────────────────────────────────────
 router.get('/history', authenticate, async (req, res) => {
   try {
     const history = await AptitudeAttempt.find({ userId: req.user._id })
@@ -120,7 +210,7 @@ router.get('/history', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/aptitude/stats
+// ── GET /api/aptitude/stats ──────────────────────────────────────────────────
 router.get('/stats', authenticate, async (req, res) => {
   try {
     const userId = req.user._id;
@@ -136,7 +226,7 @@ router.get('/stats', authenticate, async (req, res) => {
       if (a.correct) byTopic[a.topic].correct++;
     });
     const stats = Object.entries(byTopic).map(([topic, d]) => ({
-      topic, attempted: d.attempted, correct: d.correct,
+      topic, attempted: d.attempted, correct: d.correct, total: d.attempted,
       accuracy: Math.round((d.correct / d.attempted) * 100),
     }));
 
@@ -146,7 +236,7 @@ router.get('/stats', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/aptitude/bookmark/:id
+// ── POST /api/aptitude/bookmark/:id ─────────────────────────────────────────
 router.post('/bookmark/:id', authenticate, async (req, res) => {
   try {
     const existing = await AptitudeBookmark.findOne({ userId: req.user._id, questionId: req.params.id });
@@ -161,7 +251,7 @@ router.post('/bookmark/:id', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/aptitude/bookmarks
+// ── GET /api/aptitude/bookmarks ──────────────────────────────────────────────
 router.get('/bookmarks', authenticate, async (req, res) => {
   try {
     const bookmarks = await AptitudeBookmark.find({ userId: req.user._id })
@@ -173,7 +263,203 @@ router.get('/bookmarks', authenticate, async (req, res) => {
   }
 });
 
-// Admin: POST /api/aptitude — add question
+// ── POST /api/aptitude/note/:id — save/update note for a question ────────────
+router.post('/note/:id', authenticate, async (req, res) => {
+  try {
+    const rawNote = sanitize(req.body.note || '', 2000);
+    const result = await AptitudeNote.findOneAndUpdate(
+      { userId: req.user._id, questionId: req.params.id },
+      { note: rawNote },
+      { upsert: true, new: true }
+    );
+    res.json({ note: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/aptitude/notes — get all notes for current user ─────────────────
+router.get('/notes', authenticate, async (req, res) => {
+  try {
+    const notes = await AptitudeNote.find({ userId: req.user._id })
+      .populate('questionId').sort({ updatedAt: -1 });
+    res.json({ notes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/aptitude/ai-quiz — AI-generated company quiz ──────────────────
+router.post('/ai-quiz', authenticate, aiQuizLimiter, async (req, res) => {
+  try {
+    const { company, count = 10, difficulty = 'Mixed', topic = 'Quantitative' } = req.body;
+    if (!company) return res.status(400).json({ error: 'company is required' });
+
+    const safeCompany = sanitize(company, 100);
+    const safeCount   = Math.min(Math.max(parseInt(count) || 10, 5), 20);
+    const diffLabel   = ['Easy', 'Medium', 'Hard', 'Mixed'].includes(difficulty) ? difficulty : 'Mixed';
+
+    const prompt = buildAIPrompt(safeCompany, safeCount, diffLabel, topic);
+    let questions = null;
+
+    // ── Try Groq first ────────────────────────────────────────────────────
+    try {
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+      const completion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 4000,
+        response_format: { type: 'json_object' },
+      });
+      const parsed = JSON.parse(completion.choices[0]?.message?.content || '{}');
+      if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+        questions = parsed.questions;
+      }
+    } catch (groqErr) {
+      console.warn('[AI-Quiz] Groq failed:', groqErr.message);
+    }
+
+    // ── Fallback: Gemini ──────────────────────────────────────────────────
+    if (!questions) {
+      try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+            questions = parsed.questions;
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('[AI-Quiz] Gemini failed:', geminiErr.message);
+      }
+    }
+
+    // ── Fallback: DB questions ────────────────────────────────────────────
+    if (!questions) {
+      const filter = { companies: safeCompany };
+      if (diffLabel !== 'Mixed') filter.difficulty = diffLabel;
+      const available = await AptitudeQuestion.countDocuments(filter);
+      const size = Math.min(safeCount, available || 10);
+      const fallbackFilter = available >= safeCount ? filter : {};
+      const dbQs = await AptitudeQuestion.aggregate([
+        { $match: size > 0 ? filter : {} },
+        { $sample: { size: Math.min(safeCount, 50) } },
+      ]);
+      return res.json({
+        questions: dbQs.map(q => {
+          const obj = { ...q };
+          delete obj.answer;
+          delete obj.explanation;
+          return obj;
+        }),
+        source: 'database',
+        fallback: true,
+        message: 'AI temporarily unavailable — using saved questions.',
+      });
+    }
+
+    // ── Save unique AI questions to DB ────────────────────────────────────
+    const savedIds = [];
+    for (const q of questions) {
+      try {
+        const existing = await AptitudeQuestion.findOne({
+          question: { $regex: new RegExp(q.question.slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+        });
+        if (!existing) {
+          const doc = await AptitudeQuestion.create({
+            topic: q.topic || topic,
+            subtopic: q.subtopic || 'General',
+            question: q.question,
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation,
+            difficulty: q.difficulty || diffLabel === 'Mixed' ? ['Easy','Medium','Hard'][Math.floor(Math.random()*3)] : diffLabel,
+            companies: [safeCompany],
+            year: new Date().getFullYear().toString(),
+            source: `AI-${safeCompany}-${new Date().getFullYear()}`,
+          });
+          savedIds.push(doc._id.toString());
+          q._id = doc._id;
+        } else {
+          q._id = existing._id;
+        }
+      } catch (saveErr) { /* skip duplicates */ }
+    }
+
+    // Return WITHOUT answers (security)
+    const safeQuestions = questions.map(q => {
+      const obj = { ...q };
+      delete obj.answer;
+      delete obj.explanation;
+      return obj;
+    });
+
+    res.json({ questions: safeQuestions, source: 'ai', savedCount: savedIds.length });
+  } catch (err) {
+    console.error('[AI-Quiz] Error:', err);
+    res.status(500).json({ error: 'AI quiz generation failed. Please try again.' });
+  }
+});
+
+// ── Helper: build AI prompt ──────────────────────────────────────────────────
+function buildAIPrompt(company, count, difficulty, topic) {
+  const diffText = difficulty === 'Mixed'
+    ? `a mix of Easy (${Math.ceil(count*0.3)}), Medium (${Math.ceil(count*0.4)}), and Hard (${Math.floor(count*0.3)}) difficulty levels`
+    : `${difficulty} difficulty`;
+
+  return `You are an expert aptitude trainer for top Indian IT companies. Generate exactly ${count} genuine aptitude questions that are specifically asked by ${company} in campus recruitment drives (2024-2026).
+
+Requirements:
+- Questions must be REALISTIC and match ${company}'s actual exam pattern
+- Include ${diffText}
+- Topics from: ${topic} (Number System, Percentages, Profit & Loss, Time & Work, Speed & Distance, Ratios, SI/CI, Probability, Data Interpretation, Logical Reasoning, Coding)
+- Each question must have EXACTLY 4 options labeled as full answer strings (not A/B/C/D)
+- Answer must be the EXACT string matching one of the options
+- Explanation must show the full step-by-step solution
+- Questions must be UNIQUE and not trivially simple
+
+Return ONLY valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "topic": "Quantitative",
+      "subtopic": "Time & Work",
+      "question": "Full question text here",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "answer": "Option 1",
+      "explanation": "Step-by-step solution...",
+      "difficulty": "Medium"
+    }
+  ]
+}`;
+}
+
+// ── POST /api/aptitude/sync — seed/resync all questions (any authenticated user) ─
+router.post('/sync', authenticate, async (req, res) => {
+  try {
+    const count = await AptitudeQuestion.countDocuments();
+    if (count >= 100) {
+      return res.json({ message: `Already have ${count} questions. No sync needed.`, count });
+    }
+    // Run seed in background
+    (async () => {
+      try {
+        const { seedAptitudeQuestions } = require('../utils/aptitude-docx-seed');
+        await seedAptitudeQuestions();
+      } catch (e) { console.warn('[Sync] seed warning:', e.message); }
+    })();
+    res.json({ message: 'Sync started in background. Refresh in a moment.', currentCount: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Admin: POST /api/aptitude — add question ────────────────────────────────
 router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     const q = await AptitudeQuestion.create(req.body);
@@ -183,12 +469,12 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
   }
 });
 
-// Admin: POST /api/aptitude/bulk — bulk upload questions
+// ── Admin: POST /api/aptitude/bulk — bulk upload ────────────────────────────
 router.post('/bulk', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     const { questions } = req.body;
     if (!Array.isArray(questions)) return res.status(400).json({ error: 'Expected an array of questions' });
-    const inserted = await AptitudeQuestion.insertMany(questions);
+    const inserted = await AptitudeQuestion.insertMany(questions, { ordered: false });
     res.status(201).json({ message: 'Questions added', inserted: inserted.length });
   } catch (err) {
     res.status(400).json({ error: err.message });

@@ -925,6 +925,22 @@ function StudentDash() {
         ))}
       </div>
 
+      {/* ── APTITUDE PROGRESS WIDGET ─────────────────────────────────────── */}
+      <div style={{ background:'linear-gradient(135deg,rgba(83,22,151,0.06),rgba(19,161,165,0.06))', border:'1.5px solid rgba(83,22,151,0.18)', borderRadius:14, padding:'14px 18px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:42, height:42, borderRadius:12, background:'linear-gradient(135deg,#531697,#13a1a5)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'1.3rem', color:'#fff', flexShrink:0 }}>🎯</div>
+          <div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.95rem', color:'var(--text)' }}>Aptitude & Company Prep</div>
+            <div style={{ fontSize:'.75rem', color:'var(--text-3)', marginTop:2 }}>Target company practice · AI-generated company quizzes · Instant explanations</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <button onClick={()=>nav('/dashboard/aptitude')} style={{ padding:'8px 16px', borderRadius:9, border:'none', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, cursor:'pointer', fontFamily:"'Nunito',sans-serif", fontSize:'.8rem', boxShadow:'0 4px 12px rgba(83,22,151,0.2)' }}>
+            🎯 Practice Aptitude Now →
+          </button>
+        </div>
+      </div>
+
       {/* ── CODING ACTIVITY: Heatmap + Donut ────────────────────────── */}
       {(() => {
         const myProblems = solved || 0;

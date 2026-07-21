@@ -1,4 +1,9 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 require('dotenv').config();
+
+
 const express = require('express');
 const cors    = require('cors');
 const helmet  = require('helmet');
@@ -140,7 +145,7 @@ mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
     });
 
     // ── Seed LeetCode problems in background (only if DB is empty) ─────────
-    const { Problem } = require('./models/index');
+    const { Problem, AptitudeQuestion } = require('./models/index');
     const count = await Problem.countDocuments();
     if (count < 10) {
       console.log('📦 Problem DB empty — running background seed...');
@@ -155,6 +160,17 @@ mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
     } else {
       console.log(`📊 Problem DB ready (${count} problems loaded)`);
     }
+
+    // ── Seed Aptitude questions in background ───────────────────────────────
+    (async () => {
+      try {
+        const { seedAptitudeQuestions } = require('./utils/aptitude-docx-seed');
+        await seedAptitudeQuestions();
+      } catch (e) {
+        console.warn('⚠️ Aptitude DOCX seed warning:', e.message);
+      }
+    })();
+
   })
   .catch(err => {
     console.error('❌ MongoDB connection failed:', err.message);
