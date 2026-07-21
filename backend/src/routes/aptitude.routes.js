@@ -470,27 +470,36 @@ function buildAIPrompt(company, count, difficulty, topic) {
     ? `a mix of Easy (${Math.ceil(count*0.3)}), Medium (${Math.ceil(count*0.4)}), and Hard (${Math.floor(count*0.3)}) difficulty levels`
     : `${difficulty} difficulty`;
 
-  return `You are an expert aptitude trainer for top Indian IT companies. Generate exactly ${count} genuine aptitude questions that are specifically asked by ${company} in campus recruitment drives (2024-2026).
+  return `You are a senior placement coordinator and technical interviewer for top Indian IT & Product companies (${company}, TCS, Infosys, Wipro, Accenture, Cognizant, Capgemini, Amazon).
+Generate exactly ${count} genuine, challenging recruitment exam questions that are specifically asked by ${company} in campus placement drives (2024-2026).
 
 Requirements:
-- Questions must be REALISTIC and match ${company}'s actual exam pattern
-- Include ${diffText}
-- Topics from: ${topic} (Number System, Percentages, Profit & Loss, Time & Work, Speed & Distance, Ratios, SI/CI, Probability, Data Interpretation, Logical Reasoning, Coding)
-- Each question must have EXACTLY 4 options labeled as full answer strings (not A/B/C/D)
-- Answer must be the EXACT string matching one of the options
-- Explanation must show the full step-by-step solution
-- Questions must be UNIQUE and not trivially simple
+1. Questions MUST BE REALISTIC and match ${company}'s actual exam pattern & difficulty level (e.g. TCS NQT Foundation/Advanced, Infosys Specialist Programmer/SE, Cognizant GenC Next, Accenture Cognitive/Technical, Capgemini Pseudocode/Aptitude).
+2. Difficulty: ${diffText}.
+3. Category Topic MUST be exactly one of these 4 strings:
+   - "Quantitative"
+   - "Logical Reasoning"
+   - "Verbal Ability"
+   - "DSA Aptitude"
+4. Subtopic MUST be one of the standard subtopics:
+   - For Quantitative: "Number System", "Percentages", "Profit & Loss", "Simple & Compound Interest", "Ratio & Proportion", "Averages", "Time & Work", "Speed, Time & Distance", "Permutation & Combination", "Probability", "Data Interpretation"
+   - For Logical Reasoning: "Seating Arrangement", "Blood Relations", "Direction Sense", "Number Series", "Coding-Decoding", "Syllogism", "Statements & Conclusions"
+   - For Verbal Ability: "Synonyms & Antonyms", "Grammar", "One Word Substitution", "Idioms & Phrases", "Para Jumbles"
+   - For DSA Aptitude: "Arrays", "Linked Lists", "Stacks & Queues", "Trees", "Graphs", "Dynamic Programming", "Sorting", "Searching", "Recursion", "Hashing"
+5. Options: EXACTLY 4 distinct option strings.
+6. Answer: The EXACT string matching one of the 4 options.
+7. Explanation: Clear, comprehensive step-by-step mathematical/logical/code solution explaining why the answer is correct.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON with no extra commentary:
 {
   "questions": [
     {
-      "topic": "Quantitative",
-      "subtopic": "Time & Work",
-      "question": "Full question text here",
-      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
-      "answer": "Option 1",
-      "explanation": "Step-by-step solution...",
+      "topic": "DSA Aptitude",
+      "subtopic": "Arrays",
+      "question": "What is the time complexity of finding the maximum subarray sum using Kadane's algorithm?",
+      "options": ["O(1)", "O(log n)", "O(n)", "O(n^2)"],
+      "answer": "O(n)",
+      "explanation": "Kadane's algorithm iterates through the array once while maintaining max_so_far and max_ending_here, yielding O(n) runtime.",
       "difficulty": "Medium"
     }
   ]

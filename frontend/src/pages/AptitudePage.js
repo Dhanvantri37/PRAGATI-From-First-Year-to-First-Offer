@@ -30,35 +30,35 @@ const COMPANY_BADGES = {
   Virtusa:        { color:'#8b5cf6', icon:'🎯' },
 };
 
-// ── Subtopic theory + practice resource metadata (100% Valid Tested URLs) ───────
+// ── Subtopic theory + practice resource metadata (100% Valid Direct URLs) ───────
 const SUBTOPIC_META = {
-  'Number System':              { theory:'Divisibility rules, LCM/HCF, prime factorization, unit digits, surds & indices.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#numbersystem', indiabix:'https://www.indiabix.com/aptitude/numbers/' },
-  'Percentages':                { theory:'(Part/Whole)×100. Key to profit/loss, discount, interest.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#percentages', indiabix:'https://www.indiabix.com/aptitude/percentage/' },
-  'Profit & Loss':              { theory:'Profit = SP−CP. Profit% = (Profit/CP)×100. Marked Price & successive discounts.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#profitandloss', indiabix:'https://www.indiabix.com/aptitude/profit-and-loss/' },
-  'Simple & Compound Interest': { theory:'SI = PRT/100. CI = P(1+r/100)^n − P. Diff for 2 yrs = P(r/100)².', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#interest', indiabix:'https://www.indiabix.com/aptitude/simple-interest/' },
-  'Ratio & Proportion':         { theory:'a:b = c:d ⟹ ad=bc. Investment ratio × time ratio = Profit ratio.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#ratioandproportion', indiabix:'https://www.indiabix.com/aptitude/ratio-and-proportion/' },
-  'Averages':                   { theory:'Average = Sum/Count. Weighted average uses proportional weights.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#averages', indiabix:'https://www.indiabix.com/aptitude/average/' },
-  'Time & Work':                { theory:"A's 1-day work = 1/n. LCM method simplifies multi-person problems.", gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#timeandwork', indiabix:'https://www.indiabix.com/aptitude/time-and-work/' },
-  'Speed, Time & Distance':     { theory:'Speed = Distance/Time. Avg speed = 2S₁S₂/(S₁+S₂) for equal distances.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#speedtimedistance', indiabix:'https://www.indiabix.com/aptitude/time-and-distance/' },
-  'Permutation & Combination':  { theory:'nPr = n!/(n-r)!  nCr = n!/r!(n-r)!  Apply for selections/arrangements.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#permutationandcombination', indiabix:'https://www.indiabix.com/aptitude/permutation-and-combination/' },
-  'Probability':                { theory:'P(E) = Favorable/Total. Mutually exclusive: P(A or B)=P(A)+P(B).', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#probability', indiabix:'https://www.indiabix.com/aptitude/probability/' },
-  'Data Interpretation':        { theory:'Read tables/bar charts carefully. Approx % change = Δ/original × 100.', gfg:'https://www.geeksforgeeks.org/quantitative-aptitude-gq/#datainterpretation', indiabix:'https://www.indiabix.com/data-interpretation/table-charts/' },
-  'Seating Arrangement':        { theory:'Linear vs Circular. Clockwise = left. Fix one person in circular to avoid duplicates.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/seating-arrangement/' },
-  'Blood Relations':            { theory:'Draw family trees. Mother/Father = 1 gen up; uncle/aunt = parent siblings.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/blood-relation-test/' },
-  'Direction Sense':            { theory:'North default. After L = 90° counter-clockwise. Pythagoras for distance.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/direction-sense-test/' },
-  'Number Series':              { theory:'Check: diff of diffs, multiples, alternating, squares, cubes patterns.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/aptitude/number-series/' },
-  'Coding-Decoding':            { theory:'Shift each letter by fixed amount; or mirror-coding (A=Z). Also positional.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/coding-decoding/' },
-  'Syllogism':                  { theory:'All A are B, Some B are C → Some A may be C. Use Venn diagrams.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/syllogism/' },
-  'Statements & Conclusions':   { theory:'Conclusion must be 100% true based ONLY on given statements. No external knowledge.', gfg:'https://www.geeksforgeeks.org/logical-reasoning-gq/', indiabix:'https://www.indiabix.com/logical-reasoning/statement-and-conclusion/' },
-  'Synonyms & Antonyms':        { theory:'Root words: bene (good), mal (bad), chron (time), phil (love). Context clues matter.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/synonyms/' },
-  'Grammar':                    { theory:'Subject-Verb agreement, Tenses, Articles (a/an/the), Prepositions, Active/Passive.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/spotting-errors/' },
-  'One Word Substitution':      { theory:'Memorize common groups: one who collects stamps = Philatelist; fear of height = Acrophobia.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/one-word-substitutes/' },
-  'Idioms & Phrases':           { theory:'"Break the ice" = start conversation. "Bite the bullet" = endure pain. Learn 50 key idioms.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/idioms-and-phrases/' },
-  'Para Jumbles':               { theory:'Find the topic sentence (no pronoun/connector start). Then logic flow. PQRS order.', gfg:'https://www.geeksforgeeks.org/verbal-ability-gq/', indiabix:'https://www.indiabix.com/verbal-ability/ordering-of-sentences/' },
-  'Arrays':                     { theory:'Contiguous memory block. Fast O(1) index access, linear O(n) search/insertion.', gfg:'https://www.geeksforgeeks.org/data-structures/array-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
-  'Linked Lists':               { theory:'Dynamic nodes with data & pointers. Sequential access O(n), fast insert at head O(1).', gfg:'https://www.geeksforgeeks.org/data-structures/linked-list/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
-  'Stacks & Queues':            { theory:'Stack = LIFO (Push/Pop O(1)). Queue = FIFO (Enqueue/Dequeue O(1)).', gfg:'https://www.geeksforgeeks.org/data-structures/stack/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
-  'Trees':                      { theory:'Hierarchical structure. Binary Tree has at most 2 children. BST in-order traversal yields sorted order.', gfg:'https://www.geeksforgeeks.org/data-structures/binary-tree/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Number System':              { theory:'Divisibility rules, LCM/HCF, prime factorization, unit digits, surds & indices.', gfg:'https://www.geeksforgeeks.org/number-system-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/numbers/' },
+  'Percentages':                { theory:'(Part/Whole)×100. Key to profit/loss, discount, interest.', gfg:'https://www.geeksforgeeks.org/percentages-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/percentage/' },
+  'Profit & Loss':              { theory:'Profit = SP−CP. Profit% = (Profit/CP)×100. Marked Price & successive discounts.', gfg:'https://www.geeksforgeeks.org/profit-and-loss-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/profit-and-loss/' },
+  'Simple & Compound Interest': { theory:'SI = PRT/100. CI = P(1+r/100)^n − P. Diff for 2 yrs = P(r/100)².', gfg:'https://www.geeksforgeeks.org/simple-interest-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/simple-interest/' },
+  'Ratio & Proportion':         { theory:'a:b = c:d ⟹ ad=bc. Investment ratio × time ratio = Profit ratio.', gfg:'https://www.geeksforgeeks.org/ratio-and-proportion-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/ratio-and-proportion/' },
+  'Averages':                   { theory:'Average = Sum/Count. Weighted average uses proportional weights.', gfg:'https://www.geeksforgeeks.org/averages-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/average/' },
+  'Time & Work':                { theory:"A's 1-day work = 1/n. LCM method simplifies multi-person problems.", gfg:'https://www.geeksforgeeks.org/time-and-work-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/time-and-work/' },
+  'Speed, Time & Distance':     { theory:'Speed = Distance/Time. Avg speed = 2S₁S₂/(S₁+S₂) for equal distances.', gfg:'https://www.geeksforgeeks.org/speed-time-and-distance-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/time-and-distance/' },
+  'Permutation & Combination':  { theory:'nPr = n!/(n-r)!  nCr = n!/r!(n-r)!  Apply for selections/arrangements.', gfg:'https://www.geeksforgeeks.org/permutation-and-combination-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/permutation-and-combination/' },
+  'Probability':                { theory:'P(E) = Favorable/Total. Mutually exclusive: P(A or B)=P(A)+P(B).', gfg:'https://www.geeksforgeeks.org/probability-in-aptitude/', indiabix:'https://www.indiabix.com/aptitude/probability/' },
+  'Data Interpretation':        { theory:'Read tables/bar charts carefully. Approx % change = Δ/original × 100.', gfg:'https://www.geeksforgeeks.org/data-interpretation-in-aptitude/', indiabix:'https://www.indiabix.com/data-interpretation/table-charts/' },
+  'Seating Arrangement':        { theory:'Linear vs Circular. Clockwise = left. Fix one person in circular to avoid duplicates.', gfg:'https://www.geeksforgeeks.org/seating-arrangement-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/seating-arrangement/' },
+  'Blood Relations':            { theory:'Draw family trees. Mother/Father = 1 gen up; uncle/aunt = parent siblings.', gfg:'https://www.geeksforgeeks.org/blood-relations-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/blood-relation-test/' },
+  'Direction Sense':            { theory:'North default. After L = 90° counter-clockwise. Pythagoras for distance.', gfg:'https://www.geeksforgeeks.org/direction-sense-test-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/direction-sense-test/' },
+  'Number Series':              { theory:'Check: diff of diffs, multiples, alternating, squares, cubes patterns.', gfg:'https://www.geeksforgeeks.org/number-series-in-logical-reasoning/', indiabix:'https://www.indiabix.com/aptitude/number-series/' },
+  'Coding-Decoding':            { theory:'Shift each letter by fixed amount; or mirror-coding (A=Z). Also positional.', gfg:'https://www.geeksforgeeks.org/coding-decoding-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/coding-decoding/' },
+  'Syllogism':                  { theory:'All A are B, Some B are C → Some A may be C. Use Venn diagrams.', gfg:'https://www.geeksforgeeks.org/syllogism-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/syllogism/' },
+  'Statements & Conclusions':   { theory:'Conclusion must be 100% true based ONLY on given statements. No external knowledge.', gfg:'https://www.geeksforgeeks.org/statement-and-conclusion-in-logical-reasoning/', indiabix:'https://www.indiabix.com/logical-reasoning/statement-and-conclusion/' },
+  'Synonyms & Antonyms':        { theory:'Root words: bene (good), mal (bad), chron (time), phil (love). Context clues matter.', gfg:'https://www.geeksforgeeks.org/synonyms-and-antonyms-in-verbal-ability/', indiabix:'https://www.indiabix.com/verbal-ability/synonyms/' },
+  'Grammar':                    { theory:'Subject-Verb agreement, Tenses, Articles (a/an/the), Prepositions, Active/Passive.', gfg:'https://www.geeksforgeeks.org/english-grammar-spotting-errors/', indiabix:'https://www.indiabix.com/verbal-ability/spotting-errors/' },
+  'One Word Substitution':      { theory:'Memorize common groups: one who collects stamps = Philatelist; fear of height = Acrophobia.', gfg:'https://www.geeksforgeeks.org/one-word-substitution-in-verbal-ability/', indiabix:'https://www.indiabix.com/verbal-ability/one-word-substitutes/' },
+  'Idioms & Phrases':           { theory:'"Break the ice" = start conversation. "Bite the bullet" = endure pain. Learn 50 key idioms.', gfg:'https://www.geeksforgeeks.org/idioms-and-phrases-in-verbal-ability/', indiabix:'https://www.indiabix.com/verbal-ability/idioms-and-phrases/' },
+  'Para Jumbles':               { theory:'Find the topic sentence (no pronoun/connector start). Then logic flow. PQRS order.', gfg:'https://www.geeksforgeeks.org/para-jumbles-in-verbal-ability/', indiabix:'https://www.indiabix.com/verbal-ability/ordering-of-sentences/' },
+  'Arrays':                     { theory:'Contiguous memory block. Fast O(1) index access, linear O(n) search/insertion.', gfg:'https://www.geeksforgeeks.org/array-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Linked Lists':               { theory:'Dynamic nodes with data & pointers. Sequential access O(n), fast insert at head O(1).', gfg:'https://www.geeksforgeeks.org/linked-list-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Stacks & Queues':            { theory:'Stack = LIFO (Push/Pop O(1)). Queue = FIFO (Enqueue/Dequeue O(1)).', gfg:'https://www.geeksforgeeks.org/stack-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
+  'Trees':                      { theory:'Hierarchical structure. Binary Tree has at most 2 children. BST in-order traversal yields sorted order.', gfg:'https://www.geeksforgeeks.org/binary-tree-data-structure/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
   'Graphs':                     { theory:'Vertices & Edges. BFS (shortest path, queue) vs DFS (backtracking, stack/recursion).', gfg:'https://www.geeksforgeeks.org/graph-data-structure-and-algorithms/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
   'Dynamic Programming':        { theory:'Optimal substructure & overlapping subproblems. Memoization (Top-down) vs Tabulation (Bottom-up).', gfg:'https://www.geeksforgeeks.org/dynamic-programming/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
   'Sorting':                    { theory:'Heap/Merge Sort O(n log n) worst case. Quick Sort O(n log n) avg / O(n²) worst. Bubble/Insertion O(n²).', gfg:'https://www.geeksforgeeks.org/sorting-algorithms/', indiabix:'https://www.indiabix.com/computer-science/data-structures/' },
@@ -353,8 +353,8 @@ function QuizQuestion({ q, idx, total, onAnswer, onFinish, mode, bookmarks=[], n
   }, [idx]);
 
   function next() {
-    onAnswer({ questionId:q._id, topic:q.topic, subtopic:q.subtopic, selectedAnswer:sel||'(skipped)', timeSpent:90-timer });
-    if (idx >= total-1) onFinish();
+    const isLast = idx >= total - 1;
+    onAnswer({ questionId:q._id, topic:q.topic, subtopic:q.subtopic, selectedAnswer:sel||'(skipped)', timeSpent:90-timer }, isLast);
   }
 
   async function handleSaveNote() {
@@ -908,18 +908,27 @@ export default function AptitudePage() {
     } finally { setAILoading(false); }
   }
 
-  function handleAnswer(ans) {
-    setAnswers(a => [...a, ans]);
-    setQIdx(i => i+1);
+  function handleAnswer(ans, isLast = false) {
+    setAnswers(prev => {
+      const updated = [...prev, ans];
+      if (isLast) {
+        handleFinish(updated);
+      }
+      return updated;
+    });
+    setQIdx(i => i + 1);
   }
 
-  async function handleFinish() {
+  async function handleFinish(finalAnswers) {
     setDone(true);
+    const answersToSend = finalAnswers || answers;
     try {
       const res = await fetch(`${API}/aptitude/submit`, {
-        method:'POST', headers:tks(), body:JSON.stringify({ answers })
+        method: 'POST', headers: tks(), body: JSON.stringify({ answers: answersToSend })
       }).then(r => r.json());
       if (res.results) setSubmitResults(res.results);
+      // Auto-refresh counts & stats in UI
+      fetchInitialData();
     } catch (e) {}
   }
 
