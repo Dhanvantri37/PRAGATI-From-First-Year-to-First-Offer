@@ -137,13 +137,12 @@ router.get('/set', authenticate, async (req, res) => {
       { $sample: { size: sampleSize } },
     ]);
 
-    // Security: strip answers in quiz mode
+    // Security: strip ANSWER only in quiz mode (keep explanation for post-answer review)
     if (hideAnswers) {
       questions = questions.map(q => {
         const obj = { ...q };
-        delete obj.answer;
-        delete obj.explanation;
-        return obj;
+        delete obj.answer; // answer hidden until submit
+        return obj;        // explanation kept for post-reveal
       });
     }
 
@@ -182,17 +181,23 @@ router.post('/submit', authenticate, async (req, res) => {
 
     await AptitudeAttempt.insertMany(verified, { ordered: false });
 
+
     const correct = verified.filter(a => a.correct).length;
-    // Return answers so the frontend can show results
-    const resultsWithAnswers = verified.map(v => ({
+    // Batch fetch explanations + correct answers for full review
+    const qIds = verified.map(v => v.questionId).filter(Boolean);
+    const explanations = await AptitudeQuestion.find({ _id: { $in: qIds } }).select('explanation answer').lean();
+    const expMap = {};
+    explanations.forEach(q => { expMap[q._id.toString()] = { explanation: q.explanation, answer: q.answer }; });
+    const finalResults = verified.map(v => ({
       ...v,
-      correctAnswer: answerMap[v.questionId?.toString()]?.answer,
+      correctAnswer: expMap[v.questionId?.toString()]?.answer,
+      explanation:   expMap[v.questionId?.toString()]?.explanation || '',
     }));
     res.json({
       score: Math.round((correct / verified.length) * 100),
       correct,
       total: verified.length,
-      results: resultsWithAnswers,
+      results: finalResults,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -339,27 +344,33 @@ router.post('/ai-quiz', authenticate, aiQuizLimiter, async (req, res) => {
       }
     }
 
-    // ── Fallback: DB questions ────────────────────────────────────────────
+    // ── Fallback: DB questions (COMPANY-SPECIFIC only) ───────────────────────
     if (!questions) {
-      const filter = { companies: safeCompany };
-      if (diffLabel !== 'Mixed') filter.difficulty = diffLabel;
-      const available = await AptitudeQuestion.countDocuments(filter);
-      const size = Math.min(safeCount, available || 10);
-      const fallbackFilter = available >= safeCount ? filter : {};
+      const companyFilter = { companies: safeCompany };
+      if (diffLabel !== 'Mixed') companyFilter.difficulty = diffLabel;
+      const companyAvailable = await AptitudeQuestion.countDocuments(companyFilter);
+
+      // Use company-specific filter if we have at least 3 questions, else use all
+      const useFilter = companyAvailable >= 3 ? companyFilter : {};
+      const fallbackSize = Math.min(safeCount, companyAvailable >= 3 ? companyAvailable : 50);
+
       const dbQs = await AptitudeQuestion.aggregate([
-        { $match: size > 0 ? filter : {} },
-        { $sample: { size: Math.min(safeCount, 50) } },
+        { $match: useFilter },
+        { $sample: { size: Math.min(fallbackSize, 50) } },
       ]);
+
       return res.json({
         questions: dbQs.map(q => {
           const obj = { ...q };
-          delete obj.answer;
-          delete obj.explanation;
+          delete obj.answer; // strip answer only (explanation kept)
           return obj;
         }),
         source: 'database',
         fallback: true,
-        message: 'AI temporarily unavailable — using saved questions.',
+        companySpecific: companyAvailable >= 3,
+        message: companyAvailable >= 3
+          ? `Using ${safeCompany} saved questions (AI unavailable).`
+          : 'AI unavailable — showing general questions.',
       });
     }
 
