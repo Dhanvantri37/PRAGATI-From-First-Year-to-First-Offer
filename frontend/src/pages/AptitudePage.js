@@ -553,24 +553,25 @@ export default function AptitudePage() {
         body: JSON.stringify({ company: companyName, count: 10, difficulty: 'Mixed' })
       }).then(r => r.json());
 
-      if (!res.questions?.length) {
-        alert('Could not generate AI questions. Falling back to saved database questions...');
-        return handleStartQuiz({ company: companyName, count: 10 });
+      // If we got questions (either AI or DB fallback), use them silently
+      if (res.questions?.length) {
+        setQ(res.questions);
+        setQIdx(0);
+        setAnswers([]);
+        setDone(false);
+        // Title reflects source
+        setTitle(res.fallback
+          ? `📖 ${companyName} Practice Questions`
+          : `🤖 AI ${companyName} Exam Quiz`);
+        setSMode('quiz');
+        setMode('session');
+        return;
       }
 
-      if (res.fallback) {
-        alert(res.message || 'Using database questions for ' + companyName);
-      }
-
-      setQ(res.questions);
-      setQIdx(0);
-      setAnswers([]);
-      setDone(false);
-      setTitle(`🤖 AI Real ${companyName} Exam Quiz`);
-      setSMode('quiz');
-      setMode('session');
+      // Absolute last resort — try DB directly
+      await handleStartQuiz({ company: companyName, count: 10 });
     } catch (e) {
-      alert('AI service error. Falling back to DB questions...');
+      console.warn('[AI Quiz] error:', e.message);
       handleStartQuiz({ company: companyName, count: 10 });
     } finally {
       setAILoading(false);
@@ -699,7 +700,11 @@ export default function AptitudePage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {Object.keys(TOPIC_SUBTOPICS).map(cat => {
                   const subs = TOPIC_SUBTOPICS[cat] || [];
-                  const qCount = topicsData.questionCounts?.[cat] || 0;
+                  // Match full topic names from DB (e.g. "Logical Reasoning" for cat="Logical")
+                  const fullName = TOPIC_LABELS[cat] || cat;
+                  const qCount = topicsData.questionCounts?.[fullName]
+                               || topicsData.questionCounts?.[cat]
+                               || 0;
 
                   return (
                     <div key={cat} className="card" style={{ padding: 18 }}>
@@ -711,7 +716,7 @@ export default function AptitudePage() {
                           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)' }}>{TOPIC_LABELS[cat] || cat}</div>
                           <div style={{ fontSize: '.68rem', color: '#b0bec9', marginTop: 2 }}>{subs.length} subtopics · {qCount} questions</div>
                         </div>
-                        <button onClick={() => handleStartPractice({ topic: cat })}
+                        <button onClick={() => handleStartPractice({ topic: fullName })}
                           style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.78rem' }}>
                           Start Practice →
                         </button>
@@ -719,7 +724,7 @@ export default function AptitudePage() {
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 7 }}>
                         {subs.map(sub => (
-                          <div key={sub} onClick={() => handleStartPractice({ topic: cat, subtopic: sub })}
+                          <div key={sub} onClick={() => handleStartPractice({ topic: fullName, subtopic: sub })}
                             style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid rgba(19,161,165,0.18)', background: 'rgba(19,161,165,0.04)', cursor: 'pointer', transition: 'all .15s' }}>
                             <div style={{ fontWeight: 700, fontSize: '.8rem', color: 'var(--text)' }}>{sub}</div>
                           </div>

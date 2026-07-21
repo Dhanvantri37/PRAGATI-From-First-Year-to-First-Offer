@@ -439,21 +439,18 @@ Return ONLY valid JSON in this exact format:
 }`;
 }
 
-// ── POST /api/aptitude/sync — seed/resync all questions (any authenticated user) ─
+// ── POST /api/aptitude/sync — seed/resync all questions ─────────────────────
 router.post('/sync', authenticate, async (req, res) => {
   try {
     const count = await AptitudeQuestion.countDocuments();
-    if (count >= 100) {
-      return res.json({ message: `Already have ${count} questions. No sync needed.`, count });
-    }
-    // Run seed in background
+    // Run DOCX seed in background to add any missing questions
     (async () => {
       try {
         const { seedAptitudeQuestions } = require('../utils/aptitude-docx-seed');
         await seedAptitudeQuestions();
       } catch (e) { console.warn('[Sync] seed warning:', e.message); }
     })();
-    res.json({ message: 'Sync started in background. Refresh in a moment.', currentCount: count });
+    res.json({ message: `Sync started. Currently have ${count} questions — new ones will be added shortly.`, currentCount: count });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
