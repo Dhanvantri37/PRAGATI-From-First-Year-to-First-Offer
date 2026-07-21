@@ -211,7 +211,8 @@ router.post('/submit', authenticate, async (req, res) => {
     dbQuestions.forEach(q => { answerMap[q._id.toString()] = q; });
 
     const verified = answers.map(a => {
-      const dbQ = answerMap[a.questionId];
+      const qId = a.questionId ? a.questionId.toString() : '';
+      const dbQ = answerMap[qId];
       const correct = dbQ ? isAnswerCorrect(a.selectedAnswer, dbQ.answer, dbQ.options) : false;
       return {
         userId: req.user._id,
