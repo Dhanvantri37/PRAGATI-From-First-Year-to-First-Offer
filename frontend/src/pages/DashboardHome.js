@@ -891,21 +891,40 @@ function StudentDash() {
   }
 
   const DYNAMIC_INTERVIEW_QUESTIONS = [
-    { question: "Explain the difference between method overloading and method overriding with a real-world example.", type: "OOPs" },
-    { question: "What is the difference between a primary key, a unique key, and a foreign key in SQL?", type: "DBMS" },
-    { question: "How does a Hash Map handle collisions? Explain chaining and open addressing.", type: "DSA" },
-    { question: "What is the difference between an Abstract Class and an Interface? When would you use which?", type: "OOPs" },
-    { question: "Tell me about a challenging technical project you worked on and how you resolved a major bug.", type: "Behavioral" },
-    { question: "Explain the difference between a process and a thread. How do they communicate?", type: "OS" },
-    { question: "What are ACID properties in a database transaction? Can you explain each?", type: "DBMS" },
-    { question: "What is dynamic programming, and how does it differ from recursion or memoization?", type: "DSA" },
-    { question: "Explain the Model-View-Controller (MVC) architecture with an example.", type: "System Design" },
-    { question: "Why do we use indexes in databases? When does adding an index decrease performance?", type: "DBMS" },
-    { question: "What is the difference between TCP and UDP? In what scenario would you prefer UDP?", type: "Networking" },
-    { question: "How does garbage collection work in languages like Java or Python?", type: "Languages" },
-    { question: "What is a deadlock? What are the four necessary conditions for a deadlock to occur?", type: "OS" },
-    { question: "Describe a situation where you had to work under a tight deadline. How did you handle it?", type: "Behavioral" },
-    { question: "What is the difference between symmetric and asymmetric encryption?", type: "Security" }
+    // ── Core DSA ───────────────────────────────────────────────────────────
+    { question: "How does a Hash Map handle collisions? Explain the difference between chaining and open addressing.", type: "Core DSA" },
+    { question: "Explain the difference between a Stack and a Queue. What are their typical time complexities for insertion and deletion?", type: "Core DSA" },
+    { question: "What is the difference between Depth First Search (DFS) and Breadth First Search (BFS)? When would you prefer BFS?", type: "Core DSA" },
+    { question: "How do you detect a cycle in a Singly Linked List? Explain Floyd's Cycle-Finding Algorithm.", type: "Core DSA" },
+    { question: "What is the time complexity of Quick Sort and Merge Sort in the worst and average cases? Why does Quick Sort have a worst case of O(n^2)?", type: "Core DSA" },
+    { question: "Explain the concept of Binary Search. What is its time complexity and what is the prerequisite for applying it?", type: "Core DSA" },
+    { question: "What is a Binary Search Tree (BST)? How does its search operation differ from a standard Binary Tree in terms of time complexity?", type: "Core DSA" },
+
+    // ── CS Fundamentals: DBMS ──────────────────────────────────────────────
+    { question: "What are ACID properties in a database transaction? Explain Atomicity and Consistency with an example.", type: "CS Fundamentals (DBMS)" },
+    { question: "Explain the difference between a primary key, a unique key, and a foreign key in database tables.", type: "CS Fundamentals (DBMS)" },
+    { question: "What is database normalization? Explain 1NF, 2NF, and 3NF in simple terms.", type: "CS Fundamentals (DBMS)" },
+    { question: "What is the difference between a Clustered and a Non-Clustered index in SQL? How do they affect query performance?", type: "CS Fundamentals (DBMS)" },
+    { question: "Explain the difference between INNER JOIN, LEFT JOIN, and RIGHT JOIN with database tables.", type: "CS Fundamentals (DBMS)" },
+
+    // ── CS Fundamentals: OS ────────────────────────────────────────────────
+    { question: "Explain the difference between a Process and a Thread. How do they share memory?", type: "CS Fundamentals (OS)" },
+    { question: "What is a deadlock in Operating Systems? What are the four necessary conditions for a deadlock to occur?", type: "CS Fundamentals (OS)" },
+    { question: "What is virtual memory and paging? Explain the concept of Thrashing.", type: "CS Fundamentals (OS)" },
+    { question: "Explain the difference between preemptive and non-preemptive CPU scheduling. Give an example of each.", type: "CS Fundamentals (OS)" },
+
+    // ── CS Fundamentals: Networking ────────────────────────────────────────
+    { question: "What is the difference between TCP and UDP? In what real-world scenarios would you prefer UDP over TCP?", type: "CS Fundamentals (CN)" },
+    { question: "What happens behind the scenes when you type a URL like google.com in a browser and hit enter?", type: "CS Fundamentals (CN)" },
+    { question: "Explain the three-way handshake process in TCP connection establishment.", type: "CS Fundamentals (CN)" },
+    { question: "What is the difference between HTTP and HTTPS? How does SSL/TLS ensure security?", type: "CS Fundamentals (CN)" },
+
+    // ── Technical Round: OOPs & System Design ──────────────────────────────
+    { question: "Explain the four pillars of Object-Oriented Programming (OOP) with real-world analogies.", type: "Technical Round (OOPs)" },
+    { question: "What is the difference between an Abstract Class and an Interface? When would you use which in Java or C++?", type: "Technical Round (OOPs)" },
+    { question: "What is the Model-View-Controller (MVC) architecture? How do the three components interact?", type: "Technical Round (Design)" },
+    { question: "Explain the difference between Method Overloading and Method Overriding with a short code example scenario.", type: "Technical Round (OOPs)" },
+    { question: "What is horizontal scaling vs vertical scaling? In what situations would you scale a database horizontally?", type: "Technical Round (Design)" }
   ];
 
   const loadAndPlayQuestion = async (text, welcome = false, targetIdx = 0) => {
