@@ -413,6 +413,7 @@ export default function DashboardLayout() {
     let retryTimer = null;
     let permissionDenied = false;
     let silenceTimer = null;
+    let wakeSRRunning = false;
 
     // Request mic permission upfront — keeps Chrome from playing "ding" on SR restart
     navigator.mediaDevices?.getUserMedia({ audio: true })
@@ -420,7 +421,7 @@ export default function DashboardLayout() {
       .catch(() => {});
 
     function startWake() {
-      if (!active || permissionDenied || wakePausedRef.current) return;
+      if (!active || permissionDenied || wakePausedRef.current || wakeSRRunning) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;
@@ -433,6 +434,10 @@ export default function DashboardLayout() {
           'hey pragati', 'hey pragatee', 'hey pragathy', 'hey progati',
           'hey prakati', 'ey pragati', 'hi pragati', 'hi pragatee'
         ];
+
+        sr.onstart = () => {
+          wakeSRRunning = true;
+        };
 
         sr.onresult = e => {
           for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -497,24 +502,33 @@ export default function DashboardLayout() {
         };
 
         sr.onend = () => {
+          wakeSRRunning = false;
           if (active && !permissionDenied && !wakePausedRef.current) {
-            retryTimer = setTimeout(startWake, 200);
+            retryTimer = setTimeout(startWake, 300);
           }
         };
 
         sr.onerror = e => {
+          wakeSRRunning = false;
           if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
             permissionDenied = true;
             active = false;
             setMicBlocked(true);
             return;
           }
-          if (active && !wakePausedRef.current) retryTimer = setTimeout(startWake, 800);
+          if (active && !wakePausedRef.current) {
+            clearTimeout(retryTimer);
+            retryTimer = setTimeout(startWake, 1000);
+          }
         };
 
         sr.start();
-      } catch {
-        if (active) retryTimer = setTimeout(startWake, 2000);
+      } catch (err) {
+        wakeSRRunning = false;
+        if (active) {
+          clearTimeout(retryTimer);
+          retryTimer = setTimeout(startWake, 2000);
+        }
       }
     }
 
@@ -551,11 +565,17 @@ export default function DashboardLayout() {
 
   // ── Dashboard Load Welcome Greeting — fires once per browser session ─────
   React.useEffect(() => {
-    if (!user || welcomeSpokenRef.current) return;
+    if (!user || window.pragatiWelcomeGreetingSpoken) return;
+    
     const sessionKey = 'pragati_welcomed_session';
-    if (sessionStorage.getItem(sessionKey)) return; // already greeted this session
-    welcomeSpokenRef.current = true;
+    if (sessionStorage.getItem(sessionKey)) {
+      window.pragatiWelcomeGreetingSpoken = true;
+      return;
+    }
+    
+    window.pragatiWelcomeGreetingSpoken = true;
     sessionStorage.setItem(sessionKey, '1');
+    
     const firstName = (user?.name || 'friend').split(' ')[0];
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';

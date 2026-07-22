@@ -401,12 +401,12 @@ Candidate: ${candidateName||'Student'} | Role: ${targetRole||'Software Engineer'
 Interview Question: ${question}
 Candidate's Answer: ${answer}
 
-Provide constructive feedback covering:
-1. What you covered: (State what the candidate successfully mentioned)
-2. What is the right answer: (Provide the ideal correct technical explanation with key terms)
-3. Actionable improvement tips.
+Evaluate the candidate's response. You MUST format your response strictly as:
+1. What you covered: (State what the candidate successfully mentioned in their answer. If they made any technical errors, correct them here.)
+2. Short Model Answer: (Provide a concise, 2-3 sentence explanation of the correct answer that the student can directly speak in a real interview. Keep it practical, clear, and direct.)
+3. Actionable Tip: (One specific tip to improve delivery or technical depth.)
 
-Structure your response clearly with these bullet points. Avoid markdown formatting (no bolding, no headers, no stars). Keep the entire feedback under 120 words.`;
+Do NOT include "Congratulations on completing all questions" or next question instructions. Do NOT use markdown formatting (no bolding, no asterisks, no headers). Keep the total response under 100 words.`;
 
     const text = await callAI(prompt, 200);
     if (text) return res.json({ feedback: text });
