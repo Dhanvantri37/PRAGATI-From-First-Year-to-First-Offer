@@ -231,6 +231,12 @@ export default function DashboardLayout() {
   const [voiceGender, setVoiceGender] = React.useState(() =>
     localStorage.getItem('pragati_voice_gender') || 'female'
   );
+  
+  const voiceGenderRef = React.useRef(voiceGender);
+  const voiceAccentRef = React.useRef(voiceAccent);
+  
+  React.useEffect(() => { voiceGenderRef.current = voiceGender; }, [voiceGender]);
+  React.useEffect(() => { voiceAccentRef.current = voiceAccent; }, [voiceAccent]);
 
   const [showEditProfile,   setShowEditProfile]   = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -256,6 +262,9 @@ export default function DashboardLayout() {
   const wakeRestartRef  = useRef(null); // callback to restart wake SR after mic releases
   const wakePausedRef   = useRef(false); // true while in-chat mic is active — stops wake SR from restarting
   const [micBlocked,   setMicBlocked]   = useState(false); // true if user denied mic permission
+  
+  const pragatiVoiceRef = React.useRef(pragatiVoice);
+  React.useEffect(() => { pragatiVoiceRef.current = pragatiVoice; }, [pragatiVoice]);
 
   // Navigation command map
   const NAV_COMMANDS = [
@@ -284,7 +293,7 @@ export default function DashboardLayout() {
 
   // PRAGATI TTS — Browser-first/Backend Dual-Provider (ElevenLabs/Edge-TTS)
   async function pragatiSpeak(text, forceGender = null, forceAccent = null, forceToneAlt = false) {
-    if (!pragatiVoice || !text?.trim()) return;
+    if (!pragatiVoiceRef.current || !text?.trim()) return;
 
     // Pause wake word detection while speaking
     wakePausedRef.current = true;
@@ -308,19 +317,25 @@ export default function DashboardLayout() {
     const resumeWake = () => {
       setTtsSpeaking(false);
       setTtsLoading(false);
-      wakePausedRef.current = false;
-      if (wakeRestartRef.current) wakeRestartRef.current();
+      // Safe 500ms delay to allow Chrome to release mic completely before restart
+      setTimeout(() => {
+        wakePausedRef.current = false;
+        if (wakeRestartRef.current) wakeRestartRef.current();
+      }, 500);
     };
 
     // ── 1. Try Backend Neural TTS (ElevenLabs / Edge-TTS) ──────────────────
     setTtsLoading(true);
     try {
+      const activeGender = forceGender || voiceGenderRef.current;
+      const activeAccent = forceAccent || voiceAccentRef.current;
+
       const response = await axios.post(`${API}/tts`, {
         text: clean,
-        gender: forceGender || voiceGender,
-        accent: forceAccent || voiceAccent,
+        gender: activeGender,
+        accent: activeAccent,
         toneAlt: forceToneAlt,
-        role: (forceGender || voiceGender) === 'male' ? 'system_male' : 'system_female'
+        role: activeGender === 'male' ? 'system_male' : 'system_female'
       }, {
         responseType: 'blob'
       });
@@ -357,13 +372,15 @@ export default function DashboardLayout() {
 
     setTtsSpeaking(true);
     const utt = new SpeechSynthesisUtterance(clean);
-    const voice = getNaturalVoice(voiceAccent, voiceGender);
+    const activeGender = forceGender || voiceGenderRef.current;
+    const activeAccent = forceAccent || voiceAccentRef.current;
+    const voice = getNaturalVoice(activeAccent, activeGender);
     utt.pitch = 1.05;
     utt.rate  = 1.0;
     utt.volume = 1.0;
 
     if (voice) { utt.voice = voice; utt.lang = voice.lang; }
-    else { utt.lang = voiceAccent === 'foreign' ? 'en-US' : 'en-IN'; }
+    else { utt.lang = activeAccent === 'foreign' ? 'en-US' : 'en-IN'; }
 
     const ka = setInterval(() => { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); }, 3000);
     utt.onend = () => { clearInterval(ka); resumeWake(); };

@@ -393,7 +393,7 @@ Rules: 5 technical questions, 4 behavioral questions, 3 gap questions, 4 quick w
 // ── POST /api/skillpath/interview-feedback ────────────────────────────────────
 router.post('/interview-feedback', authenticate, async (req, res) => {
   try {
-    const { question, answer, nextQuestion, candidateName, targetRole } = req.body;
+    const { question, answer, candidateName, targetRole } = req.body;
     if (!answer?.trim()) return res.json({ feedback: 'Please type or speak your answer first.' });
 
     const prompt = `You are a campus placement interview coach for Indian engineering students.
@@ -401,21 +401,24 @@ Candidate: ${candidateName||'Student'} | Role: ${targetRole||'Software Engineer'
 Interview Question: ${question}
 Candidate's Answer: ${answer}
 
-Give 2-3 sentence constructive feedback: what was good, what to improve, encourage using STAR format if weak.
-${nextQuestion ? `End with "Next Question: ${nextQuestion}"` : 'Congratulate them for completing all questions.'}
-Keep under 100 words. No markdown formatting.`;
+Provide constructive feedback covering:
+1. What you covered: (State what the candidate successfully mentioned)
+2. What is the right answer: (Provide the ideal correct technical explanation with key terms)
+3. Actionable improvement tips.
+
+Structure your response clearly with these bullet points. Avoid markdown formatting (no bolding, no headers, no stars). Keep the entire feedback under 120 words.`;
 
     const text = await callAI(prompt, 200);
     if (text) return res.json({ feedback: text });
 
     // Mock fallback
     const words = (answer||'').split(/\s+/).filter(Boolean).length;
-    const quality = words>=50?'Good depth and detail!':words>=20?'Decent — try adding a specific example using STAR format.':'Too brief — aim for 3-4 sentences with a concrete example.';
-    const nxt = nextQuestion ? `\n\n➡️ Next Question: ${nextQuestion}` : '\n\n✅ Great work completing the mock interview!';
-    res.json({ feedback: `📝 ${quality}${nxt}` });
+    const quality = words>=50?'Good depth and detail!':words>=20?'Decent — try adding a specific example.':'Too brief — aim for 3-4 sentences.';
+    const fallbackText = `What you covered: ${quality} What is the right answer: You should explain the core concept step-by-step with relevant real-world use cases or coding patterns. Actionable Tip: Structure your answers using the STAR method and practice mock questions daily.`;
+    res.json({ feedback: fallbackText });
   } catch (err) {
     console.error('Feedback error:', err.message);
-    res.json({ feedback: 'Good attempt! Be more specific next time.' + (req.body.nextQuestion ? `\n\nNext: ${req.body.nextQuestion}` : '') });
+    res.json({ feedback: 'What you covered: A general answer. What is the right answer: Explain the technical concept clearly and list its advantages. Actionable Tip: Be more specific and practice speaking key definitions.' });
   }
 });
 

@@ -120,26 +120,52 @@ router.post('/', authenticate, async (req, res) => {
     let provider = 'none';
     let audioResponse = null;
 
-    // ── Try ElevenLabs first ─────────────────────────────────────────────
-    try {
+    const tryElevenLabs = async () => {
       audioResponse = await speakElevenLabs(cleanText, voiceCfg.elevenlabs);
       provider = 'elevenlabs';
       console.log(`[TTS] ElevenLabs ✅ role=${role} chars=${cleanText.length}`);
-    } catch (elErr) {
-      console.warn(`[TTS] ElevenLabs failed (${elErr.message}), trying Edge-TTS...`);
+    };
 
-      // ── Try Edge-TTS fallback ───────────────────────────────────────────
+    const tryEdge = async () => {
+      audioResponse = await speakEdge(cleanText, voiceCfg.edge);
+      provider = 'edge';
+      console.log(`[TTS] Edge-TTS ✅ role=${role} voice=${voiceCfg.edge}`);
+    };
+
+    // If Indian accent, prioritize Edge-TTS (since ElevenLabs free plan lacks native Indian voices)
+    const prioritizeEdge = (accent && accent.toLowerCase() === 'indian');
+
+    if (prioritizeEdge) {
       try {
-        audioResponse = await speakEdge(cleanText, voiceCfg.edge);
-        provider = 'edge';
-        console.log(`[TTS] Edge-TTS ✅ role=${role} voice=${voiceCfg.edge}`);
+        await tryEdge();
       } catch (edgeErr) {
-        console.warn(`[TTS] Edge-TTS failed (${edgeErr.message}), falling back to browser TTS`);
-        return res.status(503).json({
-          error: 'All TTS providers unavailable',
-          fallback: 'browser',
-          message: 'Use browser speechSynthesis as fallback',
-        });
+        console.warn(`[TTS] Prioritized Edge-TTS failed (${edgeErr.message}), trying ElevenLabs...`);
+        try {
+          await tryElevenLabs();
+        } catch (elErr) {
+          console.warn(`[TTS] ElevenLabs fallback failed (${elErr.message}), falling back to browser TTS`);
+          return res.status(503).json({
+            error: 'All TTS providers unavailable',
+            fallback: 'browser',
+            message: 'Use browser speechSynthesis as fallback',
+          });
+        }
+      }
+    } else {
+      try {
+        await tryElevenLabs();
+      } catch (elErr) {
+        console.warn(`[TTS] ElevenLabs failed (${elErr.message}), trying Edge-TTS...`);
+        try {
+          await tryEdge();
+        } catch (edgeErr) {
+          console.warn(`[TTS] Edge-TTS fallback failed (${edgeErr.message}), falling back to browser TTS`);
+          return res.status(503).json({
+            error: 'All TTS providers unavailable',
+            fallback: 'browser',
+            message: 'Use browser speechSynthesis as fallback',
+          });
+        }
       }
     }
 

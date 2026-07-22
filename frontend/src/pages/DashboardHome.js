@@ -695,6 +695,12 @@ function StudentDash() {
   const [prepResults, setPrepResults] = useState([]);
   const [prepMic, setPrepMic] = useState(false);
   const [prepOverallFeedback, setPrepOverallFeedback] = useState('');
+  const [isMobileScreen, setIsMobileScreen] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobileScreen(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [loading, setLoading]   = useState(true);
   const [leaderboard, setLeaderboard] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -956,6 +962,59 @@ function StudentDash() {
     }
   };
 
+  const speakFeedbackAndThen = async (feedbackText, onDone) => {
+    setPrepLoading(true);
+    try {
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (window.interviewAudioPlayer) {
+        try { window.interviewAudioPlayer.pause(); } catch(e){}
+        window.interviewAudioPlayer = null;
+      }
+      
+      const response = await fetch(`${API}/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('pragati_token')}`
+        },
+        body: JSON.stringify({
+          text: `Feedback. ${feedbackText}`,
+          role: 'system_female' // Natural Indian English female Neerja Neural voice
+        })
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        window.interviewAudioPlayer = audio;
+        
+        audio.onended = () => {
+          setPrepLoading(false);
+          onDone();
+        };
+        audio.onerror = () => {
+          setPrepLoading(false);
+          onDone();
+        };
+        await audio.play();
+      } else {
+        throw new Error('TTS failed');
+      }
+    } catch (e) {
+      // Fallback
+      setPrepLoading(false);
+      const ut = new SpeechSynthesisUtterance(`Feedback. ${feedbackText}`);
+      const voices = window.speechSynthesis?.getVoices() || [];
+      const englishVoice = voices.find(v => v.lang.startsWith('en-IN')) || voices[0];
+      if (englishVoice) ut.voice = englishVoice;
+      
+      ut.onend = () => { onDone(); };
+      ut.onerror = () => { onDone(); };
+      window.speechSynthesis?.speak(ut);
+    }
+  };
+
   const startWidgetInterview = () => {
     const shuffled = [...DYNAMIC_INTERVIEW_QUESTIONS].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 10); // 10 questions per round!
@@ -990,50 +1049,51 @@ function StudentDash() {
       const updatedResults = [...prepResults, newResult];
       setPrepResults(updatedResults);
       
-      if (prepIdx < prepQuestions.length - 1) {
-        setTimeout(() => {
+      // Let Pragati speak feedback, then go to next question or complete
+      speakFeedbackAndThen(d.feedback, () => {
+        if (prepIdx < prepQuestions.length - 1) {
           const nextIdx = prepIdx + 1;
-          // Synchronized generation & playback first before displaying Q on screen!
           loadAndPlayQuestion(prepQuestions[nextIdx].question, false, nextIdx);
-        }, 5000); // Give 5 seconds to review feedback of current question
-      } else {
-        // Compute overall score
-        let scoreSum = 0;
-        updatedResults.forEach(r => {
-          const words = r.answer.trim().split(/\s+/).length;
-          if (words >= 45) scoreSum += 9;
-          else if (words >= 25) scoreSum += 7;
-          else scoreSum += 4;
-        });
-        const finalScore = Math.round(scoreSum / updatedResults.length);
-        setPrepOverallFeedback(`Grade: ${finalScore}/10. Great job completing the mock interview series!`);
-        setPrepStatus('completed');
-        
-        // Voice final success note
-        const congratsMsg = `Congratulations! You have completed all mock questions. Wishing you the absolute best of luck for your upcoming interviews! You've got this!`;
-        try {
-          if (window.speechSynthesis) window.speechSynthesis.cancel();
-          const response = await fetch(`${API}/tts`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('pragati_token')}`
-            },
-            body: JSON.stringify({ text: congratsMsg, role: 'system_female' })
+        } else {
+          // Compute overall score
+          let scoreSum = 0;
+          updatedResults.forEach(r => {
+            const words = r.answer.trim().split(/\s+/).length;
+            if (words >= 45) scoreSum += 9;
+            else if (words >= 25) scoreSum += 7;
+            else scoreSum += 4;
           });
-          if (response.ok) {
-            const blob = await response.blob();
-            const audio = new Audio(URL.createObjectURL(blob));
-            await audio.play();
+          const finalScore = Math.round(scoreSum / updatedResults.length);
+          setPrepOverallFeedback(`Grade: ${finalScore}/10. Great job completing the mock interview series!`);
+          setPrepStatus('completed');
+          
+          // Voice final success note
+          const congratsMsg = `Congratulations! You have completed all mock questions. Wishing you the absolute best of luck for your upcoming interviews! You've got this!`;
+          try {
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            fetch(`${API}/tts`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('pragati_token')}`
+              },
+              body: JSON.stringify({ text: congratsMsg, role: 'system_female' })
+            }).then(response => {
+              if (response.ok) {
+                response.blob().then(blob => {
+                  const audio = new Audio(URL.createObjectURL(blob));
+                  audio.play();
+                });
+              }
+            });
+          } catch (e) {
+            const ut = new SpeechSynthesisUtterance(congratsMsg);
+            window.speechSynthesis?.speak(ut);
           }
-        } catch (e) {
-          const ut = new SpeechSynthesisUtterance(congratsMsg);
-          window.speechSynthesis?.speak(ut);
         }
-      }
+      });
     } catch (err) {
       console.error(err);
-    } finally {
       setPrepLoading(false);
     }
   };
@@ -1176,8 +1236,14 @@ function StudentDash() {
               />
             </div>
 
-            {/* Below Heatmap: 2-Column layout */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:24, borderTop:'1px solid #e8edf5', paddingTop:20 }}>
+            {/* Below Heatmap: Stacks on Mobile */}
+            <div style={{
+              display:'grid',
+              gridTemplateColumns: isMobileScreen ? '1fr' : '1fr 1.5fr',
+              gap:24,
+              borderTop:'1px solid #e8edf5',
+              paddingTop:20
+            }}>
               {/* Left Column: Donut Chart */}
               <div style={{ minWidth:190 }}>
                 <div style={{ fontSize:'.7rem', fontWeight:700, color:'var(--text-2)', marginBottom:12 }}>💻 Problems Breakdown</div>
@@ -1189,7 +1255,12 @@ function StudentDash() {
               </div>
 
               {/* Right Column: AI Interview Prep Widget */}
-              <div style={{ borderLeft:'1px solid #e8edf5', paddingLeft:24 }}>
+              <div style={{
+                borderLeft: isMobileScreen ? 'none' : '1px solid #e8edf5',
+                borderTop: isMobileScreen ? '1px solid #e8edf5' : 'none',
+                paddingLeft: isMobileScreen ? 0 : 24,
+                paddingTop: isMobileScreen ? 20 : 0
+              }}>
                 <div style={{ fontSize:'.82rem', fontWeight:800, color:'var(--text)', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
                   🎙️ AI Placement Interview Prep
                 </div>
