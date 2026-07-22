@@ -458,14 +458,14 @@ export default function DashboardLayout() {
                 if (command) {
                   setPragatiInput(command);
 
-                  // Setup silence timer to submit command immediately after user stops speaking (reduced to 1.0s!)
+                  // Setup silence timer to submit command after user stops speaking (2.2s for natural pace)
                   if (silenceTimer) clearTimeout(silenceTimer);
                   silenceTimer = setTimeout(() => {
                     if (active) {
                       try { wakeSRRef.current?.stop(); } catch {}
                       sendPragati(command);
                     }
-                  }, 1000);
+                  }, 2200);
                   
                   if (isFinal) {
                     if (silenceTimer) clearTimeout(silenceTimer);
@@ -478,16 +478,18 @@ export default function DashboardLayout() {
                     return;
                   }
                 } else {
-                  // Wake word only - trigger INSTANTLY! No isFinal wait.
-                  try { wakeSRRef.current?.stop(); } catch {}
-                  
-                  setWakePulse(true);
-                  setWakeListening(true);
-                  setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
-                  
-                  pragatiSpeak("Hey! I'm here. What can I help you with?");
-                  pragatiInputRef.current?.focus();
-                  return;
+                  // Wake word only - trigger only when isFinal is true (meaning user paused after saying wake word)
+                  if (isFinal) {
+                    try { wakeSRRef.current?.stop(); } catch {}
+                    
+                    setWakePulse(true);
+                    setWakeListening(true);
+                    setTimeout(() => { setWakePulse(false); setWakeListening(false); }, 1800);
+                    
+                    pragatiSpeak("Hey! I'm here. What can I help you with?");
+                    pragatiInputRef.current?.focus();
+                    return;
+                  }
                 }
               }
             }
