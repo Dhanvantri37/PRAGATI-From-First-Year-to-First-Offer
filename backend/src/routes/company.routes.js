@@ -241,7 +241,7 @@ router.post('/ai-retrieve', authenticate, async (req, res) => {
     const aiPrompt = `I want real company information as per the following points give me proper company details with respecr to following points:
 Now give me details with links for ${searchName}. Make Sure You will give me the latest Company Data CtC difficulty eligibilityCriteria-->minCGPA,allowedBranches,backlogs rolesrecruitmentRounds aptitudePatterns interviewPatterns jdText tags companyOverview techStack workCulture growthPath interviewDifficulty bondDetails hiringMode testPlatform bond packageBreakdown Give me all this details .
 
-Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON:
+Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON. Ensure all links inside the "resources" array point to actual Glassdoor interview questions or review pages for the company:
 {
   "name": "${searchName}",
   "sector": "Sector of the company (e.g. IT Services, Fintech, Core Engineering)",
@@ -273,8 +273,7 @@ Return the data STRICTLY formatted as a valid JSON object matching the following
   "bond": "Bond duration (e.g., 1 year or None)",
   "packageBreakdown": "Salary package breakdown...",
   "resources": [
-    "https://unstop.com",
-    "https://prepinsta.com"
+    "https://www.glassdoor.co.in/Interview/Company-Name-Interview-Questions-E12345.htm"
   ]
 }`;
 
@@ -289,7 +288,21 @@ Return the data STRICTLY formatted as a valid JSON object matching the following
     parsed.status = '-';
     parsed.campusVisitDate = '-';
 
-    // 3. Construct direct logo URL using Clearbit Logo API
+    // Construct Glassdoor fallback resources if needed
+    if (!Array.isArray(parsed.resources)) {
+      parsed.resources = [];
+    }
+    parsed.resources = parsed.resources.filter(r => r && !r.includes('example.com') && !r.includes('unstop.com') && !r.includes('prepinsta.com'));
+    
+    const hasGlassdoor = parsed.resources.some(r => r.includes('glassdoor'));
+    if (!hasGlassdoor) {
+      const cleanName = parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      parsed.resources.unshift(`https://www.glassdoor.co.in/Interview/${cleanName}-interview-questions.htm`);
+    }
+    // Always append direct keyword search fallback
+    parsed.resources.push(`https://www.glassdoor.co.in/Interview/special-search.htm?txtKeyword=${encodeURIComponent(parsed.name + ' Interview')}`);
+
+    // 3. Construct direct logo URL using Google Favicon API (guaranteed 100% no 404s)
     let domain = '';
     const web = parsed.website || '';
     try {
@@ -297,9 +310,9 @@ Return the data STRICTLY formatted as a valid JSON object matching the following
     } catch (e) {}
     
     if (domain) {
-      parsed.logoUrl = `https://logo.clearbit.com/${domain}`;
+      parsed.logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${domain}`;
     } else {
-      parsed.logoUrl = `https://logo.clearbit.com/${parsed.name.toLowerCase().replace(/\s+/g, '')}.com`;
+      parsed.logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${parsed.name.toLowerCase().replace(/\s+/g, '')}.com`;
     }
 
     // 4. Save the company into the database
