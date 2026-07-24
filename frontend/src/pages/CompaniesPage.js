@@ -74,7 +74,7 @@ function LogoTicker({ companies }) {
 // ── Company card (Internshala-style) ──────────────────────────────────────────
 function CompanyCard({ company, onPin, onCompareToggle, compareSelected, onViewDetail }) {
   const ds = DIFF_STYLE[company.difficulty] || DIFF_STYLE.Easy;
-  const ss = STATUS_STYLE[company.status]   || STATUS_STYLE.expected;
+  const ss = STATUS_STYLE[company.status]   || { bg:'rgba(100,116,139,.08)', color:'#64748b' };
   const [pinLoading, setPinLoading] = useState(false);
 
   async function handlePin(e) {
@@ -128,7 +128,7 @@ function CompanyCard({ company, onPin, onCompareToggle, compareSelected, onViewD
       <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
         <span style={{ padding:'2px 8px', borderRadius:999, fontSize:'.68rem', fontWeight:700, background:ds.bg, color:ds.color, border:`1px solid ${ds.border}` }}>{company.difficulty || '—'}</span>
         <span style={{ padding:'2px 8px', borderRadius:999, fontSize:'.68rem', fontWeight:700, background:ss.bg, color:ss.color }}>
-          {company.status === 'visited' ? '✓ Visited' : company.status === 'upcoming' ? '⏳ Upcoming' : '📅 Expected'}
+          {company.status === 'visited' ? '✓ Visited' : company.status === 'upcoming' ? '⏳ Upcoming' : company.status === 'expected' ? '📅 Expected' : '-'}
         </span>
         {company.ctc && <span style={{ padding:'2px 8px', borderRadius:999, fontSize:'.68rem', fontWeight:700, background:'rgba(71,211,114,.08)', color:'#166534' }}>💰 {company.ctc}</span>}
       </div>
@@ -189,12 +189,12 @@ function CompareModal({ companies, onClose }) {
     { label:'Difficulty',      key: c => c.difficulty || '—' },
     { label:'CTC',             key: c => c.ctc || '—' },
     { label:'Min CGPA',        key: c => c.eligibilityCriteria?.minCGPA || '—' },
-    { label:'Status',          key: c => c.status },
+    { label:'Status',          key: c => c.status === 'visited' ? 'Visited' : c.status === 'upcoming' ? 'Upcoming' : c.status === 'expected' ? 'Expected' : '-' },
     { label:'Rounds',          key: c => c.recruitmentRounds?.length ? `${c.recruitmentRounds.length} rounds` : '—' },
     { label:'Roles',           key: c => (c.roles||[]).join(', ') || '—' },
     { label:'Allowed Branches',key: c => (c.eligibilityCriteria?.allowedBranches||[]).join(', ') || 'All' },
     { label:'Bond',            key: c => c.eligibilityCriteria?.backlogs ? 'Backlogs allowed' : 'No backlogs' },
-    { label:'Campus Visit',    key: c => c.campusVisitDate ? new Date(c.campusVisitDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—' },
+    { label:'Campus Visit',    key: c => c.campusVisitDate && c.campusVisitDate !== '-' ? new Date(c.campusVisitDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '-' },
     { label:'Tags',            key: c => (c.tags||[]).join(', ') || '—' },
   ];
 
@@ -346,7 +346,7 @@ function CompanyDetail({ company, onClose, onPin }) {
             {[
               ['💰', 'CTC', company.ctc||'—'],
               ['📊', 'Difficulty', company.difficulty||'—'],
-              ['📅', 'Status', company.status],
+              ['📅', 'Status', company.status === 'visited' ? 'Visited' : company.status === 'upcoming' ? 'Upcoming' : company.status === 'expected' ? 'Expected' : '-'],
               ['🎓', 'Min CGPA', company.eligibilityCriteria?.minCGPA||'—'],
             ].map(([ic,l,v]) => (
               <div key={l} style={{ background:'rgba(255,255,255,.12)', borderRadius:10, padding:'8px 14px', minWidth:90 }}>
@@ -398,12 +398,84 @@ function CompanyDetail({ company, onClose, onPin }) {
             </Section>
           )}
 
+          {company.companyOverview && (
+            <Section title="🏢 Company Overview">
+              <DetailText>{company.companyOverview}</DetailText>
+            </Section>
+          )}
+
+          {company.techStack?.length > 0 && (
+            <Section title="💻 Tech Stack">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {company.techStack.map((tech, i) => (
+                  <span key={i} style={{ padding: '3px 10px', borderRadius: 7, background: 'rgba(83,22,151,.07)', color: '#531697', fontSize: '.75rem', fontWeight: 600 }}>{tech}</span>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          {company.workCulture && (
+            <Section title="🌟 Work Culture">
+              <DetailText>{company.workCulture}</DetailText>
+            </Section>
+          )}
+
+          {company.growthPath && (
+            <Section title="📈 Career Growth Path">
+              <DetailText>{company.growthPath}</DetailText>
+            </Section>
+          )}
+
+          {(company.bondDetails || company.hiringMode || company.testPlatform || company.packageBreakdown) && (
+            <Section title="⚖️ Service, Package & Platform Details">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 14px', background: '#f8f9fc', border: '1px solid #e8edf5', borderRadius: 12 }}>
+                {company.packageBreakdown && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#b0bec9', display: 'block', marginBottom: 2 }}>SALARY BREAKDOWN</span>
+                    <span style={{ fontSize: '.8rem', color: 'var(--text-2)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{company.packageBreakdown}</span>
+                  </div>
+                )}
+                {company.bondDetails && (
+                  <div>
+                    <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#b0bec9', display: 'block', marginBottom: 2 }}>SERVICE BOND DETAILS</span>
+                    <span style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>{company.bondDetails}</span>
+                  </div>
+                )}
+                {company.hiringMode && (
+                  <div>
+                    <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#b0bec9', display: 'block', marginBottom: 2 }}>HIRING MODE</span>
+                    <span style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>{company.hiringMode}</span>
+                  </div>
+                )}
+                {company.testPlatform && (
+                  <div>
+                    <span style={{ fontSize: '.68rem', fontWeight: 700, color: '#b0bec9', display: 'block', marginBottom: 2 }}>TEST ASSESSMENT PLATFORM</span>
+                    <span style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>{company.testPlatform}</span>
+                  </div>
+                )}
+              </div>
+            </Section>
+          )}
+
           {company.aptitudePatterns && <Section title="🧠 Aptitude Pattern"><DetailText>{company.aptitudePatterns}</DetailText></Section>}
           {company.interviewPatterns && <Section title="💬 Interview Pattern"><DetailText>{company.interviewPatterns}</DetailText></Section>}
           {company.jdText && <Section title="📄 Job Description / Company Intel"><DetailText>{company.jdText}</DetailText></Section>}
           {company.prepTips && (
             <Section title="💡 Preparation Tips">
               <div style={{ padding:'12px 14px', background:'rgba(83,22,151,.04)', borderRadius:10, border:'1px solid rgba(83,22,151,.1)', fontSize:'.83rem', color:'var(--text-2)', lineHeight:1.7 }}>{company.prepTips}</div>
+            </Section>
+          )}
+
+          {company.resources?.length > 0 && (
+            <Section title="📚 Additional Resources & Prep Blogs">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {company.resources.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer"
+                    style={{ fontSize: '.8rem', color: '#531697', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                    <span>🔗</span> <span style={{ textDecoration: 'underline' }}>{url}</span>
+                  </a>
+                ))}
+              </div>
             </Section>
           )}
 
@@ -473,6 +545,11 @@ export default function CompaniesPage() {
   const [compareList, setCompare]     = useState([]);       // max 3
   const [showCompare, setShowCompare] = useState(false);
 
+  // AI retrieval states
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+  const [aiSuccess, setAiSuccess] = useState('');
+
   useEffect(() => {
     fetch(`${API}/companies`, { headers: tk() })
       .then(r => r.json())
@@ -480,6 +557,34 @@ export default function CompaniesPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleAiRetrieve() {
+    if (!search.trim() || aiLoading) return;
+    setAiLoading(true);
+    setAiError('');
+    setAiSuccess('');
+    try {
+      const res = await fetch(`${API}/companies/ai-retrieve`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify({ name: search.trim() })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to retrieve company');
+      
+      setCompanies(cs => {
+        if (cs.some(c => c._id === d.company._id)) return cs;
+        return [d.company, ...cs];
+      });
+
+      setAiSuccess(d.message);
+      setDetail(d.company);
+    } catch (err) {
+      setAiError(err.message);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   function handlePin(id, pinned) {
     setCompanies(cs => cs.map(c => c._id === id ? { ...c, pinned } : c));
@@ -563,10 +668,69 @@ export default function CompaniesPage() {
       {loading ? (
         <div style={{ textAlign:'center', padding:60, color:'#b0bec9' }}>Loading companies…</div>
       ) : filtered.length === 0 ? (
-        <div style={{ textAlign:'center', padding:60 }}>
+        <div style={{ textAlign:'center', padding:40 }}>
           <div style={{ fontSize:'2.5rem', marginBottom:10 }}>🔍</div>
-          <div style={{ fontWeight:700, color:'#b0bec9' }}>{tab==='pinned'?'No pinned companies yet':'No companies match your filters'}</div>
+          <div style={{ fontWeight:700, color:'#b0bec9', marginBottom: 15 }}>{tab==='pinned'?'No pinned companies yet':'No companies match your filters'}</div>
           {tab==='pinned' && <div style={{ fontSize:'.82rem', color:'#b0bec9', marginTop:4 }}>Pin companies from the All Companies tab to save them here</div>}
+          
+          {tab !== 'pinned' && search.trim() && (
+            <div style={{
+              marginTop: 20,
+              padding: '24px',
+              borderRadius: 16,
+              background: 'rgba(83, 22, 151, 0.04)',
+              border: '1.5px dashed rgba(83, 22, 151, 0.3)',
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 12,
+              maxWidth: 500,
+              margin: '20px auto 0'
+            }}>
+              <div style={{ fontSize: '2rem' }}>✨</div>
+              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: '1.1rem', color: '#531697' }}>
+                Research "{search}" with AI
+              </div>
+              <p style={{ fontSize: '.83rem', color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                Pragati will search the internet for the latest recruitment rounds, tech stack, average package, eligibility criteria, and preparation tips, then add it to our database for all students!
+              </p>
+              <button
+                onClick={handleAiRetrieve}
+                disabled={aiLoading}
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 9,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #042c5d, #531697)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  cursor: aiLoading ? 'not-allowed' : 'pointer',
+                  fontFamily: "'Nunito', sans-serif",
+                  fontSize: '.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(83, 22, 151, 0.2)',
+                  transition: 'transform 0.2s'
+                }}
+                onMouseOver={e => !aiLoading && (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseOut={e => !aiLoading && (e.currentTarget.style.transform = 'scale(1)')}
+              >
+                {aiLoading ? (
+                  <>
+                    <div style={{ width: 14, height: 14, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    Researching & Seeding...
+                  </>
+                ) : (
+                  '🚀 Ask Pragati AI to retrieve'
+                )}
+              </button>
+              {aiError && <div style={{ fontSize: '.78rem', color: '#ef4444', fontWeight: 600 }}>❌ {aiError}</div>}
+              {aiSuccess && <div style={{ fontSize: '.78rem', color: '#22c55e', fontWeight: 600 }}>✅ {aiSuccess}</div>}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>

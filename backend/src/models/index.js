@@ -1,17 +1,16 @@
 const mongoose = require('mongoose');
 
-// ─── Company ─────────────────────────────────────────────────────────────────
 const companySchema = new mongoose.Schema({
   name: { type: String, required: true },
   sector: { type: String },
   logo: { type: String },
   website: { type: String },
-  status: { type: String, enum: ['visited', 'upcoming', 'expected'], default: 'expected' },
-  campusVisitDate: { type: Date },
+  status: { type: String, default: '-' },
+  campusVisitDate: { type: String, default: '-' },
   recruitmentRounds: [String],
   aptitudePatterns: { type: String },
   interviewPatterns: { type: String },
-  difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'] },
+  difficulty: { type: String }, // relaxed from enum to support range strings
   eligibilityCriteria: {
     minCGPA: { type: Number },
     allowedBranches: [String],
@@ -25,6 +24,17 @@ const companySchema = new mongoose.Schema({
   logoUrl: { type: String }, // direct logo URL
   glassdoorUrl: { type: String }, // optional Glassdoor link
   pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // bookmarked users
+  companyOverview: { type: String },
+  techStack: [String],
+  workCulture: { type: String },
+  growthPath: { type: String },
+  interviewDifficulty: { type: String },
+  bondDetails: { type: String },
+  hiringMode: { type: String },
+  testPlatform: { type: String },
+  bond: { type: String },
+  packageBreakdown: { type: String },
+  resources: [String],
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
