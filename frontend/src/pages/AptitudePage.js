@@ -1124,6 +1124,25 @@ export default function AptitudePage() {
               <p style={{ fontSize:'.82rem', color:'var(--text-3)', marginBottom:16 }}>
                 Select a target company to generate real exam questions powered by AI, or practice saved company papers.
               </p>
+
+              {/* Cognizant Gaming Assessment Special Banner */}
+              <div style={{ padding: '16px 20px', borderRadius: 14, background: 'linear-gradient(135deg, rgba(83,22,151,0.08), rgba(19,161,165,0.08))', border: '1.5px solid rgba(83,22,151,0.2)', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: '#531697', marginBottom: 4 }}>
+                    <span>🎮</span> Cognizant Gaming Assessment Rounds Simulator
+                  </div>
+                  <div style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>
+                    Practice Motion Pathfinder, Switch Rule Decoders, Geo-Sudoku, Grid Recall, and Fast Digit Speed Challenges.
+                  </div>
+                </div>
+                <button
+                  onClick={() => window.location.href = '/dashboard/practice/GAMING'}
+                  style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem', boxShadow: '0 4px 12px rgba(83,22,151,0.25)' }}
+                >
+                  🎮 Play Gaming Assessment →
+                </button>
+              </div>
+
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
                 {Object.entries(COMPANY_BADGES).map(([cName, badge]) => (
                   <div key={cName} style={{ padding:16, borderRadius:12, border:'1.5px solid #e8edf5', background:'var(--surface)', textAlign:'center' }}>
@@ -1134,6 +1153,12 @@ export default function AptitudePage() {
                         style={{ padding:'8px', borderRadius:8, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.75rem' }}>
                         🤖 AI Company Quiz
                       </button>
+                      {cName === 'Cognizant' && (
+                        <button onClick={() => window.location.href = '/dashboard/practice/GAMING'}
+                          style={{ padding:'7px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#059669,#10b981)', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.75rem' }}>
+                          🎮 Gaming Rounds
+                        </button>
+                      )}
                       <button onClick={() => handleStartPractice({ company:cName, count:15 })}
                         style={{ padding:'7px', borderRadius:8, border:'1.5px solid #d0d7e8', background:'transparent', color:'var(--text)', fontWeight:700, cursor:'pointer', fontSize:'.75rem' }}>
                         📖 Practice DB Questions
