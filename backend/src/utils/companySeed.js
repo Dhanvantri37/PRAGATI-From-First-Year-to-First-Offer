@@ -91,7 +91,7 @@ async function seed() {
       jdText: "Jaro Education is a pioneer in the executive education space. Hires tech graduates for core product development, customer success engineering, and enterprise solution architect roles.",
       prepTips: "Work heavily on spoken English, tone, and confidence.\nPrepare for sales pitch challenges by studying Jaro's executive programs.\nPrepare a solid explanation of why you are interested in a high-growth career path.",
       tags: ["edtech", "sales-alignment", "high-incentive", "growth-driven"],
-      companyOverview: "Leading online higher education provider in India. Partners with top tier universities (IIMs, IITs) to deliver premium executive programs. Over 2,000 employees.",
+      companyOverview: "Leading online higher education provider in India. Partners with top tier universities (IIMs, IITs) to deliver premium executive programs. Over 2,00,000 students enrolled.",
       techStack: ["PHP", "Laravel", "MySQL", "JavaScript", "React", "Node.js"],
       workCulture: "Fast-paced corporate sales and business development alignment. High growth, target-oriented environment.",
       growthPath: "Management Trainee → Assistant Manager → Manager → Senior Manager",
@@ -142,8 +142,7 @@ async function seed() {
         "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Interview-Questions-E1037435.htm",
         "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Software-Engineer-Interview-Questions-EI_IE1037435.0,29_KO30,47.htm",
         "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Mumbai-Interview-Questions-EI_IE1037435.0,29_IL.30,36_IM1070.htm",
-        "https://www.glassdoor.co.in/Interview/In-HR-Round-Basic-HR-questions-were-asked-like-Salary-Expections-why-should-we-hire-you-biggest-Success-why-you-wa-QTN_7274614.htm",
-
+        "https://www.glassdoor.co.in/Interview/In-HR-Round-Basic-HR-questions-were-asked-like-Salary-Expections-why-should-we-hire-you-biggest-Success-why-you-wa-QTN_7274614.htm"
       ]
     },
     {
@@ -257,7 +256,6 @@ async function seed() {
         "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E4427552.htm",
         "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E4427552.htm",
         "https://www.glassdoor.co.in/Salary/NonStop-io-Technologies-Salaries-E4427552.htm"
-
       ]
     },
     {
