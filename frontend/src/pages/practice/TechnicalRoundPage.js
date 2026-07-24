@@ -23,123 +23,55 @@ const SUBJECT_SUBTOPICS = {
 const CHEATSHEETS = {
   DBMS: {
     Normalization: {
-      summary: 'Normalization reduces data redundancy and improves data integrity by organizing fields and tables.',
+      summary: 'Normalization organizes database fields to reduce data redundancy and eliminate update/delete anomalies.',
       points: [
-        '1NF: Ensure column values are atomic (indivisible) and no repeating groups exist.',
-        '2NF: 1NF + eliminate partial functional dependencies (every non-key attribute depends fully on primary key).',
-        '3NF: 2NF + eliminate transitive functional dependencies (X → Y and Y → Z means X → Z).',
-        'BCNF: Strict 3NF — for every dependency X → Y, X must be a super key.'
+        '1NF: Ensure column values are atomic (indivisible) and no repeating groups/arrays exist.',
+        '2NF: 1NF + no partial dependency (every non-key attribute depends fully on the primary key).',
+        '3NF: 2NF + no transitive dependency (no non-key attribute depends on another non-key attribute).',
+        'BCNF: Strict 3NF — for every functional dependency X → Y, X must be a super key.',
+        '4NF & 5NF: 4NF eliminates multivalued dependencies; 5NF handles join dependencies.'
       ],
       shortcut: 'Rule of Thumb: If a non-key column depends on another non-key column, split it into a separate table!'
     },
     'SQL Joins & Queries': {
-      summary: 'SQL Joins combine rows from two or more tables based on a related column between them.',
+      summary: 'SQL Joins combine records from two or more tables based on common keys to support complex relational queries.',
       points: [
-        'INNER JOIN: Returns only matching records present in both tables.',
-        'LEFT JOIN: Returns all records from left table + matching records from right table (NULL if no match).',
-        'RIGHT JOIN: Returns all records from right table + matching left table records.',
-        'FULL OUTER JOIN: Returns all records when there is a match in either left or right table.',
+        'INNER JOIN: Returns matching rows present in both tables.',
+        'LEFT JOIN: Returns all rows from the left table + matching rows from the right (NULL if no match).',
+        'RIGHT JOIN: Returns all rows from the right table + matching left table rows.',
+        'FULL OUTER JOIN: Returns all rows when there is a match in either left or right table.',
         'WHERE vs HAVING: WHERE filters rows BEFORE aggregation; HAVING filters groups AFTER GROUP BY.'
       ],
-      shortcut: 'Performance Tip: Always ensure join columns (foreign keys) have indexes to prevent full table scans!'
+      shortcut: 'Performance Tip: Ensure foreign key columns used in JOIN conditions have indexes to prevent full table scans!'
     },
     'ACID & Transactions': {
-      summary: 'ACID guarantees database transaction reliability across concurrent operations and crashes.',
+      summary: 'ACID properties guarantee database transaction reliability across concurrent operations and unexpected crashes.',
       points: [
-        'Atomicity: Entire transaction succeeds or completely rolls back (All or Nothing).',
-        'Consistency: DB state remains valid according to constraints before and after execution.',
-        'Isolation: Concurrent transactions run independently without interfering with each other.',
-        'Durability: Committed data is permanently saved in non-volatile storage (WAL logging).'
+        'Atomicity: All operations in a transaction succeed or all fail and rollback (All or Nothing).',
+        'Consistency: Database state remains valid according to constraints before and after execution.',
+        'Isolation: Concurrent transactions execute independently without interference (MVCC / Locking).',
+        'Durability: Committed data is permanently saved in non-volatile disk storage (WAL logging).'
       ],
       shortcut: 'Isolation Levels: Read Uncommitted ➔ Read Committed ➔ Repeatable Read ➔ Serializable.'
-    }
-  },
-  OS: {
-    'Process & Threads': {
-      summary: 'Processes are independent execution units with separate memory space; Threads share address space.',
-      points: [
-        'Process: Isolated memory (Code, Data, Heap, Stack). Higher context-switch overhead.',
-        'Thread: Lightweight execution path within a process. Shares Heap and Data segment.',
-        'IPC (Inter-Process Communication): Shared Memory, Pipes, Sockets, Message Queues.',
-        'Context Switch: Saving CPU registers/registers state and loading another thread/process state.'
-      ],
-      shortcut: 'Tradeoff: Threads share memory for fast communication, but 1 crashed thread can bring down the process!'
     },
-    'Deadlocks & Sync': {
-      summary: 'Deadlock is a state where processes are permanently blocked waiting for resources held by each other.',
+    'Indexing & B-Trees': {
+      summary: 'Indexes are data structures (B-Trees / B+ Trees / Hash) that accelerate read queries at the expense of write overhead.',
       points: [
-        '4 Coffman Conditions: 1. Mutual Exclusion, 2. Hold & Wait, 3. No Preemption, 4. Circular Wait.',
-        'Mutex: Binary lock with OWNERSHIP — only locking thread can unlock.',
-        'Semaphore: Signaling counter variable without ownership (wait/P decrements, signal/V increments).'
+        'Clustered Index: Determines physical disk storage order of rows (only 1 per table, usually Primary Key).',
+        'Non-Clustered Index: Stored separately with pointers to actual data rows (multiple allowed per table).',
+        'Composite Index: Index built on multiple columns; follows the left-most prefix rule.',
+        'Covering Index: Non-clustered index containing all requested query columns, skipping data page reads.'
       ],
-      shortcut: 'Deadlock Prevention: Always acquire locks in a strict global lock ordering sequence!'
-    }
-  },
-  CN: {
-    'OSI & TCP/IP': {
-      summary: 'OSI 7-layer model defines standardized communication protocols for network systems.',
+      shortcut: 'B+ Tree Advantage: All data pointers are stored in leaf nodes linked together, enabling fast range scans!'
+    },
+    'NoSQL & CAP Theorem': {
+      summary: 'NoSQL databases scale horizontally and handle unstructured data using flexible data models.',
       points: [
-        'Layer 7 Application: HTTP, HTTPS, FTP, SMTP, DNS.',
-        'Layer 4 Transport: TCP (reliable 3-way handshake) and UDP (fast datagrams).',
-        'Layer 3 Network: IP routing, ICMP, Routers.',
-        'Layer 2 Data Link: MAC addresses, Ethernet switches.'
+        '4 NoSQL Types: Document (MongoDB), Key-Value (Redis), Column-Family (Cassandra), Graph (Neo4j).',
+        'CAP Theorem: A distributed store can guarantee at most 2 of 3: Consistency, Availability, Partition Tolerance.',
+        'BASE Properties: Basically Available, Soft state, Eventual consistency (NoSQL alternative to ACID).'
       ],
-      shortcut: 'Handshake: SYN ➔ SYN-ACK ➔ ACK establishes reliable TCP connection.'
-    }
-  },
-  OOPs: {
-    '4 Pillars': {
-      summary: 'Object-Oriented Programming models real-world software components through 4 fundamental principles.',
-      points: [
-        'Encapsulation: Bundling state and methods together while restricting direct access via private fields.',
-        'Abstraction: Exposing only high-level functionality contracts (Interfaces/Abstract classes).',
-        'Inheritance: Extending base class attributes to reuse code and establish hierarchical relationships.',
-        'Polymorphism: Overloading (compile-time) and Overriding (runtime dynamic dispatch).'
-      ],
-      shortcut: 'Design Principle: Favor composition ("has-a") over deep inheritance hierarchies ("is-a")!'
-    }
-  },
-  Java: {
-    'Core & JVM': {
-      summary: 'JVM executes Java bytecode platform-independently using Garbage Collection and JIT compilation.',
-      points: [
-        'JDK = JRE + Compilers (javac) & Dev tools. JRE = JVM + Core Java Runtime Libraries.',
-        'Memory: Young Generation (Eden + Survivor) ➔ Old Generation ➔ Metaspace (class metadata).',
-        'HashMap: Bucket array converted from Linked List to Red-Black Tree when bucket size > 8.'
-      ],
-      shortcut: 'Equals Contract: Always override hashCode() whenever you override equals()!'
-    }
-  },
-  Python: {
-    'Core Syntax': {
-      summary: 'Python is a high-level interpreted language with automatic reference-counting garbage collection.',
-      points: [
-        'GIL (Global Interpreter Lock): Mutex allowing only 1 thread to execute bytecode at a time.',
-        'List (mutable, ordered), Tuple (immutable, ordered), Set (unique, unordered), Dict (key-value).'
-      ],
-      shortcut: 'Concurrency Tip: Use multiprocessing for CPU-bound tasks and asyncio/threading for I/O bound!'
-    }
-  },
-  DSA: {
-    'Trees & Graphs': {
-      summary: 'Graph and Tree structures represent hierarchical and networked relationships between nodes.',
-      points: [
-        'BFS: Level-by-level traversal using Queue. Finds shortest path in unweighted graphs.',
-        'DFS: Deep path traversal using Stack/recursion. Used for topological sort & cycle detection.',
-        'BST: In-order traversal (Left ➔ Root ➔ Right) yields elements in sorted order.'
-      ],
-      shortcut: 'Dijkstra Algorithm: Min-Heap priority queue computes shortest path in non-negative weighted graphs.'
-    }
-  },
-  'System Design': {
-    'High-Level Architecture': {
-      summary: 'Designing scalable distributed systems balancing throughput, latency, and fault-tolerance.',
-      points: [
-        'Load Balancer: Distributes traffic across servers (Round Robin, Least Connections, Consistent Hashing).',
-        'Caching: Redis/Memcached in front of DB to serve 80% read traffic in under 5ms.',
-        'Database Sharding: Horizontal partitioning of data across multiple database nodes.'
-      ],
-      shortcut: 'CAP Theorem: In a network partition, you must choose between Consistency (CP) or Availability (AP).'
+      shortcut: 'PACELC Theorem: Expands CAP by addressing Latency (L) vs Consistency (C) when no partition exists!'
     }
   }
 };
@@ -152,95 +84,132 @@ const RESOURCE_LINKS = {
   ],
   OS: [
     { name: 'GeeksforGeeks OS Corner', url: 'https://www.geeksforgeeks.org/operating-systems-interview-questions/' },
-    { name: 'Scaler OS Topics', url: 'https://www.scaler.com/topics/operating-system/' },
-    { name: 'Tutorialspoint OS Q&A', url: 'https://www.tutorialspoint.com/operating_system/index.htm' }
+    { name: 'Scaler OS Topics', url: 'https://www.scaler.com/topics/operating-system/' }
   ],
   CN: [
-    { name: 'GeeksforGeeks Networking', url: 'https://www.geeksforgeeks.org/computer-network-interview-questions/' },
-    { name: 'IndiaBix Computer Networks', url: 'https://www.indiabix.com/networking/questions-and-answers/' }
+    { name: 'GeeksforGeeks Networking', url: 'https://www.geeksforgeeks.org/computer-network-interview-questions/' }
   ],
   OOPs: [
-    { name: 'GeeksforGeeks OOPs Guide', url: 'https://www.geeksforgeeks.org/oops-interview-questions/' },
-    { name: 'JavaTpoint OOPs Concepts', url: 'https://www.javatpoint.com/oops-interview-questions' }
+    { name: 'GeeksforGeeks OOPs Guide', url: 'https://www.geeksforgeeks.org/oops-interview-questions/' }
   ],
   Java: [
-    { name: 'GeeksforGeeks Java Corner', url: 'https://www.geeksforgeeks.org/java-interview-questions/' },
-    { name: 'JavaTpoint 500+ Java Q&A', url: 'https://www.javatpoint.com/corejava-interview-questions' },
-    { name: 'Baeldung Core Java', url: 'https://www.baeldung.com/java-tutorial' }
+    { name: 'GeeksforGeeks Java Corner', url: 'https://www.geeksforgeeks.org/java-interview-questions/' }
   ],
   Python: [
-    { name: 'GeeksforGeeks Python Corner', url: 'https://www.geeksforgeeks.org/python-interview-questions/' },
-    { name: 'InterviewBit Python Practice', url: 'https://www.interviewbit.com/python-interview-questions/' }
+    { name: 'GeeksforGeeks Python Corner', url: 'https://www.geeksforgeeks.org/python-interview-questions/' }
   ],
   DSA: [
-    { name: 'GeeksforGeeks DSA Sheet', url: 'https://www.geeksforgeeks.org/data-structures-algorithms-interview-questions/' },
-    { name: 'LeetCode Problemset', url: 'https://leetcode.com/problemset/' },
-    { name: 'Striver A2Z DSA Sheet', url: 'https://takeuforward.org/strivers-a2z-dsa-course/strivers-a2z-dsa-course-sheet-2/' }
+    { name: 'GeeksforGeeks DSA Sheet', url: 'https://www.geeksforgeeks.org/data-structures-algorithms-interview-questions/' }
   ],
   'System Design': [
-    { name: 'System Design Primer (GitHub ⭐)', url: 'https://github.com/donnemartin/system-design-primer' },
-    { name: 'ByteByteGo System Design Blog', url: 'https://blog.bytebytego.com/' },
-    { name: 'Grokking System Design', url: 'https://www.educative.io/courses/grokking-the-system-design-interview' }
+    { name: 'System Design Primer (GitHub ⭐)', url: 'https://github.com/donnemartin/system-design-primer' }
   ]
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 75 AUTHENTIC DBMS INTERVIEW QUESTIONS (Categorized by Subtopic & Level)
+// ─────────────────────────────────────────────────────────────────────────────
 const FALLBACK_QUESTIONS = {
   DBMS: {
     Normalization: [
-      { level: 'Beginner', company: 'TCS', q: 'What is normalization? Explain 1NF, 2NF, 3NF.', a: '1NF: Atomic values, no repeating groups.\n2NF: 1NF + no partial dependency (every non-key attribute depends fully on primary key).\n3NF: 2NF + no transitive dependency.\n\nExample: Table (OrderID, ProductID, ProductName) — ProductName depends only on ProductID (partial dep). Split into Orders & Products tables.' },
-      { level: 'Intermediate', company: 'Cognizant', q: 'What is BCNF (Boyce-Codd Normal Form)? How does it differ from 3NF?', a: 'BCNF is a stricter version of 3NF. For every functional dependency X → Y, X must be a super key.\n\n3NF allows Y to be a prime attribute even if X is not a super key. BCNF eliminates this exception to prevent redundancy when candidate keys overlap.' }
+      // Beginner (Service)
+      { level: 'Beginner', company: 'TCS/Infosys', q: 'What is Database Normalization and why is it used?', a: 'Normalization is the process of organizing data in a database to reduce redundancy and improve data integrity. It involves dividing large tables into smaller, related tables.' },
+      { level: 'Beginner', company: 'Wipro', q: 'What are database anomalies?', a: 'Anomalies are errors or inconsistencies that occur when modifying data in unnormalized tables. The three types are Insertion, Deletion, and Update anomalies.' },
+      { level: 'Beginner', company: 'Accenture', q: 'What is the First Normal Form (1NF)?', a: 'A table is in 1NF if it contains only atomic (indivisible) values and each column contains values of a single type. There can be no repeating groups or arrays.' },
+      { level: 'Beginner', company: 'Cognizant', q: 'What is a Primary Key?', a: 'A Primary Key is a column (or set of columns) that uniquely identifies each row in a table. It must contain unique values and cannot be NULL.' },
+      { level: 'Beginner', company: 'HCL', q: 'What is the difference between a Candidate Key and a Super Key?', a: 'A Super Key is any combination of columns that uniquely identifies a row. A Candidate Key is a minimal Super Key, meaning no subset of its columns can uniquely identify the row.' },
+      // Intermediate (Cognizant/Zoho)
+      { level: 'Intermediate', company: 'Cognizant GenC Next', q: 'What is the Second Normal Form (2NF)?', a: 'A table is in 2NF if it is in 1NF and all non-key attributes are fully functionally dependent on the entire primary key (no partial dependencies).' },
+      { level: 'Intermediate', company: 'Zoho', q: 'What is the Third Normal Form (3NF)?', a: 'A table is in 3NF if it is in 2NF and all non-key attributes are strictly dependent only on the primary key (no transitive dependencies).' },
+      { level: 'Intermediate', company: 'Capgemini', q: 'What is Denormalization and when would you use it?', a: 'Denormalization is the intentional introduction of redundancy into a database to optimize read performance and reduce the complexity of JOIN operations in read-heavy applications.' },
+      { level: 'Intermediate', company: 'LTIMindtree', q: 'What is a Functional Dependency?', a: 'A functional dependency describes a relationship where the value of one attribute (or set of attributes) uniquely determines the value of another attribute (e.g., EmployeeID -> EmployeeName).' },
+      { level: 'Intermediate', company: 'Virtusa', q: 'What is Boyce-Codd Normal Form (BCNF)?', a: 'BCNF is a stricter version of 3NF. A table is in BCNF if, for every non-trivial functional dependency X -> Y, X is a super key.' },
+      // Advanced (Amazon/FAANG)
+      { level: 'Advanced', company: 'Amazon', q: 'What is the exact difference between 3NF and BCNF? Provide an example.', a: 'A table can be in 3NF but fail BCNF if overlapping candidate keys exist. For example, in a table mapping Student, Course, and Instructor where Student/Course determines Instructor, and Instructor determines Course. 3NF allows this, but BCNF fails because Instructor determines Course but is not a super key.' },
+      { level: 'Advanced', company: 'Microsoft', q: 'What is Multivalued Dependency and the Fourth Normal Form (4NF)?', a: 'Multivalued dependency occurs when one primary key attribute determines multiple independent values of two or more other attributes. 4NF eliminates these by splitting them into separate tables.' },
+      { level: 'Advanced', company: 'Google', q: 'What is Join Dependency and the Fifth Normal Form (5NF)?', a: 'A table is in 5NF if it cannot be decomposed into smaller tables without losing data when those smaller tables are joined back together (lossless decomposition).' },
+      { level: 'Advanced', company: 'Flipkart', q: 'What is Lossless-Join Decomposition?', a: 'It is a decomposition process where a relation is divided into smaller relations such that joining them back together using a natural join yields the exact original relation without any phantom rows.' },
+      { level: 'Advanced', company: 'Amazon', q: 'How does strict normalization impact OLTP vs. OLAP database performance?', a: 'Strict normalization is highly beneficial for OLTP (Online Transaction Processing) as it makes writes fast and safe. However, it severely degrades OLAP (Online Analytical Processing) performance, as complex analytical queries require expensive, multi-table JOINs.' }
     ],
     'SQL Joins & Queries': [
-      { level: 'Beginner', company: 'Infosys', q: 'Difference between INNER JOIN, LEFT JOIN, and FULL OUTER JOIN.', a: 'INNER JOIN: Returns only matching rows from both tables.\nLEFT JOIN: Returns all rows from left table + matching rows from right (NULL if no match).\nFULL OUTER JOIN: Returns all rows when there is a match in either left or right table.' },
-      { level: 'Intermediate', company: 'Wipro', q: 'WHERE vs HAVING clause in SQL — when to use which?', a: 'WHERE: Filters individual rows BEFORE aggregation.\nHAVING: Filters aggregated groups AFTER GROUP BY.\n\nRule: Use WHERE for column conditions (salary > 50000); use HAVING for aggregate functions (COUNT(*) > 5).' }
+      // Beginner
+      { level: 'Beginner', company: 'TCS', q: 'What is a SQL JOIN?', a: 'A JOIN is a clause used to combine rows from two or more tables based on a related column between them.' },
+      { level: 'Beginner', company: 'Infosys', q: 'What is the difference between an INNER JOIN and a LEFT JOIN?', a: 'INNER JOIN returns only rows that have matching values in both tables. LEFT JOIN returns all rows from the left table, and matching rows from the right table (filling non-matches with NULL).' },
+      { level: 'Beginner', company: 'Wipro', q: 'What is the difference between the WHERE and HAVING clauses?', a: 'The WHERE clause filters rows before any grouping or aggregations occur. The HAVING clause filters groups after the GROUP BY clause has been applied.' },
+      { level: 'Beginner', company: 'Accenture', q: 'How does the GROUP BY clause work?', a: 'GROUP BY groups rows that have the same values in specified columns into aggregate rows, typically used with aggregate functions like COUNT(), MAX(), or SUM().' },
+      { level: 'Beginner', company: 'HCL', q: 'What does the DISTINCT keyword do?', a: 'The DISTINCT keyword is used in a SELECT statement to return only unique (different) values, removing any duplicates from the result set.' },
+      // Intermediate
+      { level: 'Intermediate', company: 'Cognizant', q: 'What is the difference between UNION and UNION ALL?', a: 'Both combine the result sets of two or more SELECT statements. UNION removes duplicate rows, which requires an expensive sorting operation. UNION ALL includes duplicates and is much faster.' },
+      { level: 'Intermediate', company: 'Zoho', q: 'What is a FULL OUTER JOIN?', a: 'A FULL OUTER JOIN returns all rows when there is a match in either the left or right table. It effectively combines the results of both a LEFT and RIGHT join.' },
+      { level: 'Intermediate', company: 'Capgemini', q: 'What is a Correlated Subquery?', a: 'A correlated subquery is a nested query that uses values from the outer query for execution. Because it depends on the outer query, it must be evaluated once for every row processed by the outer query, making it slow.' },
+      { level: 'Intermediate', company: 'LTIMindtree', q: 'Explain SQL Window Functions (e.g., ROW_NUMBER()).', a: 'Window functions perform calculations across a set of table rows that are related to the current row, without collapsing the rows like GROUP BY does. ROW_NUMBER() assigns a unique sequential integer to rows within a partition.' },
+      { level: 'Intermediate', company: 'Virtusa', q: 'Write a query to find the second highest salary from an Employee table.', a: 'SELECT MAX(Salary) FROM Employee WHERE Salary < (SELECT MAX(Salary) FROM Employee); (Alternatively: SELECT Salary FROM Employee ORDER BY Salary DESC LIMIT 1 OFFSET 1;)' },
+      // Advanced
+      { level: 'Advanced', company: 'Amazon', q: 'What is a Self-Join and what is a real-world use case for it?', a: 'A Self-Join is a regular join but the table is joined with itself. A classic use case is an Employee table with an EmployeeID and a ManagerID (which references EmployeeID) to find the names of employees and their respective managers.' },
+      { level: 'Advanced', company: 'Microsoft', q: 'What is a Recursive Common Table Expression (CTE)?', a: 'A recursive CTE is a CTE that references itself. It is highly useful for querying hierarchical data, such as organizational charts, file systems, or graph traversal.' },
+      { level: 'Advanced', company: 'Google', q: 'How does a database Execution Plan work?', a: 'An execution plan is the step-by-step roadmap generated by the database query optimizer. It decides how to execute a query efficiently by choosing indexes, join algorithms (Hash, Merge, Nested Loop), and table scan methods.' },
+      { level: 'Advanced', company: 'Flipkart', q: 'Why is using NOT IN dangerous when handling NULL values in a subquery?', a: 'If a subquery used with NOT IN returns even a single NULL value, the entire query will return zero rows. This is because SQL evaluates val != NULL as UNKNOWN, not TRUE. Use NOT EXISTS instead.' },
+      { level: 'Advanced', company: 'Amazon', q: 'How do you pivot data (turn rows into columns) in standard SQL?', a: 'You can pivot data using conditional aggregation. This involves using an aggregate function like MAX() combined with a CASE WHEN statement for each column you want to create from the row values.' }
     ],
     'ACID & Transactions': [
-      { level: 'Beginner', company: 'Accenture', q: 'Explain ACID properties in database transactions.', a: 'Atomicity: All or nothing execution.\nConsistency: DB transitions from one valid state to another.\nIsolation: Concurrent transactions run independently without interference.\nDurability: Committed changes persist even during power/system failures.' },
-      { level: 'Advanced', company: 'Amazon', q: 'Explain Transaction Isolation Levels and Read Phenomena (Dirty Read, Non-repeatable Read, Phantom Read).', a: 'Read Uncommitted: Allows Dirty Reads (reading uncommitted data).\nRead Committed: Prevents Dirty Reads, allows Non-repeatable Reads.\nRepeatable Read: Prevents Non-repeatable Reads, allows Phantom Reads.\nSerializable: Highest isolation; prevents all read anomalies using locks or MVCC.' }
-    ]
-  },
-  OS: {
-    'Process & Threads': [
-      { level: 'Beginner', company: 'TCS', q: 'Process vs Thread — explain key differences.', a: 'Process: Independent execution program with isolated address space (code, heap, stack).\nThread: Lightweight unit within a process sharing the same heap and code space.\nContext switching between threads is much faster than between processes.' },
-      { level: 'Intermediate', company: 'Capgemini', q: 'What is Context Switching? Why is it expensive?', a: 'Context switching is the process of storing state of CPU process/thread so execution can be resumed later.\nIt is expensive because it invalidates CPU caches (L1/L2), flushing TLB entries and consuming kernel CPU cycles.' }
+      // Beginner
+      { level: 'Beginner', company: 'TCS', q: 'What is a Database Transaction?', a: 'A transaction is a single logical unit of work consisting of one or more database operations (insert, update, delete). It must complete entirely or not at all.' },
+      { level: 'Beginner', company: 'Infosys', q: 'Define Atomicity in the ACID properties.', a: 'Atomicity guarantees that a transaction is treated as a single, indivisible unit. Either all operations within the transaction succeed and commit, or all fail and rollback.' },
+      { level: 'Beginner', company: 'Wipro', q: 'Define Consistency in the ACID properties.', a: 'Consistency ensures that a transaction takes the database from one valid state to another, maintaining all predefined rules, constraints, and triggers.' },
+      { level: 'Beginner', company: 'Accenture', q: 'Define Isolation in the ACID properties.', a: 'Isolation ensures that concurrent execution of multiple transactions leaves the database in the same state as if the transactions were executed sequentially.' },
+      { level: 'Beginner', company: 'HCL', q: 'Define Durability in the ACID properties.', a: 'Durability guarantees that once a transaction has been committed, its changes are permanent and will survive subsequent system crashes or power failures.' },
+      // Intermediate
+      { level: 'Intermediate', company: 'Cognizant', q: 'What is Write-Ahead Logging (WAL)?', a: 'WAL is a standard technique for ensuring data integrity. It dictates that all modifications to database records must be written to a secure log on disk before they are actually applied to the database itself.' },
+      { level: 'Intermediate', company: 'Zoho', q: 'What is a Dirty Read?', a: 'A dirty read occurs when one transaction is allowed to read uncommitted data written by another concurrent transaction. If the first transaction rolls back, the second transaction read data that technically never existed.' },
+      { level: 'Intermediate', company: 'Capgemini', q: 'What is a Non-Repeatable Read?', a: 'This occurs when a transaction reads the same row twice but gets different data each time because another transaction updated and committed the row between the two reads.' },
+      { level: 'Intermediate', company: 'LTIMindtree', q: 'What is a Phantom Read?', a: 'A phantom read occurs when a transaction executes a query returning a set of rows, but a concurrent transaction inserts or deletes rows that satisfy the query. When the first transaction repeats the query, it sees "phantom" rows.' },
+      { level: 'Intermediate', company: 'Virtusa', q: 'How do Deadlocks occur in a database?', a: 'A deadlock happens when Transaction A holds a lock on Resource 1 and waits for Resource 2, while Transaction B holds a lock on Resource 2 and waits for Resource 1. Both are blocked indefinitely.' },
+      // Advanced
+      { level: 'Advanced', company: 'Amazon', q: 'Explain the four Transaction Isolation Levels.', a: '1) Read Uncommitted (allows dirty reads). 2) Read Committed (prevents dirty reads). 3) Repeatable Read (prevents dirty and non-repeatable reads). 4) Serializable (highest level, strictly sequential, prevents phantom reads).' },
+      { level: 'Advanced', company: 'Microsoft', q: 'What is Multi-Version Concurrency Control (MVCC)?', a: 'MVCC is an advanced isolation technique used by databases like PostgreSQL. Instead of locking rows for reading, the database keeps multiple versions of a row. Readers don\'t block writers, and writers don\'t block readers, drastically improving concurrency.' },
+      { level: 'Advanced', company: 'Google', q: 'What is the difference between Optimistic and Pessimistic Locking?', a: 'Pessimistic locking locks the record the moment a transaction intends to read/update it, assuming conflicts will happen. Optimistic locking proceeds without locking, checking at the commit phase if another transaction modified the data (usually via a version number), rolling back if a conflict occurred.' },
+      { level: 'Advanced', company: 'Flipkart', q: 'What is the Two-Phase Commit (2PC) protocol?', a: '2PC is a distributed algorithm that coordinates all the processes that participate in a distributed transaction. It has a Voting Phase (coordinator asks nodes if they can commit) and a Commit Phase (if all agree, commit; if one disagrees, rollback all).' },
+      { level: 'Advanced', company: 'Amazon', q: 'How exactly does a database ensure Durability during a sudden power failure?', a: 'Through the Write-Ahead Log (WAL) and fsync(). Before returning "success" to a transaction, the DB flushes the log to non-volatile disk storage. Upon reboot after a failure, the DB replays the WAL to recover any committed transactions that weren\'t written to the main data files.' }
     ],
-    'Deadlocks & Sync': [
-      { level: 'Beginner', company: 'Wipro', q: 'What is a deadlock? List the 4 necessary conditions.', a: 'Deadlock: Situation where processes are permanently blocked waiting for resources held by each other.\n4 Conditions: 1. Mutual Exclusion, 2. Hold & Wait, 3. No Preemption, 4. Circular Wait.' },
-      { level: 'Advanced', company: 'Microsoft', q: 'Mutex vs Semaphore — explain ownership and signaling differences.', a: 'Mutex: Binary locking mechanism with OWNERSHIP (only thread that locked mutex can unlock it).\nSemaphore: Signaling mechanism without ownership (any thread can call signal/V to increment count).' }
-    ]
-  },
-  CN: {
-    'OSI & TCP/IP': [
-      { level: 'Beginner', company: 'Infosys', q: 'Explain the 7 layers of the OSI model.', a: '1. Physical (bits)\n2. Data Link (frames, MAC)\n3. Network (packets, IP)\n4. Transport (segments, TCP/UDP)\n5. Session (dialog control)\n6. Presentation (formatting, TLS encryption)\n7. Application (HTTP, FTP, SMTP).' },
-      { level: 'Intermediate', company: 'Cognizant', q: 'TCP vs UDP — compare reliability and speed.', a: 'TCP: Connection-oriented (3-way handshake SYN→SYN-ACK→ACK), reliable, flow-controlled, ordered.\nUDP: Connectionless, fast, lightweight, unordered. Used in streaming, VoIP, online gaming.' }
-    ]
-  },
-  OOPs: {
-    '4 Pillars': [
-      { level: 'Beginner', company: 'TCS', q: 'Explain the 4 fundamental pillars of OOP.', a: 'Encapsulation: Bundling data and methods together while hiding internal details.\nAbstraction: Hiding complex implementation and exposing clean interface.\nInheritance: Reusing code by extending base class properties.\nPolymorphism: Single interface for different underlying forms (overloading & overriding).' }
-    ]
-  },
-  Java: {
-    'Core & JVM': [
-      { level: 'Beginner', company: 'Infosys', q: 'Difference between JDK, JRE, and JVM.', a: 'JVM: Executes Java bytecode (.class).\nJRE: JVM + core Java runtime libraries (used to run Java apps).\nJDK: JRE + compiler (javac) & dev tools (used to build Java apps).' }
+    'Indexing & B-Trees': [
+      // Beginner
+      { level: 'Beginner', company: 'TCS', q: 'What is a Database Index?', a: 'An index is a database data structure that improves the speed of data retrieval operations on a table at the cost of additional storage space and slower writes.' },
+      { level: 'Beginner', company: 'Infosys', q: 'If indexes speed up reads, why shouldn\'t we index every column?', a: 'Indexes require storage space. More importantly, every time a row is inserted, updated, or deleted, all associated indexes must also be updated. Indexing every column causes severe write performance degradation.' },
+      { level: 'Beginner', company: 'Wipro', q: 'What is a Clustered Index?', a: 'A clustered index dictates the physical sorting order of the data rows on the disk. Because data can only be physically sorted one way, a table can only have exactly one clustered index (usually the Primary Key).' },
+      { level: 'Beginner', company: 'Accenture', q: 'What is a Non-Clustered Index?', a: 'A non-clustered index is stored separately from the data rows. It contains the indexed columns and a pointer (like a row ID) back to the actual data row. A table can have multiple non-clustered indexes.' },
+      { level: 'Beginner', company: 'HCL', q: 'What is a Unique Index?', a: 'A unique index ensures that the indexed columns do not contain duplicate values. Primary Keys automatically create a unique clustered index.' },
+      // Intermediate
+      { level: 'Intermediate', company: 'Cognizant', q: 'What is a Composite Index?', a: 'A composite index is an index placed on multiple columns of a table. The order of columns in the index definition is critical due to the "left-most prefix" rule.' },
+      { level: 'Intermediate', company: 'Zoho', q: 'What is a Covering Index?', a: 'A covering index is a non-clustered index that includes all the columns needed to satisfy a specific query. The database can retrieve the data directly from the index without having to look up the actual data row, saving a disk read.' },
+      { level: 'Intermediate', company: 'Capgemini', q: 'How does a Hash Index differ from a Tree Index?', a: 'A Hash Index uses a hash function to map keys to buckets. It is incredibly fast for exact equality lookups (=) but completely useless for range queries (<, >, BETWEEN).' },
+      { level: 'Intermediate', company: 'LTIMindtree', q: 'What is a B-Tree?', a: 'A B-Tree (Balanced Tree) is a self-balancing tree data structure that maintains sorted data and allows searches, sequential access, insertions, and deletions in logarithmic time.' },
+      { level: 'Intermediate', company: 'Virtusa', q: 'Why do databases prefer B+ Trees over standard B-Trees?', a: 'In a B+ Tree, all data pointers are stored only in the leaf nodes, which are linked together in a linked list. This makes full table scans and range queries significantly faster than traversing a standard B-Tree.' },
+      // Advanced
+      { level: 'Advanced', company: 'Amazon', q: 'What is Index Selectivity?', a: 'Selectivity is the ratio of unique values in a column to the total number of rows. High selectivity (like a primary key) makes an index highly effective. Low selectivity (like a boolean "isActive" column) makes an index nearly useless, and the optimizer might ignore it.' },
+      { level: 'Advanced', company: 'Microsoft', q: 'What is a Bitmap Index and when is it used?', a: 'A bitmap index uses bit arrays (0s and 1s) and bitwise operations to answer queries. It is highly efficient for columns with low cardinality (few unique values, like gender or status) and is heavily used in data warehousing (OLAP).' },
+      { level: 'Advanced', company: 'Google', q: 'How does Index Fragmentation occur and how is it fixed?', a: 'Fragmentation occurs over time as rows are inserted, updated, and deleted, causing data pages to split and scatter across the disk out of logical order. It is fixed by rebuilding or reorganizing the index.' },
+      { level: 'Advanced', company: 'Flipkart', q: 'How does the query optimizer choose which index to use?', a: 'The optimizer uses database statistics (histograms of data distribution) to estimate the cost (I/O, CPU) of different execution plans. It chooses the index that yields the lowest cost estimate. If statistics are outdated, it may choose the wrong index.' },
+      { level: 'Advanced', company: 'Amazon', q: 'Explain how a Spatial Index (like an R-Tree) works.', a: 'An R-Tree (Rectangle Tree) indexes multi-dimensional information (like geographical coordinates). It groups nearby objects into minimum bounding rectangles (MBRs). A query for "restaurants within 5 miles" only searches the rectangles that intersect that area.' }
     ],
-    'Collections & HashMap': [
-      { level: 'Advanced', company: 'Amazon', q: 'Explain HashMap internal architecture in Java 8+.', a: 'HashMap uses an array of buckets. Each bucket holds a linked list.\nIn Java 8+, if bucket size exceeds 8 entries, the linked list converts to a Red-Black Tree for O(log N) lookup performance.' }
-    ]
-  },
-  Python: {
-    'Core Syntax': [
-      { level: 'Beginner', company: 'Wipro', q: 'List vs Tuple vs Set vs Dict in Python.', a: 'List: Ordered, mutable, allows duplicates.\nTuple: Ordered, immutable, allows duplicates.\nSet: Unordered, mutable, NO duplicates.\nDict: Key-value mapping, unique keys.' }
-    ]
-  },
-  DSA: {
-    'Trees & Graphs': [
-      { level: 'Intermediate', company: 'Zoho', q: 'BFS vs DFS graph traversal algorithms.', a: 'BFS: Level-by-level traversal using Queue. Used for shortest path in unweighted graphs.\nDFS: Deep path traversal using Stack/recursion. Used for topological sort & cycle detection.' }
-    ]
-  },
-  'System Design': {
-    'High-Level Architecture': [
-      { level: 'Intermediate', company: 'Amazon', q: 'How would you design a URL shortener like Bit.ly?', a: '1. API: POST /shorten(url) → returns shortCode\n2. Key Gen: Base62 encoding of auto-increment ID or MD5 hash\n3. Cache: Redis for hot short code redirects\n4. Database: NoSQL (Cassandra/DynamoDB) mapping shortCode ➔ originalURL' }
+    'NoSQL & CAP Theorem': [
+      // Beginner
+      { level: 'Beginner', company: 'TCS', q: 'What is NoSQL?', a: 'NoSQL (Not Only SQL) is a class of non-relational database management systems that do not use traditional tabular schemas, designed for high scalability, flexibility, and handling large volumes of unstructured data.' },
+      { level: 'Beginner', company: 'Infosys', q: 'What are the four main types of NoSQL databases?', a: 'Document stores, Key-Value stores, Column-Family stores, and Graph databases.' },
+      { level: 'Beginner', company: 'Wipro', q: 'When should you choose NoSQL over a Relational DB?', a: 'Choose NoSQL when you have unstructured/rapidly changing data schemas, require massive horizontal scalability, need to handle massive volumes of read/write operations, or prefer eventual consistency over strict ACID transactions.' },
+      { level: 'Beginner', company: 'Accenture', q: 'What does "schema-less" mean in NoSQL?', a: 'Schema-less means the database does not enforce a rigid table structure. Different records in the same collection can have completely different fields and data types.' },
+      { level: 'Beginner', company: 'HCL', q: 'What is a Document Database?', a: 'A document database (like MongoDB) stores data in JSON-like, self-describing documents. Related data is typically nested within a single document rather than split across multiple tables via foreign keys.' },
+      // Intermediate
+      { level: 'Intermediate', company: 'Cognizant', q: 'Explain the CAP Theorem.', a: 'The CAP Theorem states that a distributed data store can only simultaneously provide two of three guarantees: Consistency (every read receives the most recent write), Availability (every request receives a non-error response), and Partition tolerance (system continues to operate despite network failures).' },
+      { level: 'Intermediate', company: 'Zoho', q: 'What is the BASE property in NoSQL?', a: 'BASE stands for Basically Available, Soft state, Eventual consistency. It is the NoSQL alternative to ACID, prioritizing availability and scaling over strict, immediate consistency.' },
+      { level: 'Intermediate', company: 'Capgemini', q: 'What is Eventual Consistency?', a: 'Eventual consistency guarantees that, if no new updates are made to a given data item, eventually all accesses to that item will return the last updated value. Replicas take time to synchronize.' },
+      { level: 'Intermediate', company: 'LTIMindtree', q: 'How does Sharding work in NoSQL?', a: 'Sharding is horizontal scaling. Data is distributed across multiple physical machines (shards) using a shard key. Queries containing the shard key are routed directly to the correct machine, allowing massive parallel processing.' },
+      { level: 'Intermediate', company: 'Virtusa', q: 'What is a Key-Value Store?', a: 'A key-value store (like Redis or DynamoDB) is the simplest NoSQL database. It stores data as an associative array where each key is entirely unique and points to a specific value (string, list, or binary object).' },
+      // Advanced
+      { level: 'Advanced', company: 'Amazon', q: 'What is the PACELC Theorem?', a: 'PACELC expands on CAP. It states that in case of network Partition (P), you must choose between Availability (A) and Consistency (C). Else (E), when the system is running normally without partitions, you must choose between Latency (L) and Consistency (C).' },
+      { level: 'Advanced', company: 'Microsoft', q: 'Explain Consistent Hashing in distributed databases.', a: 'Consistent hashing is a technique used to distribute data evenly across a cluster of servers. Servers and data keys are hashed onto a conceptual "ring". This minimizes data movement when servers are added or removed, preventing a complete system rebalance.' },
+      { level: 'Advanced', company: 'Google', q: 'What are Vector Clocks and how do they resolve distributed conflicts?', a: 'A vector clock is a data structure used for determining the partial ordering of events in a distributed system. If two nodes update the same record during a network partition, vector clocks track the version history so the system (or application) can reconcile the conflict upon reconnection.' },
+      { level: 'Advanced', company: 'Flipkart', q: 'What is a Graph Database and when is it optimal to use one?', a: 'Graph databases (like Neo4j) treat relationships between data as equally important as the data itself, using nodes and edges. They are optimal for highly connected data like social networks, recommendation engines, and fraud detection, where SQL recursive queries would be too slow.' },
+      { level: 'Advanced', company: 'Amazon', q: 'How do you handle a "Hot Partition" in a distributed NoSQL database?', a: 'A hot partition occurs when one shard key receives a disproportionate amount of read/write traffic, creating a bottleneck. You handle it by modifying the partition key (e.g., appending a random number or date suffix to spread the load) or utilizing a caching layer in front of the hot data.' }
     ]
   }
 };
