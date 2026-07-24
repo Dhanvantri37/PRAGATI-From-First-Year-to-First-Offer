@@ -82,7 +82,7 @@ function ExamTimerBar({ durationSeconds, onTimeUp, isActive }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.78rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 4 }}>
-        <span>⏱️ Cognizant Exam Timer</span>
+        <span>⏱️ Cognizant Exam Section Timer</span>
         <span style={{ color: barColor }}>{timeStr}</span>
       </div>
       <div style={{ height: 8, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
@@ -119,6 +119,44 @@ const SYMBOL_SETS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PHASE 1: LEARN CARDS (CONCEPT & FORMULA GUIDES)
+// ─────────────────────────────────────────────────────────────────────────────
+function LearnPhaseGuide() {
+  const GUIDES = [
+    { title: '🧩 Geo-Sudoku (Deductive Logic)', desc: 'Each row and column must contain every symbol exactly once without repeating.', tip: 'Rule: Scan rows and columns with 3 filled cells first to deduce the 4th missing symbol instantly.' },
+    { title: '🔀 Switch Challenge (Sequence Decoder)', desc: 'Numbers in key code (e.g. 3-1-4-2) indicate which element position moves to which output slot.', tip: 'Tip: Track just 1 key shape (like 🔴) to instantly eliminate 2-3 wrong options.' },
+    { title: '🎯 Motion Pathfinder (Maze Navigation)', desc: 'Navigate dot to goal avoiding block walls using minimum steps.', tip: 'BFS Strategy: Work backwards from the target star to find the shortest unobstructed corridor.' },
+    { title: '🧠 Grid Recall (Memory & Spatial)', desc: 'Memorize dot flash positions and complete vertical symmetry interrupts.', tip: 'Tip: Visualize the grid as 4 quadrants to store dot positions in working memory.' },
+    { title: '🔢 Digit Challenge (Speed Arithmetic)', desc: 'Construct math expressions using number tokens to equal the target value.', tip: 'Tip: Work with factors of the target number to simplify math expressions.' }
+  ];
+
+  return (
+    <div style={{ display: 'grid', gap: 14, marginBottom: 20 }}>
+      <div style={{ padding: '16px 20px', borderRadius: 14, background: 'rgba(83,22,151,0.06)', border: '1.5px solid rgba(83,22,151,0.18)' }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', color: '#531697', marginBottom: 4 }}>
+          📖 Phase 1: Cognitive Test Concepts & Strategy Rules
+        </div>
+        <div style={{ fontSize: '.83rem', color: 'var(--text-2)', lineHeight: 1.6 }}>
+          Master the rules, deduction tricks, and shortcuts used in Cognizant (GenC / GenC Next) and Capgemini (Aon / SHL) gaming rounds before taking the timed tests.
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        {GUIDES.map((g, i) => (
+          <div key={i} style={{ padding: 16, borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', color: '#531697', marginBottom: 6 }}>{g.title}</div>
+            <div style={{ fontSize: '.8rem', color: 'var(--text-2)', marginBottom: 8, lineHeight: 1.5 }}>{g.desc}</div>
+            <div style={{ padding: '8px 10px', borderRadius: 8, background: '#f8fafc', borderLeft: '3px solid #13a1a5', fontSize: '.75rem', fontWeight: 700, color: '#0d7a7e' }}>
+              💡 {g.tip}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GAME 1: DEDUCTIVE LOGIC (GEO-SUDOKU)
 // ─────────────────────────────────────────────────────────────────────────────
 function generateLatinSquare(symbols) {
@@ -135,7 +173,7 @@ function generateLatinSquare(symbols) {
   return rowOrder.map(r => colOrder.map(c => grid[r][c]));
 }
 
-function GeoSudokuGame() {
+function GeoSudokuGame({ mode }) {
   const [level, setLevel] = useState(1);
   const [symSet, setSymSet] = useState(SYMBOL_SETS[0]);
   const [initial, setInitial] = useState([]);
@@ -229,7 +267,7 @@ function GeoSudokuGame() {
         Fill the 4x4 matrix so every row and column has each symbol exactly once without repeating.
       </p>
 
-      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Time is up! Try generating a new puzzle.', type: 'error' })} isActive={true} />
+      {mode === 'timed' && <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Time is up! Try generating a new puzzle.', type: 'error' })} isActive={true} />}
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 56px)', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
@@ -327,7 +365,7 @@ function generateSwitchProblem(level) {
   return { input, codeStr, options, correctIdx, finalAns };
 }
 
-function SwitchChallengeGame() {
+function SwitchChallengeGame({ mode }) {
   const [level, setLevel] = useState(1);
   const [problem, setProblem] = useState(null);
   const [selectedOpt, setSelectedOpt] = useState(null);
@@ -379,7 +417,7 @@ function SwitchChallengeGame() {
         Cognizant Exam Pattern: Apply the hidden transformation rules to decode the output sequence.
       </p>
 
-      <ExamTimerBar durationSeconds={240} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
+      {mode === 'timed' && <ExamTimerBar durationSeconds={240} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />}
 
       {/* Input Sequence */}
       <div style={{ background: '#f8fafc', padding: 14, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 14, textAlign: 'center' }}>
@@ -498,7 +536,7 @@ function generateMotionMaze(level) {
   return { size, start, target, walls, optimalDist };
 }
 
-function MotionChallengeGame() {
+function MotionChallengeGame({ mode }) {
   const [level, setLevel] = useState(1);
   const [maze, setMaze] = useState(null);
   const [pos, setPos] = useState({ r: 0, c: 0 });
@@ -564,7 +602,7 @@ function MotionChallengeGame() {
         Navigate dot (🟢) to destination (⭐) avoiding walls (🧱) in minimum moves.
       </p>
 
-      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
+      {mode === 'timed' && <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />}
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${maze.size}, 46px)`, gap: 6, justifyContent: 'center', marginBottom: 16 }}>
@@ -619,7 +657,7 @@ function MotionChallengeGame() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 4: 100% DYNAMIC DIGIT CHALLENGE (Speed Arithmetic Engine)
+// GAME 4: 100% DYNAMIC DIGIT CHALLENGE
 // ─────────────────────────────────────────────────────────────────────────────
 function generateDynamicDigitPuzzle(level) {
   const cardCount = level >= 3 ? 5 : 4;
@@ -641,7 +679,7 @@ function generateDynamicDigitPuzzle(level) {
   return { target, nums };
 }
 
-function DigitChallengeGame() {
+function DigitChallengeGame({ mode }) {
   const [level, setLevel] = useState(1);
   const [puzzle, setPuzzle] = useState(null);
   const [equation, setEquation] = useState([]);
@@ -698,7 +736,7 @@ function DigitChallengeGame() {
         Construct a valid mathematical expression using the given digit tokens to equal the dynamic target value.
       </p>
 
-      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
+      {mode === 'timed' && <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />}
 
       {/* Number Tokens */}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
@@ -730,9 +768,9 @@ function DigitChallengeGame() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 5: GRID CHALLENGE (Memory & Spatial Awareness)
+// GAME 5: GRID CHALLENGE (Memory & Spatial)
 // ─────────────────────────────────────────────────────────────────────────────
-function GridChallengeGame() {
+function GridChallengeGame({ mode }) {
   const [level, setLevel] = useState(1);
   const [phase, setPhase] = useState('idle');
   const [sequence, setSequence] = useState([]);
@@ -927,11 +965,18 @@ function ReactionTimer() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN PAGE EXPORT
+// MAIN PAGE EXPORT (3-PHASE ARCHITECTURE)
 // ─────────────────────────────────────────────────────────────────────────────
 export default function GamingRoundPage() {
+  const [phaseMode, setPhaseMode] = useState('practice'); // 'learn' | 'practice' | 'timed'
   const [activeTab, setActiveTab] = useState('ALL');
   const [showRes, setShowRes] = useState(false);
+
+  const PHASES = [
+    { key: 'learn', label: '📖 Phase 1: Learn Concepts', color: '#531697' },
+    { key: 'practice', label: '🧪 Phase 2: Interactive Practice', color: '#13a1a5' },
+    { key: 'timed', label: '⏱️ Phase 3: Timed Exam Mode', color: '#ef4444' }
+  ];
 
   const TABS = [
     { key: 'ALL', label: '🎮 All Challenges' },
@@ -946,10 +991,38 @@ export default function GamingRoundPage() {
     <div style={{ fontFamily: "'Nunito',sans-serif" }}>
       <RoundHeader
         icon="🏢🎮"
-        title="Cognizant & Capgemini Authentic Gaming Assessment Simulator"
-        subtitle="Official exam pattern practice: Motion Pathfinder, Switch Rule Decoders, Geo-Sudoku, Grid Memory, and Procedural Digit Speed Challenges with real exam timers and motivational feedback."
+        title="360° Cognizant & Corporate Gaming Assessment Simulator"
+        subtitle="3-Phase Preparation Hub: Learn concept rules ➔ Interactive untimed practice ➔ Exam timed simulation with real section timers & percentile scoring."
       />
 
+      {/* 3-Phase Navigation Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
+        {PHASES.map(p => (
+          <button
+            key={p.key}
+            onClick={() => setPhaseMode(p.key)}
+            style={{
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: phaseMode === p.key ? `2px solid ${p.color}` : '1.5px solid #d0d7e8',
+              background: phaseMode === p.key ? `${p.color}12` : '#fff',
+              color: phaseMode === p.key ? p.color : 'var(--text)',
+              fontFamily: "'Syne',sans-serif",
+              fontWeight: 800,
+              fontSize: '.85rem',
+              cursor: 'pointer',
+              boxShadow: phaseMode === p.key ? `0 4px 14px ${p.color}25` : 'none',
+              transition: 'all .2s ease'
+            }}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {phaseMode === 'learn' && <LearnPhaseGuide />}
+
+      {/* Resource & Challenge tab controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {TABS.map(tab => (
@@ -1005,11 +1078,11 @@ export default function GamingRoundPage() {
 
       {/* Render Games Grid */}
       <div style={{ display: 'grid', gap: 20 }}>
-        {(activeTab === 'ALL' || activeTab === 'DEDUCTIVE') && <GeoSudokuGame />}
-        {(activeTab === 'ALL' || activeTab === 'SWITCH') && <SwitchChallengeGame />}
-        {(activeTab === 'ALL' || activeTab === 'MOTION') && <MotionChallengeGame />}
-        {(activeTab === 'ALL' || activeTab === 'GRID') && <GridChallengeGame />}
-        {(activeTab === 'ALL' || activeTab === 'DIGIT') && <DigitChallengeGame />}
+        {(activeTab === 'ALL' || activeTab === 'DEDUCTIVE') && <GeoSudokuGame mode={phaseMode} />}
+        {(activeTab === 'ALL' || activeTab === 'SWITCH') && <SwitchChallengeGame mode={phaseMode} />}
+        {(activeTab === 'ALL' || activeTab === 'MOTION') && <MotionChallengeGame mode={phaseMode} />}
+        {(activeTab === 'ALL' || activeTab === 'GRID') && <GridChallengeGame mode={phaseMode} />}
+        {(activeTab === 'ALL' || activeTab === 'DIGIT') && <DigitChallengeGame mode={phaseMode} />}
         {activeTab === 'ALL' && <ReactionTimer />}
       </div>
     </div>
