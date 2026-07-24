@@ -276,10 +276,11 @@ Now give me details with links for ${searchName}. Make Sure You will give me the
 Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON. 
 CRITICAL RULES:
 1. Do NOT copy the example placeholders or generic texts. You MUST research actual, real-world facts for ${searchName} (specifically their actual recruitment rounds, tech stack, average CTC packages, work culture description, and career path).
-2. For the "resources" array, provide actual GeeksforGeeks tag/preparation links and Glassdoor interview questions/review links. If you are unsure of the exact ID, construct them using these valid search URL templates:
+2. For "recruitmentRounds", provide the COMPLETE sequence of all actual rounds (do NOT limit to 3 rounds—include every step, e.g. for Google include Online Coding Assessment, Technical Phone Screen, Coding Round 1, Coding Round 2, Coding Round 3, System Design/Googlyness, HR Round).
+3. For the "resources" array, provide actual GeeksforGeeks tag/preparation links and Glassdoor interview questions/review links. Do NOT hallucinate specific Glassdoor E-numbers or IDs (like E12345). Instead, use the format:
    - "https://www.geeksforgeeks.org/tag/company-name/"
-   - "https://www.glassdoor.co.in/Interview/special-search.htm?txtKeyword=company-name+Interview"
-3. Set status to "-" and campusVisitDate to "-".
+   - "https://www.google.com/search?q=Glassdoor+company-name+Interview+Questions"
+4. Set status to "-" and campusVisitDate to "-".
 
 JSON structure:
 {
@@ -296,7 +297,7 @@ JSON structure:
     "backlogs": false
   },
   "roles": ["Real Role 1", "Real Role 2"],
-  "recruitmentRounds": ["Real Round 1", "Real Round 2", "Real Round 3"],
+  "recruitmentRounds": ["Real Round 1", "Real Round 2", "Real Round 3", "Real Round 4", "Real Round 5"],
   "aptitudePatterns": "Real details about their written/online test formats...",
   "interviewPatterns": "Real details about their technical and HR interview rounds...",
   "jdText": "Job description summary of the roles...",
@@ -314,7 +315,7 @@ JSON structure:
   "packageBreakdown": "Package splits...",
   "resources": [
     "https://www.geeksforgeeks.org/tag/company-name/",
-    "https://www.glassdoor.co.in/Interview/special-search.htm?txtKeyword=company-name+Interview"
+    "https://www.google.com/search?q=Glassdoor+company-name+Interview+Questions"
   ]
 }`;
 
@@ -329,21 +330,27 @@ JSON structure:
     parsed.status = '-';
     parsed.campusVisitDate = '-';
 
-    // Format resources cleanly (guarantee no 404 templates)
+    // Format resources cleanly (guarantee no 404 templates or hallucinated Glassdoor IDs)
     if (!Array.isArray(parsed.resources)) {
       parsed.resources = [];
     }
-    parsed.resources = parsed.resources.filter(r => r && !r.includes('example.com') && !r.includes('unstop.com') && !r.includes('prepinsta.com'));
+    parsed.resources = parsed.resources.filter(r => {
+      if (!r || typeof r !== 'string') return false;
+      if (r.includes('example.com') || r.includes('unstop.com') || r.includes('prepinsta.com')) return false;
+      // Filter out hallucinated Glassdoor ID links (e.g. containing E[numbers])
+      if (r.includes('glassdoor') && /Interview\/.*-E\d+/i.test(r)) return false;
+      return true;
+    });
 
     const searchKeyword = parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     
-    // Always append valid GFG and Glassdoor fallbacks to ensure live link directories
-    if (!parsed.resources.some(r => r.includes('geeksforgeeks'))) {
-      parsed.resources.unshift(`https://www.geeksforgeeks.org/tag/${searchKeyword}/`);
-    }
-    if (!parsed.resources.some(r => r.includes('glassdoor'))) {
-      parsed.resources.unshift(`https://www.glassdoor.co.in/Interview/special-search.htm?txtKeyword=${encodeURIComponent(parsed.name + ' Interview')}`);
-    }
+    // Construct clean, live, 100% active search redirect links on Google for GFG and Glassdoor
+    const gfgSearchLink = `https://www.google.com/search?q=GeeksforGeeks+${encodeURIComponent(parsed.name)}+Interview+Questions`;
+    const glassdoorSearchLink = `https://www.google.com/search?q=Glassdoor+${encodeURIComponent(parsed.name)}+Interview+Questions`;
+
+    // Always unshift these 100% working search query links to the top of the resources array!
+    parsed.resources.unshift(gfgSearchLink);
+    parsed.resources.unshift(glassdoorSearchLink);
 
     // 3. Construct direct logo URL using Google Favicon API (guaranteed 100% no 404s)
     let domain = '';
