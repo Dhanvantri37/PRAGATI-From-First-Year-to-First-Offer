@@ -275,12 +275,13 @@ Now give me details with links for ${searchName}. Make Sure You will give me the
 
 Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON. 
 CRITICAL RULES:
-1. Do NOT copy the example placeholders or generic texts. You MUST research actual, real-world facts for ${searchName} (specifically their actual recruitment rounds, tech stack, average CTC packages, work culture description, and career path).
-2. For "recruitmentRounds", provide the COMPLETE sequence of all actual rounds (do NOT limit to 3 rounds—include every step, e.g. for Google include Online Coding Assessment, Technical Phone Screen, Coding Round 1, Coding Round 2, Coding Round 3, System Design/Googlyness, HR Round).
-3. For the "resources" array, provide actual GeeksforGeeks tag/preparation links and Glassdoor interview questions/review links. Do NOT hallucinate specific Glassdoor E-numbers or IDs (like E12345). Instead, use the format:
+1. If the company name "${searchName}" is invalid, fictitious, non-existent, misspelled beyond recognition, or random gibberish (e.g. 'xyz', 'abc', 'asdfgh'), return ONLY this JSON object and nothing else: { "invalidCompany": true }.
+2. Do NOT copy the example placeholders or generic texts. You MUST research actual, real-world facts for ${searchName} (specifically their actual recruitment rounds, tech stack, average CTC packages, work culture description, and career path).
+3. For "recruitmentRounds", provide the COMPLETE sequence of all actual rounds (do NOT limit to 3 rounds—include every step, e.g. for Google include Online Coding Assessment, Technical Phone Screen, Coding Round 1, Coding Round 2, Coding Round 3, System Design/Googlyness, HR Round).
+4. For the "resources" array, provide actual GeeksforGeeks tag/preparation links and Glassdoor interview questions/review links. Do NOT hallucinate specific Glassdoor E-numbers or IDs (like E12345). Instead, use the format:
    - "https://www.geeksforgeeks.org/tag/company-name/"
    - "https://www.google.com/search?q=Glassdoor+company-name+Interview+Questions"
-4. Set status to "-" and campusVisitDate to "-".
+5. Set status to "-" and campusVisitDate to "-".
 
 JSON structure:
 {
@@ -322,8 +323,17 @@ JSON structure:
     const rawResult = await callAI(aiPrompt, 2000);
     const parsed = ensureValidJson(rawResult);
 
-    if (!parsed || !parsed.name) {
+    if (!parsed) {
       return res.status(502).json({ error: 'AI failed to retrieve structured company profile. Please try again.' });
+    }
+
+    if (parsed.invalidCompany || !parsed.name || parsed.name.toLowerCase() === 'xyz') {
+      return res.status(400).json({ error: `Invalid company name: "${searchName}". Please check the spelling or details and try again.` });
+    }
+
+    // Force absolute website URL prefix
+    if (parsed.website && !parsed.website.startsWith('http')) {
+      parsed.website = 'https://' + parsed.website;
     }
 
     // Force status and visit date to '-' for user searched companies

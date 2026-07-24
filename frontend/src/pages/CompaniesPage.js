@@ -54,7 +54,7 @@ function LogoTicker({ companies, brokenLogos, onBrokenLogo }) {
     <div style={{ background:'var(--surface)', border:'1px solid #e8edf5', borderRadius:14, padding:'14px 0', marginBottom:20, overflow:'hidden', position:'relative' }}>
       <div style={{ position:'absolute', left:0, top:0, bottom:0, width:60, background:'linear-gradient(90deg,#fff,transparent)', zIndex:2, pointerEvents:'none' }}/>
       <div style={{ position:'absolute', right:0, top:0, bottom:0, width:60, background:'linear-gradient(270deg,#fff,transparent)', zIndex:2, pointerEvents:'none' }}/>
-      <div style={{ display:'flex', gap:40, alignItems:'center', animation:'_ticker 12s linear infinite', width:'max-content', padding:'0 20px' }}>
+      <div style={{ display:'flex', gap:40, alignItems:'center', animation:'_ticker 30s linear infinite', width:'max-content', padding:'0 20px' }}>
         {items.map((c, i) => (
           <div key={i} style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
             <img src={c.logoUrl} alt={c.name}
