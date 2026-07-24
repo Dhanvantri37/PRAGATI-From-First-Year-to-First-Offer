@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUND_META, ROUND_RESOURCES } from './practice/RESOURCES';
 
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const tk = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
 
 const STATS = [
@@ -14,6 +16,36 @@ const STATS = [
 export default function InterviewPrepHub() {
   const nav = useNavigate();
   const [activeResource, setActiveResource] = useState(null);
+  
+  // Past session states
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [activeSession, setActiveSession] = useState(null); // detailed report session
+  const [sessionDetail, setSessionDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    setLoadingSessions(true);
+    fetch(`${API}/interview/sessions`, { headers: tk() })
+      .then(r => r.json())
+      .then(d => setSessions(d.sessions || []))
+      .catch(() => {})
+      .finally(() => setLoadingSessions(false));
+  }, []);
+
+  const viewSessionDetail = async (id) => {
+    setLoadingDetail(true);
+    setSessionDetail(null);
+    try {
+      const res = await fetch(`${API}/interview/session/${id}`, { headers: tk() });
+      const d = await res.json();
+      setSessionDetail(d.session);
+    } catch(err) {
+      console.error(err);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   const rounds = Object.entries(ROUND_META);
 
@@ -67,6 +99,148 @@ export default function InterviewPrepHub() {
         </div>
         <div style={{ padding: '10px 20px', borderRadius: 999, background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, fontSize: '.82rem', flexShrink: 0 }}>Start →</div>
       </div>
+
+      {/* AI Interview Reports List */}
+      {sessions && sessions.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 22px', marginBottom: 18 }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', color: 'var(--text)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            📊 Your Mock Interview History Reports
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+            {sessions.map(s => {
+              const dateStr = new Date(s.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              const scoreCol = s.overallScore >= 75 ? '#166534' : s.overallScore >= 50 ? '#92400e' : '#991b1b';
+              const scoreBg = s.overallScore >= 75 ? 'rgba(71,211,114,0.08)' : s.overallScore >= 50 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
+              
+              return (
+                <div key={s._id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, display: 'flex', alignItems: 'center', gap: 12, background: '#fafbff' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: '50%', background: scoreBg, color: scoreCol, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.95rem', flexShrink: 0 }}>
+                    {s.overallScore}%
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 800, fontSize: '.84rem', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.targetRole}
+                    </div>
+                    <div style={{ fontSize: '.72rem', color: 'var(--text-3)', marginTop: 2 }}>
+                      {s.interviewType} · {s.durationLabel}
+                    </div>
+                    <div style={{ fontSize: '.68rem', color: 'var(--text-3)', marginTop: 2 }}>
+                      {dateStr}
+                    </div>
+                  </div>
+                  <button onClick={() => { setActiveSession(s._id); viewSessionDetail(s._id); }}
+                    style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: 'rgba(83,22,151,0.08)', color: '#531697', fontWeight: 800, fontSize: '.74rem', cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>
+                    👁️ View
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Detailed Session Report Modal */}
+      {activeSession && (
+        <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(15,23,42,0.6)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:16, width:'100%', maxWidth:700, maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 12px 40px rgba(0,0,0,0.3)', overflow:'hidden' }}>
+            {/* Modal Header */}
+            <div style={{ background:'linear-gradient(135deg,#042c5d 0%,#1a0d3e 100%)', padding:'18px 22px', display:'flex', justifyContent:'space-between', alignItems:'center', color:'#fff' }}>
+              <div>
+                <div style={{ fontSize:'.68rem', fontWeight:800, color:'rgba(255,255,255,0.6)', textTransform:'uppercase', letterSpacing:'0.06em' }}>CAMPUS MOCK INTERVIEW REPORT</div>
+                <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.1rem', marginTop:2 }}>{sessionDetail?.targetRole || 'Loading...'}</div>
+              </div>
+              <button onClick={() => { setActiveSession(null); setSessionDetail(null); }}
+                style={{ background:'transparent', border:'none', color:'rgba(255,255,255,0.8)', fontSize:'1.4rem', cursor:'pointer' }}>
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ flex:1, overflowY:'auto', padding:'20px 24px', background:'#fafbff' }}>
+              {loadingDetail && <div style={{ textAlign:'center', padding:40, color:'var(--text-3)' }}>⏳ Loading detailed report...</div>}
+              
+              {sessionDetail && (
+                <div>
+                  {/* Performance stats row */}
+                  <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginBottom:18 }}>
+                    {[['Overall Score', `${sessionDetail.overallScore}/100`, '#13a1a5', 'rgba(19,161,165,0.06)'], ['Interview Type', sessionDetail.interviewType, '#531697', 'rgba(83,22,151,0.06)'], ['Duration', sessionDetail.durationLabel, '#47d372', 'rgba(71,211,114,0.06)'], ['Gaze Dev. Alerts', `${sessionDetail.proctoringViolations?.gazeAwayWarningCount || 0}`, '#ef4444', 'rgba(239,68,68,0.06)'], ['Talk Dev. Alerts', `${sessionDetail.proctoringViolations?.backgroundNoiseWarningCount || 0}`, '#ef4444', 'rgba(239,68,68,0.06)']].map(([l, v, c, bg]) => (
+                      <div key={l} style={{ flex:1, minWidth:110, padding:'10px 14px', background:bg, border:`1px solid ${c}22`, borderRadius:10, textAlign:'center' }}>
+                        <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.05rem', color:c }}>{v}</div>
+                        <div style={{ fontSize:'.65rem', color:'var(--text-3)', marginTop:2 }}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Proctoring Status summary */}
+                  <div style={{ background:(sessionDetail.proctoringViolations?.gazeAwayWarningCount > 0 || sessionDetail.proctoringViolations?.backgroundNoiseWarningCount > 0) ? 'rgba(239,68,68,0.05)' : 'rgba(71,211,114,0.05)', border:`1px solid ${(sessionDetail.proctoringViolations?.gazeAwayWarningCount > 0 || sessionDetail.proctoringViolations?.backgroundNoiseWarningCount > 0) ? '#ef444433' : '#47d37233'}`, borderRadius:10, padding:'10px 14px', fontSize:'.78rem', color:'var(--text-2)', display:'flex', gap:8, alignItems:'center', marginBottom:18 }}>
+                    <span>🛡️</span>
+                    <div>
+                      {(sessionDetail.proctoringViolations?.gazeAwayWarningCount > 0 || sessionDetail.proctoringViolations?.backgroundNoiseWarningCount > 0) ? (
+                        <strong>Cheating Risk: Warnings issued.</strong>
+                      ) : (
+                        <strong>Verified Status: Fully Compliant.</strong>
+                      )}
+                      <span> Candidate maintained camera gaze and noise requirements.</span>
+                    </div>
+                  </div>
+
+                  {/* Conversation transcript timeline */}
+                  <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'.88rem', color:'var(--text)', marginBottom:10 }}>💬 Conversation Transcript & Feedback</div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                    {sessionDetail.conversation.map((c, i) => {
+                      const isAi = c.role === 'ai';
+                      
+                      return (
+                        <div key={i} style={{ display:'flex', flexDirection:'column', background:isAi?'#f0f3fa':'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'14px 16px' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                            <span style={{ fontSize:'.72rem', fontWeight:900, color:isAi?'#531697':'#13a1a5', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                              {isAi ? '🤖 Interviewer (AI)' : '👤 You (Candidate)'}
+                            </span>
+                            {!isAi && c.score > 0 && (
+                              <span style={{ fontSize:'.7rem', fontWeight:800, padding:'2px 8px', borderRadius:999, background:'rgba(71,211,114,0.08)', color:'#166534' }}>
+                                Score: {c.score}/100
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Content */}
+                          <div style={{ fontSize:'.82rem', color:'var(--text)', lineHeight:1.55, whiteSpace:'pre-wrap' }}>
+                            {c.content}
+                          </div>
+
+                          {/* Pacing metrics for User answers */}
+                          {!isAi && c.wordsCount > 0 && (
+                            <div style={{ display:'flex', gap:12, marginTop:6, fontSize:'.68rem', color:'var(--text-3)' }}>
+                              <span>📝 Words: <strong>{c.wordsCount}</strong></span>
+                              <span>💬 Fillers: <strong>{c.fillerWordsCount}</strong></span>
+                              <span>⚡ Speed: <strong>{c.wpm} WPM</strong></span>
+                            </div>
+                          )}
+
+                          {/* Feedback note for user answers */}
+                          {!isAi && c.feedback && (
+                            <div style={{ marginTop:8, padding:'8px 10px', background:'rgba(83,22,151,0.04)', borderLeft:'3px solid #531697', borderRadius:4, fontSize:'.78rem', color:'var(--text-2)', lineHeight:1.45 }}>
+                              💡 <strong>Coach Feedback:</strong> {c.feedback}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding:'12px 24px', background:'var(--surface)', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end' }}>
+              <button onClick={() => { setActiveSession(null); setSessionDetail(null); }}
+                style={{ padding:'8px 20px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-3)', fontWeight:700, fontSize:'.82rem', cursor:'pointer' }}>
+                Close Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* How to prepare banner */}
       <div style={{ background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.12)', borderRadius: 12, padding: '14px 18px', marginBottom: 22, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
