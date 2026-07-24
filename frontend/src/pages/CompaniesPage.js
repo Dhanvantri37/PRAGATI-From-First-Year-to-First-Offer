@@ -43,8 +43,8 @@ const STATUS_STYLE = {
 };
 
 // ── Logo ticker ───────────────────────────────────────────────────────────────
-function LogoTicker({ companies }) {
-  const logos = companies.filter(c => c.logoUrl);
+function LogoTicker({ companies, brokenLogos, onBrokenLogo }) {
+  const logos = companies.filter(c => c.logoUrl && !brokenLogos[c._id]);
   if (!logos.length) return null;
 
   // Duplicate for infinite scroll
@@ -59,7 +59,8 @@ function LogoTicker({ companies }) {
           <div key={i} style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
             <img src={c.logoUrl} alt={c.name}
               style={{ height:32, maxWidth:90, objectFit:'contain', filter:'grayscale(20%)' }}
-              onError={e => { e.target.style.display='none'; }}/>
+              onError={() => { onBrokenLogo(c._id); }}/>
+            <span style={{ fontSize:'.85rem', fontWeight:700, color:'var(--text-3)' }}>{c.name}</span>
           </div>
         ))}
       </div>
@@ -299,7 +300,8 @@ function CompareModal({ companies, onClose }) {
 }
 
 // ── Company Detail Modal ───────────────────────────────────────────────────────
-function CompanyDetail({ company, onClose, onPin }) {
+function CompanyDetail({ company, onClose, onPin, onEdit, onDelete }) {
+  const { user } = useAuth();
   const ds = DIFF_STYLE[company.difficulty] || DIFF_STYLE.Easy;
   const ss = STATUS_STYLE[company.status] || STATUS_STYLE.expected;
   const [pinLoading, setPinLoading] = useState(false);
@@ -332,7 +334,19 @@ function CompanyDetail({ company, onClose, onPin }) {
                 <div style={{ color:'rgba(255,255,255,.7)', fontSize:'.82rem' }}>{company.sector}</div>
               </div>
             </div>
-            <div style={{ display:'flex', gap:6 }}>
+            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              {(user?.role === 'admin' || user?.role === 'faculty') && (
+                <>
+                  <button onClick={() => onEdit(company)}
+                    style={{ padding:'6px 14px', borderRadius:9, border:'1px solid rgba(255,255,255,.3)', background:'rgba(255,255,255,.1)', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
+                    ✏️ Edit
+                  </button>
+                  <button onClick={() => onDelete(company._id, company.name)}
+                    style={{ padding:'6px 14px', borderRadius:9, border:'1px solid rgba(239,68,68,.4)', background:'rgba(239,68,68,.15)', color:'#fca5a5', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
+                    🗑️ Delete
+                  </button>
+                </>
+              )}
               <button onClick={handlePin} disabled={pinLoading}
                 style={{ padding:'6px 14px', borderRadius:9, border:`1px solid ${company.pinned?'#f59e0b':'rgba(255,255,255,.3)'}`, background:company.pinned?'rgba(245,158,11,.2)':'rgba(255,255,255,.1)', color:company.pinned?'#fcd34d':'#fff', fontWeight:700, cursor:'pointer', fontSize:'.78rem', fontFamily:"'Nunito',sans-serif" }}>
                 {company.pinned ? '📌 Pinned' : '☆ Pin'}
@@ -550,6 +564,16 @@ export default function CompaniesPage() {
   const [aiError, setAiError] = useState('');
   const [aiSuccess, setAiSuccess] = useState('');
 
+  // Broken logos state
+  const [brokenLogos, setBrokenLogos] = useState({});
+
+  // AI Retrieve Preview & Confirmation states
+  const [aiPreviewCompany, setAiPreviewCompany] = useState(null);
+  const [confirmSaveLoading, setConfirmSaveLoading] = useState(false);
+
+  // Edit / Delete states
+  const [editingCompany, setEditingCompany] = useState(null);
+
   useEffect(() => {
     fetch(`${API}/companies`, { headers: tk() })
       .then(r => r.json())
@@ -558,6 +582,12 @@ export default function CompaniesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Handler for broken logo ticker detection
+  function handleBrokenLogo(id) {
+    setBrokenLogos(prev => ({ ...prev, [id]: true }));
+  }
+
+  // Preview AI Retrieve (Step 1)
   async function handleAiRetrieve() {
     if (!search.trim() || aiLoading) return;
     setAiLoading(true);
@@ -572,17 +602,83 @@ export default function CompaniesPage() {
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || 'Failed to retrieve company');
       
-      setCompanies(cs => {
-        if (cs.some(c => c._id === d.company._id)) return cs;
-        return [d.company, ...cs];
-      });
-
-      setAiSuccess(d.message);
-      setDetail(d.company);
+      if (d.isPreview) {
+        setAiPreviewCompany(d.company);
+      } else {
+        // Company already exists in DB
+        setCompanies(cs => {
+          if (cs.some(c => c._id === d.company._id)) return cs;
+          return [d.company, ...cs];
+        });
+        setAiSuccess(d.message || 'Company already exists in database');
+        setDetail(d.company);
+      }
     } catch (err) {
       setAiError(err.message);
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  // Confirm and Save Researched Company (Step 2)
+  async function handleConfirmSaveRetrieved() {
+    if (!aiPreviewCompany || confirmSaveLoading) return;
+    setConfirmSaveLoading(true);
+    try {
+      const res = await fetch(`${API}/companies/ai-retrieve`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify({ confirmSave: true, companyData: aiPreviewCompany })
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to save company');
+
+      setCompanies(cs => {
+        if (cs.some(c => c._id === d.company._id)) return cs;
+        return [d.company, ...cs];
+      });
+      setAiSuccess(d.message);
+      setDetail(d.company);
+      setAiPreviewCompany(null);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setConfirmSaveLoading(false);
+    }
+  }
+
+  // Faculty / Admin Edit Company
+  function handleEditCompany(company) {
+    setEditingCompany(company);
+  }
+
+  // Save Edited Company
+  function handleSaveEditedCompany(updatedCompany) {
+    setCompanies(cs => cs.map(c => c._id === updatedCompany._id ? updatedCompany : c));
+    if (detailCompany?._id === updatedCompany._id) {
+      setDetail(updatedCompany);
+    }
+  }
+
+  // Faculty / Admin Delete Company
+  async function handleDeleteCompany(id, name) {
+    const confirm = window.confirm(`Are you sure you want to permanently delete "${name}" from the database?`);
+    if (!confirm) return;
+
+    try {
+      const res = await fetch(`${API}/companies/${id}`, {
+        method: 'DELETE',
+        headers: tk()
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to delete company');
+
+      setCompanies(cs => cs.filter(c => c._id !== id));
+      setCompare(prev => prev.filter(c => c._id !== id));
+      setDetail(null);
+      alert(d.message || 'Company deleted successfully');
+    } catch (err) {
+      alert(err.message);
     }
   }
 
@@ -625,7 +721,7 @@ export default function CompaniesPage() {
       </div>
 
       {/* Running logo ticker */}
-      <LogoTicker companies={companies}/>
+      <LogoTicker companies={companies} brokenLogos={brokenLogos} onBrokenLogo={handleBrokenLogo}/>
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:5, marginBottom:16, borderBottom:'1px solid #e8edf5' }}>
@@ -749,7 +845,9 @@ export default function CompaniesPage() {
         <CompanyDetail
           company={{ ...detailCompany, pinned: companies.find(c=>c._id===detailCompany._id)?.pinned ?? detailCompany.pinned }}
           onClose={()=>setDetail(null)}
-          onPin={handlePin}/>
+          onPin={handlePin}
+          onEdit={handleEditCompany}
+          onDelete={handleDeleteCompany}/>
       )}
 
       {/* Compare modal */}
@@ -763,6 +861,289 @@ export default function CompaniesPage() {
         onRemove={id=>setCompare(cs=>cs.filter(c=>c._id!==id))}
         onCompare={()=>setShowCompare(true)}
         onClear={()=>setCompare([])}/>
+
+      {/* Retrieve Confirm Modal */}
+      {aiPreviewCompany && (
+        <RetrieveConfirmModal
+          company={aiPreviewCompany}
+          onClose={() => setAiPreviewCompany(null)}
+          onConfirm={handleConfirmSaveRetrieved}
+          loading={confirmSaveLoading}
+        />
+      )}
+
+      {/* Edit Company Modal */}
+      {editingCompany && (
+        <EditCompanyModal
+          company={editingCompany}
+          onClose={() => setEditingCompany(null)}
+          onSave={handleSaveEditedCompany}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Retrieve Confirmation Modal ───────────────────────────────────────────────
+function RetrieveConfirmModal({ company, onClose, onConfirm, loading }) {
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:'var(--surface)', borderRadius:20, width:'100%', maxWidth:520, padding:'24px', boxShadow:'0 24px 60px rgba(0,0,0,.3)', textAlign:'center', display:'flex', flexDirection:'column', gap:16 }}>
+        <div style={{ fontSize: '3rem' }}>✨</div>
+        <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.25rem', color:'#531697', margin:0 }}>We Researched "{company.name}"!</h3>
+        <p style={{ fontSize:'.85rem', color:'var(--text-3)', margin:0, lineHeight:1.5 }}>
+          Pragati AI found all details, tech stacks, and Glassdoor interview resources. 
+          Would you like to save this company to the shared campus directory so all other students can view it?
+        </p>
+
+        <div style={{ background:'#f8f9fc', border:'1px solid #e8edf5', borderRadius:12, padding:'14px', textAlign:'left', display:'flex', flexDirection:'column', gap:8 }}>
+          <div style={{ fontSize:'.82rem', color:'var(--text-2)' }}><strong>🏢 Company:</strong> {company.name}</div>
+          <div style={{ fontSize:'.82rem', color:'var(--text-2)' }}><strong>💼 Sector:</strong> {company.sector}</div>
+          <div style={{ fontSize:'.82rem', color:'var(--text-2)' }}><strong>💰 Est. CTC:</strong> {company.ctc}</div>
+          <div style={{ fontSize:'.82rem', color:'var(--text-2)' }}><strong>📊 Difficulty:</strong> {company.difficulty}</div>
+          <div style={{ fontSize:'.82rem', color:'var(--text-2)' }}><strong>🔁 Rounds:</strong> {(company.recruitmentRounds || []).join(' → ')}</div>
+        </div>
+
+        <div style={{ display:'flex', gap:10, justifyContent:'center', marginTop:10 }}>
+          <button onClick={onClose} disabled={loading}
+            style={{ padding:'10px 20px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', fontWeight:700, cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
+            No, Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            style={{ padding:'10px 24px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#042c5d,#531697)', color:'#fff', fontWeight:800, cursor:loading?'not-allowed':'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif", display:'flex', alignItems:'center', gap:6 }}>
+            {loading && <div style={{ width:12, height:12, border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />}
+            Yes, Save to Directory
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Company Modal (Faculty & Admin Only) ───────────────────────────────
+function EditCompanyModal({ company, onClose, onSave }) {
+  const [formData, setFormData] = useState({
+    name: company.name || '',
+    sector: company.sector || '',
+    website: company.website || '',
+    ctc: company.ctc || '',
+    difficulty: company.difficulty || 'Medium',
+    minCGPA: company.eligibilityCriteria?.minCGPA || 6.0,
+    allowedBranches: (company.eligibilityCriteria?.allowedBranches || []).join(', '),
+    roles: (company.roles || []).join(', '),
+    recruitmentRounds: (company.recruitmentRounds || []).join(', '),
+    techStack: (company.techStack || []).join(', '),
+    resources: (company.resources || []).join(', '),
+    companyOverview: company.companyOverview || '',
+    aptitudePatterns: company.aptitudePatterns || '',
+    interviewPatterns: company.interviewPatterns || '',
+    jdText: company.jdText || '',
+    prepTips: company.prepTips || '',
+    workCulture: company.workCulture || '',
+    growthPath: company.growthPath || '',
+    bondDetails: company.bondDetails || '',
+    bond: company.bond || 'None',
+    packageBreakdown: company.packageBreakdown || '',
+    logoUrl: company.logoUrl || ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    
+    // Parse arrays
+    const allowedBranches = formData.allowedBranches.split(',').map(s => s.trim()).filter(Boolean);
+    const roles = formData.roles.split(',').map(s => s.trim()).filter(Boolean);
+    const recruitmentRounds = formData.recruitmentRounds.split(',').map(s => s.trim()).filter(Boolean);
+    const techStack = formData.techStack.split(',').map(s => s.trim()).filter(Boolean);
+    const resources = formData.resources.split(',').map(s => s.trim()).filter(Boolean);
+
+    const payload = {
+      ...formData,
+      eligibilityCriteria: {
+        minCGPA: parseFloat(formData.minCGPA) || 0,
+        allowedBranches,
+        backlogs: company.eligibilityCriteria?.backlogs ?? false
+      },
+      roles,
+      recruitmentRounds,
+      techStack,
+      resources
+    };
+
+    try {
+      const res = await fetch(`${API}/companies/${company._id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('pragati_token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to update company');
+      onSave(d.company);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:'var(--surface)', borderRadius:20, width:'100%', maxWidth:600, maxHeight:'85vh', overflow:'auto', boxShadow:'0 24px 60px rgba(0,0,0,.2)', display:'flex', flexDirection:'column' }}>
+        {/* Header */}
+        <div style={{ background:'linear-gradient(135deg,#042c5d,#531697)', padding:'18px 24px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:'1.15rem', color:'#fff', margin:0 }}>✏️ Edit Company: {company.name}</h2>
+          <button onClick={onClose} style={{ border:'none', background:'none', color:'#fff', cursor:'pointer', fontSize:'1.1rem' }}>✕</button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:14 }}>
+          {error && <div style={{ color:'#ef4444', fontSize:'.8rem', fontWeight:600 }}>⚠️ {error}</div>}
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>COMPANY NAME</label>
+              <input name="name" value={formData.name} onChange={handleChange} required
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>SECTOR</label>
+              <input name="sector" value={formData.sector} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>WEBSITE</label>
+              <input name="website" value={formData.website} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>LOGO URL</label>
+              <input name="logoUrl" value={formData.logoUrl} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>CTC (e.g. 5.00 LPA)</label>
+              <input name="ctc" value={formData.ctc} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>DIFFICULTY</label>
+              <select name="difficulty" value={formData.difficulty} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}>
+                <option value="Easy">Easy</option>
+                <option value="Easy-Medium">Easy-Medium</option>
+                <option value="Medium">Medium</option>
+                <option value="Medium-Hard">Medium-Hard</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>MIN CGPA</label>
+              <input type="number" step="0.1" name="minCGPA" value={formData.minCGPA} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>ALLOWED BRANCHES (comma-separated)</label>
+            <input name="allowedBranches" value={formData.allowedBranches} onChange={handleChange}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>ROLES OFFERED (comma-separated)</label>
+            <input name="roles" value={formData.roles} onChange={handleChange}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>TECH STACK (comma-separated)</label>
+            <input name="techStack" value={formData.techStack} onChange={handleChange}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>RECRUITMENT ROUNDS (comma-separated in order)</label>
+            <textarea name="recruitmentRounds" value={formData.recruitmentRounds} onChange={handleChange} rows={2}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>RESOURCES / BLOG LINKS (comma-separated)</label>
+            <textarea name="resources" value={formData.resources} onChange={handleChange} rows={2}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>COMPANY OVERVIEW</label>
+            <textarea name="companyOverview" value={formData.companyOverview} onChange={handleChange} rows={3}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>BOND TERM (e.g. 2 years)</label>
+              <input name="bond" value={formData.bond} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+            <div>
+              <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>BOND DETAILS</label>
+              <input name="bondDetails" value={formData.bondDetails} onChange={handleChange}
+                style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>PACKAGE BREAKDOWN</label>
+            <input name="packageBreakdown" value={formData.packageBreakdown} onChange={handleChange}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>APTITUDE / TEST PATTERN</label>
+            <textarea name="aptitudePatterns" value={formData.aptitudePatterns} onChange={handleChange} rows={3}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>INTERVIEW PATTERNS</label>
+            <textarea name="interviewPatterns" value={formData.interviewPatterns} onChange={handleChange} rows={3}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div>
+            <label style={{ fontSize:'.75rem', fontWeight:700, color:'var(--text-3)', display:'block', marginBottom:4 }}>PREPARATION TIPS</label>
+            <textarea name="prepTips" value={formData.prepTips} onChange={handleChange} rows={3}
+              style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #d0d7e8', fontSize:'.82rem', fontFamily:"'Nunito',sans-serif" }}/>
+          </div>
+
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:10 }}>
+            <button type="button" onClick={onClose} style={{ padding:'8px 18px', borderRadius:8, border:'1px solid #d0d7e8', background:'transparent', cursor:'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>Cancel</button>
+            <button type="submit" disabled={loading}
+              style={{ padding:'8px 22px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#042c5d,#531697)', color:'#fff', fontWeight:700, cursor:loading?'not-allowed':'pointer', fontSize:'.85rem', fontFamily:"'Nunito',sans-serif" }}>
+              {loading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
