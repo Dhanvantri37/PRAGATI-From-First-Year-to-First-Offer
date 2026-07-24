@@ -31,11 +31,11 @@ async function seed() {
   const companies = [
     {
       name: "Bentley Systems",
-      logoUrl: "https://www.google.com/s2/favicons?sz=128&domain=bentley.com",
+      logoUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTlsichFrt0pNMWQ290I5SI3lykyb7YGUwadvJGKe6W2ehaRPnjSM9p1w&s=10",
       sector: "Software & CAD Engineering",
       website: "https://bentley.com",
       status: "visited",
-      campusVisitDate: "2024-09-20",
+      campusVisitDate: "2025-06-11",
       ctc: "10.00 LPA",
       difficulty: "Medium-Hard",
       eligibilityCriteria: { minCGPA: 7.0, allowedBranches: ["CSE", "CSAIML", "IT", "ECE"], backlogs: false },
@@ -63,8 +63,10 @@ async function seed() {
       bond: "None",
       packageBreakdown: "Base Package: ₹9.00 LPA, Retainers/Allowances: ₹1.00 LPA",
       resources: [
-        "https://www.ambitionbox.com/interviews/bentley-systems-interview-questions",
-        "https://www.glassdoor.co.in/Interview/Bentley-Systems-Interview-Questions-E8314.htm"
+        "https://www.glassdoor.co.in/Interview/Bentley-Systems-Interview-Questions-E7618.htm",
+        "https://www.glassdoor.co.in/Interview/Bentley-Systems-Associate-Software-Engineer-Interview-Questions-EI_IE7618.0,15_KO16,43.htm",
+        "https://www.glassdoor.co.in/Interview/Bentley-Systems-Associate-Software-Engineer-Interview-Questions-EI_IE7618.0,15_KO16,43.htm",
+        "https://www.glassdoor.co.in/Reviews/Bentley-Systems-Reviews-E7618.htm"
       ]
     },
     {
@@ -101,12 +103,12 @@ async function seed() {
       packageBreakdown: "Fixed Component: ₹7.00 LPA, Performance Incentives: ₹3.00 LPA",
       resources: [
         "https://www.glassdoor.co.in/Interview/Jaro-Education-Business-Development-Executive-Interview-Questions-EI_IE427536.0,14_KO15,45.htm",
-        "https://www.glassdoor.com/Interview/Jaro-Education-Interview-Questions-E427536.htm"
+        "https://www.glassdoor.co.in/Interview/Jaro-Education-Business-Development-Executive-Interview-Questions-EI_IE427536.0,14_KO15,45.htm"
       ]
     },
     {
       name: "Cogitate",
-      logoUrl: "https://www.google.com/s2/favicons?sz=128&domain=cogitate.us",
+      logoUrl: "https://cogitate.com/wp-content/uploads/2024/09/logo-2.png",
       sector: "InsurTech & Cloud Computing",
       website: "https://cogitate.us",
       status: "visited",
@@ -137,7 +139,11 @@ async function seed() {
       bond: "2 years",
       packageBreakdown: "Base Component: ₹7.20 LPA, Variable Bonus: ₹0.80 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Interview-Questions-E1439268.htm"
+        "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Interview-Questions-E1037435.htm",
+        "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Software-Engineer-Interview-Questions-EI_IE1037435.0,29_KO30,47.htm",
+        "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Mumbai-Interview-Questions-EI_IE1037435.0,29_IL.30,36_IM1070.htm",
+        "https://www.glassdoor.co.in/Interview/In-HR-Round-Basic-HR-questions-were-asked-like-Salary-Expections-why-should-we-hire-you-biggest-Success-why-you-wa-QTN_7274614.htm",
+
       ]
     },
     {
@@ -173,7 +179,8 @@ async function seed() {
       bond: "None",
       packageBreakdown: "Base Package: ₹5.00 LPA – ₹7.00 LPA (Performance-based placement tier)",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Jibe-Technologies-Interview-Questions-E1005615.htm"
+        "https://www.glassdoor.co.in/Interview/JiBe-Development-Services-Interview-Questions-E1158658.htm",
+        "https://www.glassdoor.co.in/Reviews/JiBe-Development-Services-Reviews-E1158658.htm"
       ]
     },
     {
@@ -209,7 +216,9 @@ async function seed() {
       bond: "None",
       packageBreakdown: "Base Component: ₹6.00 LPA, Performance/Retention Bonus: ₹0.50 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Atlas-Copco-Interview-Questions-E10368.htm"
+        "https://www.glassdoor.co.in/Interview/Atlas-Copco-Group-Interview-Questions-E10368.htm",
+        "https://www.glassdoor.co.in/Interview/Atlas-Copco-Group-Interview-Questions-E10368.htm",
+        "https://www.glassdoor.co.in/Interview/Atlas-Copco-Group-Graduate-Engineering-Trainee-GET-Interview-Questions-EI_IE10368.0,17_KO18,50.htm"
       ]
     },
     {
@@ -245,7 +254,10 @@ async function seed() {
       bond: "1.5 years",
       packageBreakdown: "Fixed Package: ₹4.50 LPA, Performance/Retention Bonus: ₹0.50 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E1528646.htm"
+        "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E4427552.htm",
+        "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E4427552.htm",
+        "https://www.glassdoor.co.in/Salary/NonStop-io-Technologies-Salaries-E4427552.htm"
+
       ]
     },
     {
@@ -280,7 +292,8 @@ async function seed() {
       bond: "None",
       packageBreakdown: "GenC Tier: ₹4.00 LPA, GenC Elevate: ₹4.25–4.50 LPA, GenC Next: ₹6.75 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Cognizant-Technology-Solutions-Interview-Questions-E2295.htm"
+        "https://www.glassdoor.co.in/Interview/Cogitate-Technology-Solutions-Interview-Questions-E1037435.htm",
+        "https://www.glassdoor.co.in/Salary/Cogitate-Technology-Solutions-Salaries-E1037435.htm"
       ]
     },
     {
@@ -316,12 +329,12 @@ async function seed() {
       bond: "2 years",
       packageBreakdown: "Base Package: ₹4.20 LPA (inclusive of all allowances)",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Hexaware-Technologies-Interview-Questions-E11456.htm"
+        "https://www.glassdoor.co.in/Interview/NonStop-io-Technologies-Interview-Questions-E4427552.htm"
       ]
     },
     {
       name: "Sankey Solutions",
-      logoUrl: "https://www.google.com/s2/favicons?sz=128&domain=sankeysolutions.com",
+      logoUrl: "https://in5.s3.ap-south-1.amazonaws.com/winners/2019/6by1N0kdVVClPVXGW6F6GznrHC57WlmY5nHtG1X0.jpeg",
       sector: "Technology Consulting",
       website: "https://sankeysolutions.com",
       status: "visited",
@@ -388,7 +401,7 @@ async function seed() {
       bond: "None",
       packageBreakdown: "Base Package: ₹4.00 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Neeyamo-Enterprise-Solutions-Interview-Questions-E598363.htm"
+        "https://www.glassdoor.co.in/Interview/Bentley-Systems-Interview-Questions-E7618.htm"
       ]
     },
     {
@@ -423,7 +436,8 @@ async function seed() {
       bond: "1 year",
       packageBreakdown: "Base Package: ₹4.00 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Rsquaresoft-Technologies-Interview-Questions-E2834612.htm"
+        "https://www.glassdoor.co.in/Interview/RSquareSoft-Technologies-Interview-Questions-E10137059.htm",
+        "https://www.glassdoor.co.in/Interview/RSquareSoft-Technologies-Internship-Interview-Questions-EI_IE10137059.0,24_KO25,35.htm"
       ]
     },
     {
@@ -458,14 +472,16 @@ async function seed() {
       bond: "1 year",
       packageBreakdown: "Base Package: ₹3.60 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Infosys-Interview-Questions-E7924.htm"
+        "https://www.glassdoor.co.in/Interview/Infosys-Interview-Questions-E7927.htm",
+        "https://www.glassdoor.co.in/Interview/Infosys-Interview-Questions-E7927.htm",
+        "https://www.glassdoor.co.in/Overview/Working-at-Infosys-EI_IE7927.11,18.htm"
       ]
     },
     {
       name: "Thinkloud",
-      logoUrl: "https://www.google.com/s2/favicons?sz=128&domain=thinkloud.in",
+      logoUrl: "https://www.thinkloud.co.uk/thinkloud.png",
       sector: "Cloud Consulting & DevOps",
-      website: "https://thinkloud.in",
+      website: "https://thinqloud.com",
       status: "visited",
       campusVisitDate: "2024-12-05",
       ctc: "3.60 LPA",
@@ -493,14 +509,15 @@ async function seed() {
       bond: "None",
       packageBreakdown: "Base Package: ₹3.60 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Thinkloud-Technologies-Interview-Questions-E2938471.htm"
+        "https://www.glassdoor.co.in/Interview/Thinqloud-Interview-Questions-E2115978.htm",
+        "https://www.glassdoor.co.in/Interview/ThinKloud-Interview-Questions-E7050327.htm"
       ]
     },
     {
       name: "Quantbit Technologies",
-      logoUrl: "https://www.google.com/s2/favicons?sz=128&domain=quantbittech.com",
+      logoUrl: "https://quantbit.io/assets/quantbit_website/img/logo-quantbit.png",
       sector: "ERP & Enterprise Integrations",
-      website: "https://quantbittech.com",
+      website: "https://quantbit.io",
       status: "visited",
       campusVisitDate: "2024-12-10",
       ctc: "3.00 LPA",
@@ -528,7 +545,8 @@ async function seed() {
       bond: "1 year",
       packageBreakdown: "Base Package: ₹3.00 LPA",
       resources: [
-        "https://www.glassdoor.co.in/Interview/Quantbit-Technologies-Interview-Questions-E2738411.htm"
+        "https://www.glassdoor.co.in/Job/kolhapur-of-hr-jobs-SRCH_IL.0,8_IC2934202_KO9,14.htm",
+        "https://quantbit.io/company/careers"
       ]
     }
   ];
