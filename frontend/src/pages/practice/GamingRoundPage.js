@@ -5,7 +5,102 @@ import { ROUND_RESOURCES } from './RESOURCES';
 const GRAD = 'linear-gradient(135deg,#531697,#13a1a5)';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPER UTILITIES FOR DYNAMIC GENERATION
+// MOTIVATIONAL TOAST & BANNER MESSAGES
+// ─────────────────────────────────────────────────────────────────────────────
+const MOTIVATIONAL_SUCCESS = [
+  '🌟 SUPERB! Outstanding logical speed!',
+  '🔥 EXCELLENT! GenC Next Level performance!',
+  '💪 WELL DONE! Perfect execution!',
+  '⚡ BRILLIANT! Top percentile speed!',
+  '🎉 AWESOME! You smashed this puzzle!'
+];
+
+const MOTIVATIONAL_RETRY = [
+  '💡 Keep going! Every mistake builds your cognitive muscle.',
+  '🚀 Don’t give up! Re-analyze the pattern and try again.',
+  '🎯 Almost there! Take a deep breath and give it another shot.',
+  '✨ Learning in progress! Master this technique now.'
+];
+
+function MotivationalToast({ message, type }) {
+  if (!message) return null;
+  const isSuccess = type === 'success';
+  return (
+    <div
+      style={{
+        marginTop: 12,
+        padding: '12px 18px',
+        borderRadius: 10,
+        background: isSuccess ? 'rgba(71,211,114,0.15)' : 'rgba(239,68,68,0.12)',
+        border: `1.5px solid ${isSuccess ? '#47d372' : '#ef4444'}`,
+        color: isSuccess ? '#166534' : '#991b1b',
+        fontWeight: 800,
+        fontSize: '.85rem',
+        textAlign: 'center',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION TIMER BAR (Cognizant & Capgemini Exam Pattern)
+// ─────────────────────────────────────────────────────────────────────────────
+function ExamTimerBar({ durationSeconds, onTimeUp, isActive }) {
+  const [timeLeft, setTimeLeft] = useState(durationSeconds);
+
+  useEffect(() => {
+    setTimeLeft(durationSeconds);
+  }, [durationSeconds]);
+
+  useEffect(() => {
+    if (!isActive || timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          if (onTimeUp) onTimeUp();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isActive, timeLeft, onTimeUp]);
+
+  const pct = (timeLeft / durationSeconds) * 100;
+  const mins = Math.floor(timeLeft / 60);
+  const secs = timeLeft % 60;
+  const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+  let barColor = '#47d372';
+  if (pct < 50) barColor = '#f59e0b';
+  if (pct < 20) barColor = '#ef4444';
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.78rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 4 }}>
+        <span>⏱️ Cognizant Exam Timer</span>
+        <span style={{ color: barColor }}>{timeStr}</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: barColor,
+            transition: 'width 1s linear, background 0.3s'
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER UTILITIES
 // ─────────────────────────────────────────────────────────────────────────────
 function shuffle(array) {
   const arr = [...array];
@@ -24,7 +119,7 @@ const SYMBOL_SETS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 1: DEDUCTIVE LOGIC (GEO-SUDOKU) — DYNAMIC PROCEDURAL GENERATOR
+// GAME 1: DEDUCTIVE LOGIC (GEO-SUDOKU)
 // ─────────────────────────────────────────────────────────────────────────────
 function generateLatinSquare(symbols) {
   const n = symbols.length;
@@ -35,30 +130,25 @@ function generateLatinSquare(symbols) {
       grid[r][c] = syms[(r + c) % n];
     }
   }
-  // Shuffle rows & columns to randomize
   const rowOrder = shuffle([0, 1, 2, 3]);
   const colOrder = shuffle([0, 1, 2, 3]);
   return rowOrder.map(r => colOrder.map(c => grid[r][c]));
 }
 
 function GeoSudokuGame() {
-  const [level, setLevel] = useState(1); // 1: Easy (4 empty), 2: Medium (7 empty), 3: Hard (10 empty)
+  const [level, setLevel] = useState(1);
   const [symSet, setSymSet] = useState(SYMBOL_SETS[0]);
-  const [solution, setSolution] = useState([]);
   const [initial, setInitial] = useState([]);
   const [grid, setGrid] = useState([]);
   const [selectedCell, setSelectedCell] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [toast, setToast] = useState(null);
   const [score, setScore] = useState(0);
 
   const initGame = useCallback((lvl, setIdx = null) => {
     const symbols = SYMBOL_SETS[setIdx ?? Math.floor(Math.random() * SYMBOL_SETS.length)];
     setSymSet(symbols);
     const sol = generateLatinSquare(symbols);
-    setSolution(sol);
 
-    // Remove cells based on level
     const removeCount = lvl === 1 ? 4 : lvl === 2 ? 7 : 10;
     const initGrid = sol.map(row => [...row]);
     const indices = [];
@@ -71,14 +161,13 @@ function GeoSudokuGame() {
     setInitial(initGrid.map(row => [...row]));
     setGrid(initGrid.map(row => [...row]));
     setSelectedCell(null);
-    setStatus(null);
-    setErrorMsg('');
+    setToast(null);
   }, []);
 
   useEffect(() => { initGame(1, 0); }, [initGame]);
 
   const handleCellClick = (r, c) => {
-    if (initial[r][c] !== null) return;
+    if (initial[r] && initial[r][c] !== null) return;
     setSelectedCell([r, c]);
   };
 
@@ -87,7 +176,7 @@ function GeoSudokuGame() {
     const [r, c] = selectedCell;
     const nextGrid = grid.map((row, ri) => row.map((v, ci) => (ri === r && ci === c ? sym : v)));
     setGrid(nextGrid);
-    setStatus(null);
+    setToast(null);
   };
 
   const clearCell = () => {
@@ -95,15 +184,14 @@ function GeoSudokuGame() {
     const [r, c] = selectedCell;
     const nextGrid = grid.map((row, ri) => row.map((v, ci) => (ri === r && ci === c ? null : v)));
     setGrid(nextGrid);
-    setStatus(null);
+    setToast(null);
   };
 
   const checkSolution = () => {
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
         if (!grid[r][c]) {
-          setStatus('error');
-          setErrorMsg('Grid is not completely filled!');
+          setToast({ message: MOTIVATIONAL_RETRY[Math.floor(Math.random() * MOTIVATIONAL_RETRY.length)], type: 'error' });
           return;
         }
       }
@@ -112,16 +200,13 @@ function GeoSudokuGame() {
       const rowSet = new Set(grid[i]);
       const colSet = new Set(grid.map(row => row[i]));
       if (rowSet.size < 4 || colSet.size < 4) {
-        setStatus('error');
-        setErrorMsg('Duplicate symbols found in row or column!');
+        setToast({ message: 'Duplicate symbols found in row or column! Re-check rules.', type: 'error' });
         return;
       }
     }
-    setStatus('success');
-    setScore(s => s + lvlScoreMultiplier(level));
+    setToast({ message: MOTIVATIONAL_SUCCESS[Math.floor(Math.random() * MOTIVATIONAL_SUCCESS.length)], type: 'success' });
+    setScore(s => s + level * 150);
   };
-
-  const lvlScoreMultiplier = (l) => l * 100;
 
   return (
     <Card style={{ background: '#fff' }}>
@@ -141,8 +226,10 @@ function GeoSudokuGame() {
         </div>
       </div>
       <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
-        Fill the 4x4 matrix so every row and column has each symbol exactly once. New puzzles generated on every attempt!
+        Fill the 4x4 matrix so every row and column has each symbol exactly once without repeating.
       </p>
+
+      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Time is up! Try generating a new puzzle.', type: 'error' })} isActive={true} />
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 56px)', gap: 8, justifyContent: 'center', marginBottom: 16 }}>
@@ -160,7 +247,7 @@ function GeoSudokuGame() {
                   borderRadius: 10,
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justify: 'center',
                   fontSize: '1.6rem',
                   cursor: isInitial ? 'not-allowed' : 'pointer',
                   background: isSelected ? 'rgba(83,22,151,0.15)' : isInitial ? '#f0f3fa' : '#fff',
@@ -198,37 +285,23 @@ function GeoSudokuGame() {
         </button>
       </div>
 
-      {status === 'success' && (
-        <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(71,211,114,0.12)', border: '1px solid rgba(71,211,114,0.3)', color: '#166534', fontSize: '.85rem', fontWeight: 800, textAlign: 'center' }}>
-          🎉 Perfect! Geo-Sudoku solved cleanly! (+{lvlScoreMultiplier(level)} pts)
-        </div>
-      )}
-      {status === 'error' && (
-        <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#991b1b', fontSize: '.85rem', fontWeight: 700, textAlign: 'center' }}>
-          ❌ {errorMsg}
-        </div>
-      )}
+      {toast && <MotivationalToast message={toast.message} type={toast.type} />}
     </Card>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 2: SWITCH CHALLENGE — DYNAMIC PERMUTATION GENERATOR
+// GAME 2: SWITCH CHALLENGE (Logic Sequence Decoder)
 // ─────────────────────────────────────────────────────────────────────────────
 const ALL_SHAPES = ['🔴', '🟦', '🔺', '⭐', '🟢', '💎', '🔥', '⚡', '🌙', '🎯'];
 
 function applyPermutation(input, perm) {
-  // perm is 1-indexed, e.g. [3, 1, 4, 2]
-  // perm[i] indicates which index of input moves to position i
   return perm.map(pos => input[pos - 1]);
 }
 
 function generateSwitchProblem(level) {
-  // Pick 4 or 5 distinct shapes
   const length = level >= 3 ? 5 : 4;
   const input = shuffle(ALL_SHAPES).slice(0, length);
-
-  // Generate 1 or 2 permutation rules
   const perm1 = shuffle(Array.from({ length }, (_, i) => i + 1));
   let intermediate = applyPermutation(input, perm1);
   let finalAns = intermediate;
@@ -240,7 +313,6 @@ function generateSwitchProblem(level) {
     codeStr = `CODE A: ${perm1.join('-')} ➔ CODE B: ${perm2.join('-')}`;
   }
 
-  // Generate 3 distractors
   const distractors = new Set();
   while (distractors.size < 3) {
     const cand = shuffle(input);
@@ -256,14 +328,16 @@ function generateSwitchProblem(level) {
 }
 
 function SwitchChallengeGame() {
-  const [level, setLevel] = useState(1); // 1: Single code, 2: Stacked codes, 3: 5-element sequence
+  const [level, setLevel] = useState(1);
   const [problem, setProblem] = useState(null);
   const [selectedOpt, setSelectedOpt] = useState(null);
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [toast, setToast] = useState(null);
 
   const nextProblem = useCallback((lvl = level) => {
     setSelectedOpt(null);
+    setToast(null);
     setProblem(generateSwitchProblem(lvl));
   }, [level]);
 
@@ -273,10 +347,12 @@ function SwitchChallengeGame() {
     if (selectedOpt !== null) return;
     setSelectedOpt(idx);
     if (idx === problem.correctIdx) {
-      setScore(s => s + 100 * level);
+      setScore(s => s + 120 * level);
       setStreak(st => st + 1);
+      setToast({ message: MOTIVATIONAL_SUCCESS[Math.floor(Math.random() * MOTIVATIONAL_SUCCESS.length)], type: 'success' });
     } else {
       setStreak(0);
+      setToast({ message: MOTIVATIONAL_RETRY[Math.floor(Math.random() * MOTIVATIONAL_RETRY.length)], type: 'error' });
     }
   };
 
@@ -300,8 +376,10 @@ function SwitchChallengeGame() {
         </div>
       </div>
       <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
-        Decode hidden sequence transformation codes. Dynamically generated on every round to test pattern speed!
+        Cognizant Exam Pattern: Apply the hidden transformation rules to decode the output sequence.
       </p>
+
+      <ExamTimerBar durationSeconds={240} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
 
       {/* Input Sequence */}
       <div style={{ background: '#f8fafc', padding: 14, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 14, textAlign: 'center' }}>
@@ -357,10 +435,12 @@ function SwitchChallengeGame() {
         })}
       </div>
 
+      {toast && <MotivationalToast message={toast.message} type={toast.type} />}
+
       {selectedOpt !== null && (
-        <div style={{ textAlign: 'center', marginTop: 10 }}>
+        <div style={{ textAlign: 'center', marginTop: 14 }}>
           <button onClick={() => nextProblem(level)} style={{ padding: '9px 22px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.82rem' }}>
-            Next Dynamic Switch Challenge →
+            Next Switch Challenge →
           </button>
         </div>
       )}
@@ -369,7 +449,7 @@ function SwitchChallengeGame() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 3: MOTION CHALLENGE — DYNAMIC MAZE & BFS PATHFINDER
+// GAME 3: MOTION CHALLENGE (Maze Pathfinder)
 // ─────────────────────────────────────────────────────────────────────────────
 function bfsShortestPath(size, start, target, walls) {
   const wallSet = new Set(walls);
@@ -391,7 +471,7 @@ function bfsShortestPath(size, start, target, walls) {
       }
     }
   }
-  return -1; // Unreachable
+  return -1;
 }
 
 function generateMotionMaze(level) {
@@ -403,7 +483,6 @@ function generateMotionMaze(level) {
   let walls = [];
   let optimalDist = -1;
 
-  // Keep generating random wall placements until a valid solvable path exists
   while (optimalDist === -1) {
     const candidates = [];
     for (let r = 0; r < size; r++) {
@@ -426,6 +505,7 @@ function MotionChallengeGame() {
   const [moves, setMoves] = useState(0);
   const [won, setWon] = useState(false);
   const [score, setScore] = useState(0);
+  const [toast, setToast] = useState(null);
 
   const initLevel = useCallback((lvl = level) => {
     const m = generateMotionMaze(lvl);
@@ -433,6 +513,7 @@ function MotionChallengeGame() {
     setPos(m.start);
     setMoves(0);
     setWon(false);
+    setToast(null);
   }, [level]);
 
   useEffect(() => { initLevel(1); }, [initLevel]);
@@ -449,8 +530,14 @@ function MotionChallengeGame() {
     setMoves(nextMoves);
     if (nr === maze.target.r && nc === maze.target.c) {
       setWon(true);
-      const moveEfficiency = Math.max(50, 200 - (nextMoves - maze.optimalDist) * 20);
-      setScore(s => s + moveEfficiency * level);
+      const isOptimal = nextMoves === maze.optimalDist;
+      setToast({
+        message: isOptimal
+          ? '🌟 PERFECT! You found the exact BFS optimal path!'
+          : MOTIVATIONAL_SUCCESS[Math.floor(Math.random() * MOTIVATIONAL_SUCCESS.length)],
+        type: 'success'
+      });
+      setScore(s => s + (isOptimal ? 250 : 150) * level);
     }
   };
 
@@ -459,7 +546,7 @@ function MotionChallengeGame() {
   return (
     <Card style={{ background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <SectionTitle>🎯 Motion Challenge (Dynamic Pathfinder)</SectionTitle>
+        <SectionTitle>🎯 Motion Challenge (Pathfinder)</SectionTitle>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <span style={{ fontSize: '.78rem', color: '#531697', fontWeight: 800 }}>Moves: {moves} (Optimal: {maze.optimalDist})</span>
           <select
@@ -474,8 +561,10 @@ function MotionChallengeGame() {
         </div>
       </div>
       <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
-        Navigate the dot (🟢) to the target (⭐) in the fewest possible moves. Mazes procedurally change on every restart!
+        Navigate dot (🟢) to destination (⭐) avoiding walls (🧱) in minimum moves.
       </p>
+
+      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${maze.size}, 46px)`, gap: 6, justifyContent: 'center', marginBottom: 16 }}>
@@ -506,7 +595,7 @@ function MotionChallengeGame() {
         )}
       </div>
 
-      {/* Controller Buttons */}
+      {/* Controls */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 14 }}>
         <button onClick={() => move(-1, 0)} style={{ width: 44, height: 38, borderRadius: 8, border: '1px solid #d0d7e8', background: '#fff', cursor: 'pointer', fontWeight: 800 }}>⬆️</button>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -516,14 +605,13 @@ function MotionChallengeGame() {
         </div>
       </div>
 
-      {won ? (
-        <div style={{ textAlign: 'center', padding: 12, background: 'rgba(71,211,114,0.12)', borderRadius: 8, color: '#166534', fontWeight: 800, fontSize: '.85rem' }}>
-          🎉 Solved in {moves} moves! (Optimal was {maze.optimalDist})
-          <button onClick={() => initLevel(level)} style={{ marginLeft: 12, padding: '6px 16px', borderRadius: 6, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Next Procedural Maze →</button>
-        </div>
-      ) : (
-        <div style={{ textAlign: 'center' }}>
-          <button onClick={() => initLevel(level)} style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text-3)', fontSize: '.75rem', cursor: 'pointer', fontWeight: 700 }}>🔄 Reset & Generate New Maze</button>
+      {toast && <MotivationalToast message={toast.message} type={toast.type} />}
+
+      {won && (
+        <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <button onClick={() => initLevel(level)} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>
+            Next Procedural Maze →
+          </button>
         </div>
       )}
     </Card>
@@ -531,15 +619,127 @@ function MotionChallengeGame() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GAME 4: GRID CHALLENGE — DYNAMIC SPATIAL & MEMORY RECALL
+// GAME 4: 100% DYNAMIC DIGIT CHALLENGE (Speed Arithmetic Engine)
+// ─────────────────────────────────────────────────────────────────────────────
+function generateDynamicDigitPuzzle(level) {
+  const cardCount = level >= 3 ? 5 : 4;
+  const pool = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15];
+  const nums = shuffle(pool).slice(0, cardCount);
+
+  const opList = ['+', '-', '*'];
+  const op1 = opList[Math.floor(Math.random() * opList.length)];
+  const op2 = opList[Math.floor(Math.random() * opList.length)];
+
+  let target = 24;
+  if (op1 === '+' && op2 === '*') target = (nums[0] + nums[1]) * nums[2];
+  else if (op1 === '*' && op2 === '+') target = (nums[0] * nums[1]) + nums[2];
+  else if (op1 === '*' && op2 === '-') target = (nums[0] * nums[1]) - nums[2];
+  else target = nums[0] + nums[1] + nums[2];
+
+  if (target <= 0 || target > 200) target = (nums[0] * nums[1]) + 5;
+
+  return { target, nums };
+}
+
+function DigitChallengeGame() {
+  const [level, setLevel] = useState(1);
+  const [puzzle, setPuzzle] = useState(null);
+  const [equation, setEquation] = useState([]);
+  const [toast, setToast] = useState(null);
+  const [score, setScore] = useState(0);
+
+  const nextPuzzle = useCallback((lvl = level) => {
+    setPuzzle(generateDynamicDigitPuzzle(lvl));
+    setEquation([]);
+    setToast(null);
+  }, [level]);
+
+  useEffect(() => { nextPuzzle(1); }, [nextPuzzle]);
+
+  const addToken = (t) => setEquation(prev => [...prev, t]);
+  const clearEq = () => { setEquation([]); setToast(null); };
+
+  const evaluateEq = () => {
+    try {
+      const expr = equation.join('');
+      // eslint-disable-next-line no-eval
+      const val = eval(expr);
+      if (val === puzzle.target) {
+        setToast({ message: MOTIVATIONAL_SUCCESS[Math.floor(Math.random() * MOTIVATIONAL_SUCCESS.length)], type: 'success' });
+        setScore(s => s + 150 * level);
+      } else {
+        setToast({ message: `Evaluated to ${val}, target is ${puzzle.target}. Try another expression!`, type: 'error' });
+      }
+    } catch (e) {
+      setToast({ message: 'Invalid mathematical equation format!', type: 'error' });
+    }
+  };
+
+  if (!puzzle) return null;
+
+  return (
+    <Card style={{ background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <SectionTitle>🔢 Dynamic Digit Challenge (Numerical Speed)</SectionTitle>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <span style={{ fontSize: '.85rem', color: '#531697', fontWeight: 800 }}>TARGET: {puzzle.target}</span>
+          <select
+            value={level}
+            onChange={(e) => { const l = Number(e.target.value); setLevel(l); nextPuzzle(l); }}
+            style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #d0d7e8', fontSize: '.75rem', fontWeight: 700 }}
+          >
+            <option value={1}>Level 1: Basic Target (4 Cards)</option>
+            <option value={2}>Level 2: Medium Target (4 Cards)</option>
+            <option value={3}>Level 3: Cognizant GenC Speed (5 Cards)</option>
+          </select>
+        </div>
+      </div>
+      <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
+        Construct a valid mathematical expression using the given digit tokens to equal the dynamic target value.
+      </p>
+
+      <ExamTimerBar durationSeconds={180} onTimeUp={() => setToast({ message: '⏰ Section time expired!', type: 'error' })} isActive={true} />
+
+      {/* Number Tokens */}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        {puzzle.nums.map((n, i) => (
+          <button key={i} onClick={() => addToken(n)} style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px solid #531697', background: 'rgba(83,22,151,0.06)', fontSize: '1.1rem', fontWeight: 800, color: '#531697', cursor: 'pointer' }}>
+            {n}
+          </button>
+        ))}
+        {['+', '-', '*', '/'].map((op) => (
+          <button key={op} onClick={() => addToken(op)} style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px solid #13a1a5', background: 'rgba(19,161,165,0.06)', fontSize: '1.1rem', fontWeight: 800, color: '#13a1a5', cursor: 'pointer' }}>
+            {op}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ minHeight: 44, background: '#f8fafc', borderRadius: 8, border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>
+        {equation.join(' ') || 'Build expression...'}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <button onClick={evaluateEq} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>Evaluate</button>
+        <button onClick={clearEq} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>Clear</button>
+        <button onClick={() => nextPuzzle(level)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text)', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem' }}>🔄 Next Target</button>
+      </div>
+
+      {toast && <MotivationalToast message={toast.message} type={toast.type} />}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GAME 5: GRID CHALLENGE (Memory & Spatial Awareness)
 // ─────────────────────────────────────────────────────────────────────────────
 function GridChallengeGame() {
-  const [level, setLevel] = useState(1); // 1: 3 dots, 2: 4 dots, 3: 5 dots
+  const [level, setLevel] = useState(1);
   const [phase, setPhase] = useState('idle');
   const [sequence, setSequence] = useState([]);
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [userClicks, setUserClicks] = useState([]);
   const [score, setScore] = useState(0);
+  const [toast, setToast] = useState(null);
   const [symmetryTask, setSymmetryTask] = useState({ shape: '🔺|🔺', isSym: true });
 
   const startTest = () => {
@@ -547,8 +747,8 @@ function GridChallengeGame() {
     const allIndices = Array.from({ length: 16 }, (_, i) => i);
     const newSeq = shuffle(allIndices).slice(0, seqLen);
     setSequence(newSeq);
+    setToast(null);
 
-    // Randomize symmetry interrupt question
     const symOptions = [
       { shape: '🔺|🔺', isSym: true },
       { shape: '⭐|⭐', isSym: true },
@@ -573,7 +773,7 @@ function GridChallengeGame() {
     }, speed);
   };
 
-  const handleSymmetry = (ans) => {
+  const handleSymmetry = () => {
     setPhase('recall');
   };
 
@@ -584,7 +784,13 @@ function GridChallengeGame() {
     if (nextClicks.length === sequence.length) {
       let correct = 0;
       nextClicks.forEach((val, i) => { if (val === sequence[i]) correct++; });
-      setScore(s => s + correct * 50 * level);
+      setScore(s => s + correct * 60 * level);
+      setToast({
+        message: correct === sequence.length
+          ? MOTIVATIONAL_SUCCESS[Math.floor(Math.random() * MOTIVATIONAL_SUCCESS.length)]
+          : MOTIVATIONAL_RETRY[Math.floor(Math.random() * MOTIVATIONAL_RETRY.length)],
+        type: correct === sequence.length ? 'success' : 'error'
+      });
       setPhase('result');
     }
   };
@@ -592,7 +798,7 @@ function GridChallengeGame() {
   return (
     <Card style={{ background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <SectionTitle>🧠 Grid Challenge (Dynamic Memory & Spatial)</SectionTitle>
+        <SectionTitle>🧠 Grid Challenge (Memory & Spatial)</SectionTitle>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <span style={{ fontSize: '.78rem', color: '#531697', fontWeight: 800 }}>Score: {score}</span>
           <select
@@ -600,20 +806,20 @@ function GridChallengeGame() {
             onChange={(e) => setLevel(Number(e.target.value))}
             style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #d0d7e8', fontSize: '.75rem', fontWeight: 700 }}
           >
-            <option value={1}>Level 1: 3 Dots (Standard)</option>
-            <option value={2}>Level 2: 4 Dots (Medium)</option>
+            <option value={1}>Level 1: 3 Dots</option>
+            <option value={2}>Level 2: 4 Dots</option>
             <option value={3}>Level 3: Cognizant (5 Dots Fast Flash)</option>
           </select>
         </div>
       </div>
       <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
-        Memorize flashing dot positions, complete the spatial symmetry interrupt test, and recall exact sequence positions.
+        Memorize flashing dot sequence, perform spatial symmetry interrupt task, then recall exact positions.
       </p>
 
       {phase === 'idle' && (
         <div style={{ textAlign: 'center', padding: '20px 0' }}>
           <button onClick={startTest} style={{ padding: '10px 24px', borderRadius: 9, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.85rem' }}>
-            Start Random Grid Flash Test
+            Start Grid Sequence Test
           </button>
         </div>
       )}
@@ -655,126 +861,19 @@ function GridChallengeGame() {
           <div style={{ fontSize: '2.2rem', marginBottom: 8 }}>⚖️ {symmetryTask.shape}</div>
           <div style={{ fontSize: '.85rem', fontWeight: 700, marginBottom: 12 }}>Is this figure vertically symmetrical?</div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button onClick={() => handleSymmetry('YES')} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#47d372', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Yes</button>
-            <button onClick={() => handleSymmetry('NO')} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>No</button>
+            <button onClick={() => handleSymmetry()} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#47d372', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>Yes</button>
+            <button onClick={() => handleSymmetry()} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>No</button>
           </div>
         </div>
       )}
+
+      {toast && <MotivationalToast message={toast.message} type={toast.type} />}
 
       {phase === 'result' && (
-        <div style={{ textAlign: 'center', padding: 12, background: 'rgba(83,22,151,0.08)', borderRadius: 10 }}>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem', color: '#531697', marginBottom: 4 }}>
-            Sequence Recall Done!
-          </div>
-          <button onClick={startTest} style={{ marginTop: 8, padding: '7px 18px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.78rem' }}>Next Grid Test →</button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GAME 5: DIGIT CHALLENGE — DYNAMIC NUMERICAL AGILITY GENERATOR
-// ─────────────────────────────────────────────────────────────────────────────
-function generateDigitPuzzle(level) {
-  // Generate random target and number set
-  const pool = [2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15];
-  const nums = shuffle(pool).slice(0, 4);
-
-  // Generate target from random combination
-  const target = (nums[0] * nums[1]) + nums[2];
-  return { target, nums };
-}
-
-function DigitChallengeGame() {
-  const [level, setLevel] = useState(1);
-  const [puzzle, setPuzzle] = useState(null);
-  const [equation, setEquation] = useState([]);
-  const [result, setResult] = useState(null);
-  const [score, setScore] = useState(0);
-
-  const nextPuzzle = useCallback((lvl = level) => {
-    setPuzzle(generateDigitPuzzle(lvl));
-    setEquation([]);
-    setResult(null);
-  }, [level]);
-
-  useEffect(() => { nextPuzzle(1); }, [nextPuzzle]);
-
-  const addToken = (t) => setEquation(prev => [...prev, t]);
-  const clearEq = () => { setEquation([]); setResult(null); };
-
-  const evaluateEq = () => {
-    try {
-      const expr = equation.join('');
-      // eslint-disable-next-line no-eval
-      const val = eval(expr);
-      if (val === puzzle.target) {
-        setResult('success');
-        setScore(s => s + 100 * level);
-      } else {
-        setResult(`Evaluated to ${val}, target is ${puzzle.target}`);
-      }
-    } catch (e) {
-      setResult('Invalid equation format');
-    }
-  };
-
-  if (!puzzle) return null;
-
-  return (
-    <Card style={{ background: '#fff' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <SectionTitle>🔢 Digit Challenge (Speed Arithmetic)</SectionTitle>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span style={{ fontSize: '.85rem', color: '#531697', fontWeight: 800 }}>TARGET: {puzzle.target}</span>
-          <select
-            value={level}
-            onChange={(e) => { const l = Number(e.target.value); setLevel(l); nextPuzzle(l); }}
-            style={{ padding: '4px 8px', borderRadius: 6, border: '1.5px solid #d0d7e8', fontSize: '.75rem', fontWeight: 700 }}
-          >
-            <option value={1}>Level 1: Basic Target</option>
-            <option value={2}>Level 2: Medium Target</option>
-            <option value={3}>Level 3: Cognizant Speed Target</option>
-          </select>
-        </div>
-      </div>
-      <p style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 14 }}>
-        Build a mathematical expression using given numbers to hit the target value before time runs out.
-      </p>
-
-      {/* Number Tokens */}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
-        {puzzle.nums.map((n, i) => (
-          <button key={i} onClick={() => addToken(n)} style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px solid #531697', background: 'rgba(83,22,151,0.06)', fontSize: '1.1rem', fontWeight: 800, color: '#531697', cursor: 'pointer' }}>
-            {n}
+        <div style={{ textAlign: 'center', marginTop: 12 }}>
+          <button onClick={startTest} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>
+            Next Grid Sequence →
           </button>
-        ))}
-        {['+', '-', '*', '/'].map((op) => (
-          <button key={op} onClick={() => addToken(op)} style={{ width: 44, height: 44, borderRadius: 8, border: '1.5px solid #13a1a5', background: 'rgba(19,161,165,0.06)', fontSize: '1.1rem', fontWeight: 800, color: '#13a1a5', cursor: 'pointer' }}>
-            {op}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ minHeight: 44, background: '#f8fafc', borderRadius: 8, border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text)', marginBottom: 14 }}>
-        {equation.join(' ') || 'Build expression...'}
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-        <button onClick={evaluateEq} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: GRAD, color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>Evaluate</button>
-        <button onClick={clearEq} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #ef4444', background: 'transparent', color: '#ef4444', fontWeight: 800, cursor: 'pointer', fontSize: '.8rem' }}>Clear</button>
-        <button onClick={() => nextPuzzle(level)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #d0d7e8', background: 'transparent', color: 'var(--text)', fontWeight: 700, cursor: 'pointer', fontSize: '.8rem' }}>🔄 Next Target</button>
-      </div>
-
-      {result === 'success' && (
-        <div style={{ marginTop: 12, padding: 8, borderRadius: 8, background: 'rgba(71,211,114,0.12)', color: '#166534', fontWeight: 800, textAlign: 'center', fontSize: '.82rem' }}>
-          🎉 Perfect! Equals Target {puzzle.target}!
-        </div>
-      )}
-      {result && result !== 'success' && (
-        <div style={{ marginTop: 12, padding: 8, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#991b1b', fontWeight: 700, textAlign: 'center', fontSize: '.82rem' }}>
-          ❌ {result}
         </div>
       )}
     </Card>
@@ -847,8 +946,8 @@ export default function GamingRoundPage() {
     <div style={{ fontFamily: "'Nunito',sans-serif" }}>
       <RoundHeader
         icon="🏢🎮"
-        title="Cognizant & Corporate Gaming Assessment Rounds"
-        subtitle="Practice real Cognizant GenC / GenC Next interactive gaming tests: Motion Pathfinder, Switch Rule Decoders, Geo-Sudoku, Grid Memory, and Numerical Agility with procedural level generation."
+        title="Cognizant & Capgemini Authentic Gaming Assessment Simulator"
+        subtitle="Official exam pattern practice: Motion Pathfinder, Switch Rule Decoders, Geo-Sudoku, Grid Memory, and Procedural Digit Speed Challenges with real exam timers and motivational feedback."
       />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -892,7 +991,7 @@ export default function GamingRoundPage() {
 
       {showRes && (
         <div style={{ background: 'rgba(5,150,105,0.04)', border: '1px solid rgba(5,150,105,0.18)', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
-          <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#b0bec9', marginBottom: 10 }}>COGNIZANT & CORPORATE COGNITIVE GAMING RESOURCES</div>
+          <div style={{ fontSize: '.7rem', fontWeight: 800, color: '#b0bec9', marginBottom: 10 }}>COGNIZANT & CAPGEMINI COGNITIVE GAMING RESOURCES</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {ROUND_RESOURCES.GAMING.map((r, i) => (
               <a key={i} href={r.url} target="_blank" rel="noreferrer"
