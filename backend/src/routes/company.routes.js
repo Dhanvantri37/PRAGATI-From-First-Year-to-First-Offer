@@ -152,7 +152,7 @@ router.post('/', authenticate, authorize('admin'), async (req, res) => {
 });
 
 // UPDATE COMPANY
-router.put('/:id', authenticate, authorize('admin'), async (req, res) => {
+router.put('/:id', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     const company = await Company.findByIdAndUpdate(
       req.params.id,
@@ -220,14 +220,46 @@ const axios = require('axios');
 // POST /api/companies/ai-retrieve — Search internet via AI and add new company to DB
 router.post('/ai-retrieve', authenticate, async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, confirmSave, companyData } = req.body;
+
+    // A. Confirm and Save Mode
+    if (confirmSave) {
+      if (!companyData || !companyData.name) {
+        return res.status(400).json({ error: 'Company data is required for saving' });
+      }
+
+      // Check duplicate again
+      const existing = await Company.findOne({ name: { $regex: new RegExp(`^${companyData.name.trim()}$`, 'i') } });
+      if (existing) {
+        return res.json({
+          message: 'Company already exists in database',
+          company: existing,
+          isNew: false
+        });
+      }
+
+      // Force status, dates, and build clean logo / resource fallbacks
+      companyData.status = '-';
+      companyData.campusVisitDate = '-';
+
+      // Save
+      const savedCompany = await Company.create(companyData);
+      console.log(`[AI-Retrieve] Saved company: ${savedCompany.name}`);
+      return res.status(201).json({
+        message: `Successfully added ${savedCompany.name} to the shared placement directory!`,
+        company: savedCompany,
+        isNew: true
+      });
+    }
+
+    // B. Research and Preview Mode
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Company name is required' });
     }
 
     const searchName = name.trim();
 
-    // 1. Check if the company already exists in the DB (case-insensitive)
+    // Check duplicate
     const existing = await Company.findOne({ name: { $regex: new RegExp(`^${searchName}$`, 'i') } });
     if (existing) {
       return res.json({
@@ -237,70 +269,98 @@ router.post('/ai-retrieve', authenticate, async (req, res) => {
       });
     }
 
-    // 2. Build the AI search/research prompt as requested by the user
+    // AI prompt requesting REAL specific facts, GFG, and Glassdoor resources
     const aiPrompt = `I want real company information as per the following points give me proper company details with respecr to following points:
 Now give me details with links for ${searchName}. Make Sure You will give me the latest Company Data CtC difficulty eligibilityCriteria-->minCGPA,allowedBranches,backlogs rolesrecruitmentRounds aptitudePatterns interviewPatterns jdText tags companyOverview techStack workCulture growthPath interviewDifficulty bondDetails hiringMode testPlatform bond packageBreakdown Give me all this details .
 
-Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON. Ensure all links inside the "resources" array point to actual Glassdoor interview questions or review pages for the company:
+Return the data STRICTLY formatted as a valid JSON object matching the following structure. Do NOT wrap the JSON in conversational text or headers. Just return raw JSON. 
+CRITICAL RULES:
+1. If the company name "${searchName}" is invalid, fictitious, non-existent, misspelled beyond recognition, or random gibberish (e.g. 'xyz', 'abc', 'asdfgh'), return ONLY this JSON object and nothing else: { "invalidCompany": true }.
+2. Do NOT copy the example placeholders or generic texts. You MUST research actual, real-world facts for ${searchName} (specifically their actual recruitment rounds, tech stack, average CTC packages, work culture description, and career path).
+3. For "recruitmentRounds", provide the COMPLETE sequence of all actual rounds (do NOT limit to 3 rounds—include every step, e.g. for Google include Online Coding Assessment, Technical Phone Screen, Coding Round 1, Coding Round 2, Coding Round 3, System Design/Googlyness, HR Round).
+4. For the "resources" array, provide actual GeeksforGeeks tag/preparation links and Glassdoor interview questions/review links. Do NOT hallucinate specific Glassdoor E-numbers or IDs (like E12345). Instead, use the format:
+   - "https://www.geeksforgeeks.org/tag/company-name/"
+   - "https://www.google.com/search?q=Glassdoor+company-name+Interview+Questions"
+5. Set status to "-" and campusVisitDate to "-".
+
+JSON structure:
 {
   "name": "${searchName}",
-  "sector": "Sector of the company (e.g. IT Services, Fintech, Core Engineering)",
+  "sector": "Real sector of the company (e.g. IT Services, Fintech, Cloud SaaS)",
   "website": "Official website URL (must start with https://)",
   "status": "-",
   "campusVisitDate": "-",
-  "ctc": "Average package range (e.g., 6.00-12.00 LPA)",
+  "ctc": "Real package range (e.g. 6.00-12.00 LPA)",
   "difficulty": "Easy|Medium|Hard|Easy-Medium|Medium-Hard",
   "eligibilityCriteria": {
     "minCGPA": 6.0,
     "allowedBranches": ["CSE", "IT", "ECE"],
     "backlogs": false
   },
-  "roles": ["Role 1", "Role 2"],
-  "recruitmentRounds": ["Round 1", "Round 2"],
-  "aptitudePatterns": "Details about their test patterns...",
-  "interviewPatterns": "Details about their technical and HR interview patterns...",
-  "jdText": "Short job description summary...",
-  "prepTips": "Practical interview and test preparation tips...",
-  "tags": ["key-tag-1", "key-tag-2"],
-  "companyOverview": "Brief overview of the company history and size...",
-  "techStack": ["Java", "SQL", "React"],
-  "workCulture": "Short description of company work environment...",
-  "growthPath": "Career progression steps...",
-  "interviewDifficulty": "Interview difficulty details...",
+  "roles": ["Real Role 1", "Real Role 2"],
+  "recruitmentRounds": ["Real Round 1", "Real Round 2", "Real Round 3", "Real Round 4", "Real Round 5"],
+  "aptitudePatterns": "Real details about their written/online test formats...",
+  "interviewPatterns": "Real details about their technical and HR interview rounds...",
+  "jdText": "Job description summary of the roles...",
+  "prepTips": "Actual preparation tips for this company's test and interview...",
+  "tags": ["tag1", "tag2"],
+  "companyOverview": "Brief summary of company scale and business model...",
+  "techStack": ["Java", "React", "AWS"],
+  "workCulture": "Real description of the working environment...",
+  "growthPath": "Typical career progression...",
+  "interviewDifficulty": "Real interview difficulty evaluation...",
   "bondDetails": "Service bond agreement details...",
-  "hiringMode": "Hiring channel details...",
-  "testPlatform": "Online test platform name...",
-  "bond": "Bond duration (e.g., 1 year or None)",
-  "packageBreakdown": "Salary package breakdown...",
+  "hiringMode": "On-Campus/Off-Campus...",
+  "testPlatform": "Online test engine...",
+  "bond": "Bond duration (e.g. 1 year or None)",
+  "packageBreakdown": "Package splits...",
   "resources": [
-    "https://www.glassdoor.co.in/Interview/Company-Name-Interview-Questions-E12345.htm"
+    "https://www.geeksforgeeks.org/tag/company-name/",
+    "https://www.google.com/search?q=Glassdoor+company-name+Interview+Questions"
   ]
 }`;
 
     const rawResult = await callAI(aiPrompt, 2000);
     const parsed = ensureValidJson(rawResult);
 
-    if (!parsed || !parsed.name) {
+    if (!parsed) {
       return res.status(502).json({ error: 'AI failed to retrieve structured company profile. Please try again.' });
+    }
+
+    if (parsed.invalidCompany || !parsed.name || parsed.name.toLowerCase() === 'xyz') {
+      return res.status(400).json({ error: `Invalid company name: "${searchName}". Please check the spelling or details and try again.` });
+    }
+
+    // Force absolute website URL prefix
+    if (parsed.website && !parsed.website.startsWith('http')) {
+      parsed.website = 'https://' + parsed.website;
     }
 
     // Force status and visit date to '-' for user searched companies
     parsed.status = '-';
     parsed.campusVisitDate = '-';
 
-    // Construct Glassdoor fallback resources if needed
+    // Format resources cleanly (guarantee no 404 templates or hallucinated Glassdoor IDs)
     if (!Array.isArray(parsed.resources)) {
       parsed.resources = [];
     }
-    parsed.resources = parsed.resources.filter(r => r && !r.includes('example.com') && !r.includes('unstop.com') && !r.includes('prepinsta.com'));
+    parsed.resources = parsed.resources.filter(r => {
+      if (!r || typeof r !== 'string') return false;
+      if (r.includes('example.com') || r.includes('unstop.com') || r.includes('prepinsta.com')) return false;
+      // Filter out hallucinated Glassdoor ID links (e.g. containing E[numbers])
+      if (r.includes('glassdoor') && /Interview\/.*-E\d+/i.test(r)) return false;
+      return true;
+    });
+
+    const searchKeyword = parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     
-    const hasGlassdoor = parsed.resources.some(r => r.includes('glassdoor'));
-    if (!hasGlassdoor) {
-      const cleanName = parsed.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-      parsed.resources.unshift(`https://www.glassdoor.co.in/Interview/${cleanName}-interview-questions.htm`);
-    }
-    // Always append direct keyword search fallback
-    parsed.resources.push(`https://www.glassdoor.co.in/Interview/special-search.htm?txtKeyword=${encodeURIComponent(parsed.name + ' Interview')}`);
+    // Construct clean, live, 100% active search redirect links on Google for GFG and Glassdoor
+    const gfgSearchLink = `https://www.google.com/search?q=GeeksforGeeks+${encodeURIComponent(parsed.name)}+Interview+Questions`;
+    const glassdoorSearchLink = `https://www.google.com/search?q=Glassdoor+${encodeURIComponent(parsed.name)}+Interview+Questions`;
+
+    // Always unshift these 100% working search query links to the top of the resources array!
+    parsed.resources.unshift(gfgSearchLink);
+    parsed.resources.unshift(glassdoorSearchLink);
 
     // 3. Construct direct logo URL using Google Favicon API (guaranteed 100% no 404s)
     let domain = '';
@@ -315,14 +375,11 @@ Return the data STRICTLY formatted as a valid JSON object matching the following
       parsed.logoUrl = `https://www.google.com/s2/favicons?sz=128&domain=${parsed.name.toLowerCase().replace(/\s+/g, '')}.com`;
     }
 
-    // 4. Save the company into the database
-    const newCompany = await Company.create(parsed);
-    console.log(`[AI-Retrieve] Seeded new company: ${newCompany.name} (Logo: ${newCompany.logoUrl})`);
-
-    res.status(201).json({
-      message: `Successfully researched and added ${newCompany.name} to the database!`,
-      company: newCompany,
-      isNew: true
+    // Return preview to user without saving to database
+    res.json({
+      message: `Research complete for ${parsed.name}!`,
+      company: parsed,
+      isPreview: true
     });
 
   } catch (err) {
@@ -332,7 +389,7 @@ Return the data STRICTLY formatted as a valid JSON object matching the following
 });
 
 // DELETE COMPANY
-router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     await Company.findByIdAndDelete(req.params.id);
 

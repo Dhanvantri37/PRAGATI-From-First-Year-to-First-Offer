@@ -249,3 +249,29 @@ const placementDriveSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports.PlacementDrive = mongoose.model('PlacementDrive', placementDriveSchema);
+
+// ─── InterviewSession (records past AI mock interviews for students) ──────────
+const interviewSessionSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  targetRole: { type: String, required: true },
+  interviewType: { type: String, required: true }, // Technical, HR, Managerial
+  durationLabel: { type: String }, // e.g. "10 min"
+  overallScore: { type: Number },
+  scoresList: [Number],
+  conversation: [{
+    role: { type: String, enum: ['ai', 'user'] },
+    content: { type: String },
+    feedback: { type: String },
+    score: { type: Number },
+    wordsCount: { type: Number },
+    fillerWordsCount: { type: Number },
+    wpm: { type: Number }
+  }],
+  proctoringViolations: {
+    gazeAwayWarningCount: { type: Number, default: 0 },
+    backgroundNoiseWarningCount: { type: Number, default: 0 }
+  }
+}, { timestamps: true });
+
+module.exports.InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
+

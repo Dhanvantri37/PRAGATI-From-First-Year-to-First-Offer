@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const mongoose = require('mongoose');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
+const { InterviewSession } = require('../models/index');
 
 // Simple interview question schema inline
 const interviewQuestionSchema = new mongoose.Schema({
@@ -79,6 +80,60 @@ router.post('/bulk', authenticate, authorize('admin'), async (req, res) => {
     const result = await InterviewQuestion.insertMany(questions, { ordered: false });
     res.status(201).json({ message: `${result.length} questions added`, inserted: result.length });
   } catch(err) { res.status(400).json({ error: err.message }); }
+});
+
+// ─── POST /api/interview/session ───
+// Saves a completed mock interview session
+router.post('/session', authenticate, async (req, res) => {
+  try {
+    const { targetRole, interviewType, durationLabel, overallScore, scoresList, conversation, proctoringViolations } = req.body;
+    
+    if (!targetRole || !interviewType) {
+      return res.status(400).json({ error: 'targetRole and interviewType are required' });
+    }
+
+    const session = await InterviewSession.create({
+      userId: req.user.id,
+      targetRole,
+      interviewType,
+      durationLabel,
+      overallScore,
+      scoresList,
+      conversation,
+      proctoringViolations
+    });
+
+    res.status(201).json({ session });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/interview/sessions ───
+// Gets a list of past mock interview sessions for the logged in student
+router.get('/sessions', authenticate, async (req, res) => {
+  try {
+    const sessions = await InterviewSession.find({ userId: req.user.id })
+      .sort({ createdAt: -1 })
+      .select('targetRole interviewType durationLabel overallScore createdAt');
+    res.json({ sessions });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/interview/session/:id ───
+// Fetches the full detailed report for a specific session
+router.get('/session/:id', authenticate, async (req, res) => {
+  try {
+    const session = await InterviewSession.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!session) {
+      return res.status(404).json({ error: 'Interview report not found' });
+    }
+    res.json({ session });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
