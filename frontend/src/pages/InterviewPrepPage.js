@@ -16,14 +16,36 @@ import { getNaturalVoice, speakText } from '../utils/voiceHelper';
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
 
+// ─── Dynamic Openers ─────────────────────────────────────────────────────────────
+const DYNAMIC_OPENERS = {
+  Technical: [
+    "Let's start with a quick introduction. Walk me through your technical background, the projects you've built, and the technologies you're most comfortable with.",
+    "Tell me about a challenging technical problem you've solved recently.",
+    "Could you walk me through a project you are particularly proud of?"
+  ],
+  HR: [
+    "Let's start with a quick introduction. Could you tell me a little bit about yourself and your background?",
+    "Why are you interested in this position?",
+    "Where do you see yourself in five years?"
+  ],
+  Managerial: [
+    "Let's start with a quick introduction. Tell me about your background and how it led you to this field.",
+    "Tell me about a time you had to deal with a difficult coworker.",
+    "Describe a situation where you showed leadership."
+  ]
+};
+if (typeof window !== 'undefined') window.DYNAMIC_OPENERS = DYNAMIC_OPENERS;
+
 // ─── Continuous STT ───────────────────────────────────────────────────────────
 function useContinuousSTT({ lang = (navigator.language || 'en-US'), onPartial, onError } = {}) {
   const [listening, setListening] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [permError, setPermError] = useState(false);
   const [supported] = useState(!!(window.SpeechRecognition || window.webkitSpeechRecognition));
 
   const recRef = useRef(null);
   const activeRef = useRef(false);
+  const accumulatedSpeechRef = useRef(''); // Retain speech across restart cycles
   const mediaStreamRef = useRef(null);
   const onPartialRef = useRef(onPartial);
   const onErrorRef = useRef(onError);
@@ -42,42 +64,65 @@ function useContinuousSTT({ lang = (navigator.language || 'en-US'), onPartial, o
     try { recRef.current?.abort(); } catch { }
 
     const r = new SR();
-    r.continuous = true;
+    r.continuous = false; // Workaround for Chrome continuous STT freeze bug
     r.interimResults = true;
-    r.lang = langRef.current;
+    r.lang = langRef.current || 'en-US';
     r.maxAlternatives = 1;
     recRef.current = r;
 
     r.onstart = () => setListening(true);
 
+    let sessionFinal = '';
+
     r.onresult = e => {
-      let finalSpeech = '', interimSpeech = '';
+      let currentFinal = '', currentInterim = '';
       for (let i = 0; i < e.results.length; i++) {
         const chunk = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalSpeech += chunk + ' ';
-        else interimSpeech += chunk;
+        if (e.results[i].isFinal) currentFinal += chunk + ' ';
+        else currentInterim += chunk;
       }
-      const totalSpeech = (finalSpeech + interimSpeech).trim();
-      onPartialRef.current?.(totalSpeech);
+      sessionFinal = currentFinal;
+      const currentChunk = (currentFinal + currentInterim).trim();
+      const fullText = (accumulatedSpeechRef.current + ' ' + currentChunk).trim();
+      if (fullText) {
+        onPartialRef.current?.(fullText);
+      }
     };
 
     r.onerror = e => {
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         activeRef.current = false;
+        setIsActive(false);
         setListening(false);
         setPermError(true);
         onErrorRef.current?.('Microphone permission denied.');
         return;
       }
-      console.warn('[STT] recognition error:', e.error);
+      if (e.error === 'audio-capture') {
+        activeRef.current = false;
+        setIsActive(false);
+        setListening(false);
+        onErrorRef.current?.('No microphone found. Please connect one and try again.');
+        return;
+      }
+      if (e.error === 'network') {
+        onErrorRef.current?.('Network issue interrupted speech recognition — retrying…');
+      }
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        console.warn('[STT] recognition error:', e.error);
+      }
     };
 
     r.onend = () => {
+      if (sessionFinal) {
+        accumulatedSpeechRef.current = (accumulatedSpeechRef.current + ' ' + sessionFinal).trim();
+      }
       if (activeRef.current) {
         setTimeout(() => {
           if (activeRef.current) startSessRef.current?.();
-        }, 300);
+        }, 100);
       } else {
+        setIsActive(false);
         setListening(false);
       }
     };
@@ -86,36 +131,33 @@ function useContinuousSTT({ lang = (navigator.language || 'en-US'), onPartial, o
       if (activeRef.current) {
         setTimeout(() => {
           if (activeRef.current) startSessRef.current?.();
-        }, 1000);
+        }, 300);
       }
     }
   };
 
   const start = useCallback(async () => {
     if (!supported) return;
+    accumulatedSpeechRef.current = ''; // Fresh reset when user clicks mic
     activeRef.current = true;
+    setIsActive(true);
     startSessRef.current();
   }, [supported]);
 
   const stop = useCallback(() => {
     activeRef.current = false;
+    setIsActive(false);
     try { recRef.current?.stop(); } catch { }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(t => t.stop());
-      mediaStreamRef.current = null;
-    }
     setListening(false);
   }, []);
 
   useEffect(() => () => {
     activeRef.current = false;
+    setIsActive(false);
     try { recRef.current?.abort(); } catch { }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(t => t.stop());
-    }
   }, []);
 
-  return { listening, supported, permError, start, stop };
+  return { listening, isActive, supported, permError, start, stop };
 }
 
 // ─── Answer scoring ───────────────────────────────────────────────────────────
@@ -208,24 +250,6 @@ function localFallback(answer, techs, qNum, type, isLast) {
   return { feedback: `${words >= 60 ? 'Good depth.' : 'Try to elaborate more.'} ${hasEg ? '' : 'Mention a real project.'}`, nextQuestion: GENERIC_Q[qNum % GENERIC_Q.length], confidence: 6, keyMissing: hasEg ? '' : 'Project example' };
 }
 
-// ─── Dynamic Openers ─────────────────────────────────────────────────────────────
-const DYNAMIC_OPENERS = {
-  Technical: [
-    "Let's start with a quick introduction. Walk me through your technical background, the projects you've built, and the technologies you're most comfortable with.",
-    "Tell me about a challenging technical problem you've solved recently.",
-    "Could you walk me through a project you are particularly proud of?"
-  ],
-  HR: [
-    "Let's start with a quick introduction. Could you tell me a little bit about yourself and your background?",
-    "Why are you interested in this position?",
-    "Where do you see yourself in five years?"
-  ],
-  Managerial: [
-    "Let's start with a quick introduction. Tell me about your background and how it led you to this field.",
-    "Tell me about a time you had to deal with a difficult coworker.",
-    "Describe a situation where you showed leadership."
-  ]
-};
 
 // ─── Personas ──────────────────────────────────────────────────────────────────
 const PERSONAS = {
@@ -361,10 +385,10 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
     if (!isSpeaking) {
       setIsPlayingWord(false);
       if (speakingVideoRef.current) {
-        try { speakingVideoRef.current.pause(); } catch {}
+        try { speakingVideoRef.current.pause(); } catch { }
       }
       if (idleVideoRef.current) {
-        try { idleVideoRef.current.play().catch(() => {}); } catch {}
+        try { idleVideoRef.current.play().catch(() => { }); } catch { }
       }
       return;
     }
@@ -382,7 +406,7 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
         audioContext = new AudioContextClass();
         analyser = audioContext.createAnalyser();
         analyser.fftSize = 512;
-        
+
         const source = audioContext.createMediaElementSource(audio);
         source.connect(analyser);
         analyser.connect(audioContext.destination);
@@ -402,7 +426,7 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
             setIsPlayingWord(active);
             if (active) {
               if (speakingVideoRef.current && speakingVideoRef.current.paused) {
-                speakingVideoRef.current.play().catch(() => {});
+                speakingVideoRef.current.play().catch(() => { });
               }
             } else {
               if (speakingVideoRef.current && !speakingVideoRef.current.paused) {
@@ -428,7 +452,7 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
     let success = false;
     const timeoutId = setTimeout(() => {
       success = setupAudioAnalysis();
-      
+
       if (!success) {
         let toggle = true;
         intervalId = setInterval(() => {
@@ -441,7 +465,7 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
             setIsPlayingWord(toggle);
             if (toggle) {
               if (speakingVideoRef.current && speakingVideoRef.current.paused) {
-                speakingVideoRef.current.play().catch(() => {});
+                speakingVideoRef.current.play().catch(() => { });
               }
             } else {
               if (speakingVideoRef.current && !speakingVideoRef.current.paused) {
@@ -462,7 +486,7 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
       clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
       if (audioContext) {
-        try { audioContext.close(); } catch {}
+        try { audioContext.close(); } catch { }
       }
     };
   }, [isSpeaking, videoError]);
@@ -526,34 +550,34 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
         justifyContent: 'center'
       }}>
         {/* Idle video loop */}
-        <video 
+        <video
           ref={idleVideoRef}
-          src={videos.idle} 
-          autoPlay 
-          loop 
-          muted 
+          src={videos.idle}
+          autoPlay
+          loop
+          muted
           playsInline
           onError={() => setVideoError(true)}
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'cover', 
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
             display: isSpeaking ? 'none' : 'block'
           }}
         />
 
         {/* Speaking video loop */}
-        <video 
+        <video
           ref={speakingVideoRef}
-          src={videos.speaking} 
-          loop 
-          muted 
+          src={videos.speaking}
+          loop
+          muted
           playsInline
           onError={() => setVideoError(true)}
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'cover', 
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
             display: isSpeaking ? 'block' : 'none'
           }}
         />
@@ -577,25 +601,28 @@ function VideoHeadInterviewer({ isSpeaking, isThinking, isListening, persona }) 
   );
 }
 
-// ─── Webcam panel with active face detection proctoring ──────────────────────
+// ─── Webcam panel with active presence detection proctoring ──────────────────
 function WebcamPanel({ enabled, onToggle, onFaceDetected, trackingLoaded }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
-  const trackerRef = useRef(null);
-  const trackTaskRef = useRef(null);
+  const intervalRef = useRef(null);
+  const trackerTaskRef = useRef(null);
+  const missedFramesRef = useRef(0);
 
   useEffect(() => {
     if (!enabled) {
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
       if (videoRef.current) videoRef.current.srcObject = null;
-      if (trackTaskRef.current) {
-        try { trackTaskRef.current.stop(); } catch (e) { }
-        trackTaskRef.current = null;
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (trackerTaskRef.current) { try { trackerTaskRef.current.stop(); } catch (e) { } trackerTaskRef.current = null; }
       return;
     }
+
+    let cancelled = false;
+
     navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false })
       .then(stream => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.width = 320;
@@ -604,39 +631,100 @@ function WebcamPanel({ enabled, onToggle, onFaceDetected, trackingLoaded }) {
           videoRef.current.play().catch(() => { });
         }
 
-        // Start face tracking if loaded
+        // Prefer real face detection via tracking.js — this actually tells us
+        // whether the candidate's face is present/centered (i.e. looking at
+        // the screen), instead of guessing from raw pixel motion.
         if (trackingLoaded && window.tracking && videoRef.current) {
           try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 240;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
             const tracker = new window.tracking.ObjectTracker('face');
             tracker.setInitialScale(4);
-            tracker.setStepSize(2);
+            tracker.setStepSize(1.7);
             tracker.setEdgesDensity(0.1);
-            trackerRef.current = tracker;
 
-            const task = window.tracking.track(videoRef.current, tracker);
-            trackTaskRef.current = task;
-
-            tracker.on('track', (event) => {
-              if (event.data && event.data.length > 0) {
-                onFaceDetected(true);
+            tracker.on('track', event => {
+              const rects = event.data || [];
+              if (rects.length > 0) {
+                missedFramesRef.current = 0;
+                const rect = rects[0];
+                const videoW = 320;
+                const videoH = 240;
+                const faceCenterX = rect.x + rect.width / 2;
+                const faceCenterY = rect.y + rect.height / 2;
+                const offX = Math.abs(faceCenterX - videoW / 2) / videoW;
+                const offY = Math.abs(faceCenterY - videoH / 2) / videoH;
+                // Face detected AND roughly centered ⇒ looking at the screen.
+                // Off to one side/top/bottom ⇒ looking away.
+                const lookingAway = offX > 0.35 || offY > 0.38;
+                onFaceDetected(!lookingAway);
               } else {
-                onFaceDetected(false);
+                // Require a couple of consecutive misses before flagging
+                // "away" so a single dropped frame doesn't cause a flicker.
+                missedFramesRef.current += 1;
+                if (missedFramesRef.current >= 5) onFaceDetected(false);
               }
             });
-          } catch (err) {
-            console.warn('Face tracker init failed:', err);
+
+            const trackInterval = setInterval(() => {
+              if (videoRef.current && videoRef.current.readyState >= 2) {
+                try {
+                  ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+                  const imageData = ctx.getImageData(0, 0, 320, 240);
+                  tracker.track(imageData.data, 320, 240);
+                } catch (e) {
+                  console.warn('[Proctoring] Throttled tracker step failed:', e);
+                }
+              }
+            }, 600);
+
+            trackerTaskRef.current = {
+              stop: () => clearInterval(trackInterval)
+            };
+            return; // real detection active — skip the fallback heuristic
+          } catch (e) {
+            console.warn('[Proctoring] tracking.js face tracker failed, falling back:', e);
           }
         }
+
+        // Fallback (used only if tracking.js hasn't loaded / isn't available):
+        // just flags a blocked/blacked-out camera. It intentionally does NOT
+        // treat motion as "looking away" — normal fidgeting/talking used to
+        // falsely trigger the old heuristic and made the alert unreliable.
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 24;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        intervalRef.current = setInterval(() => {
+          if (!videoRef.current || videoRef.current.readyState < 2) return;
+          try {
+            ctx.drawImage(videoRef.current, 0, 0, 32, 24);
+            const imgData = ctx.getImageData(0, 0, 32, 24).data;
+            let sum = 0;
+            for (let i = 0; i < imgData.length; i += 4) {
+              sum += (imgData[i] + imgData[i + 1] + imgData[i + 2]) / 3;
+            }
+            const avg = sum / (imgData.length / 4);
+            const isCameraBlocked = avg <= 10;
+            onFaceDetected(!isCameraBlocked);
+          } catch (e) {
+            onFaceDetected(true);
+          }
+        }, 500);
       })
       .catch(() => onToggle(false));
 
     return () => {
+      cancelled = true;
       if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); }
-      if (trackTaskRef.current) {
-        try { trackTaskRef.current.stop(); } catch (e) { }
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (trackerTaskRef.current) { try { trackerTaskRef.current.stop(); } catch (e) { } trackerTaskRef.current = null; }
     };
-  }, [enabled, onToggle, trackingLoaded, onFaceDetected]);
+  }, [enabled, onToggle, onFaceDetected, trackingLoaded]);
 
   return (
     <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: 'var(--text)', border: '2px solid rgba(83,22,151,0.3)', flexShrink: 0 }}>
@@ -705,9 +793,11 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
 
   // Stable ref for onPartial — avoids TDZ since setLiveText/ansStart are declared below
   const onPartialRef = useRef(null);
-  const { listening, supported, permError: micPermError, start: startMic, stop: stopMic } = useContinuousSTT({
+  const [sttError, setSttError] = useState('');
+  const { listening, isActive, supported, permError: micPermError, start: startMic, stop: stopMic } = useContinuousSTT({
     lang: 'en-IN',
     onPartial: useCallback((t) => { if (onPartialRef.current) onPartialRef.current(t); }, []),
+    onError: useCallback((msg) => setSttError(msg), []),
   });
 
   // Script status for tracking.js
@@ -724,6 +814,7 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
   const [micVolume, setMicVolume] = useState(0);
   const setupVideoRef = useRef(null);
   const setupAudioAnalyserRef = useRef(null);
+  const setupStreamRef = useRef(null);
 
   const [selectedDuration, setSelectedDuration] = useState(null); // null = not started
   const [timeLeft, setTimeLeft] = useState(0);
@@ -761,6 +852,9 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
   const doneRef = useRef(false);
   const audioContextRef = useRef(null);
   const streamAnalyserRef = useRef(null);
+  const monitorStreamRef = useRef(null);
+  const gazeAlertDismissed = useRef(false);
+  const bgNoiseAlertDismissed = useRef(false);
 
   // Wire up stable onPartial ref now that state setters are declared
   useEffect(() => {
@@ -773,12 +867,25 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, liveText]);
 
+  // Pause Layout Wake-Word Recognition while in Mock Interview Page to avoid microphone resource contention
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('pragati-pause-wake-word'));
+    return () => {
+      window.dispatchEvent(new CustomEvent('pragati-resume-wake-word'));
+      if (setupStreamRef.current) {
+        setupStreamRef.current.getTracks().forEach(t => t.stop());
+        setupStreamRef.current = null;
+      }
+    };
+  }, []);
+
   // Request permissions and verify hardware
   const startHardwareVerification = async () => {
     setCheckingHardware(true);
     setSetupError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 320, height: 240 } });
+      setupStreamRef.current = stream;
       setSetupStream(stream);
       setMicGranted(true);
       setCamGranted(true);
@@ -834,6 +941,10 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
 
   // Close hardware stream
   const releaseSetupStream = () => {
+    if (setupStreamRef.current) {
+      setupStreamRef.current.getTracks().forEach(t => t.stop());
+      setupStreamRef.current = null;
+    }
     if (setupStream) {
       setupStream.getTracks().forEach(t => t.stop());
       setSetupStream(null);
@@ -844,10 +955,35 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
     }
   };
 
-  // Connect active mic analysis during interview for proctoring
-  const startInterviewAudioMonitor = () => {
+  // Connect active mic analysis during interview for proctoring (background
+  // noise detection). IMPORTANT: this must NOT stay open while the candidate
+  // is using the mic to answer — holding two simultaneous getUserMedia audio
+  // streams open at once causes some browsers/OSes to starve or silence
+  // whichever stream is second, which is why the answer mic looked "on" but
+  // never actually captured any speech. See stopInterviewAudioMonitor below,
+  // which releases this stream whenever STT `listening` becomes true.
+  const stopInterviewAudioMonitor = useCallback(() => {
+    if (monitorStreamRef.current) {
+      monitorStreamRef.current.getTracks().forEach(t => t.stop());
+      monitorStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch (e) { }
+      audioContextRef.current = null;
+    }
+    streamAnalyserRef.current = null;
+    setRealtimeInputVol(0);
+  }, []);
+
+  const startInterviewAudioMonitor = useCallback(() => {
+    if (doneRef.current || monitorStreamRef.current) return;
     navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       .then(stream => {
+        if (doneRef.current || monitorStreamRef.current) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+        monitorStreamRef.current = stream;
         try {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           const ctx = new AudioContextClass();
@@ -862,9 +998,8 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
           const dataArray = new Uint8Array(bufferLength);
 
           const loopVal = () => {
-            if (doneRef.current) {
-              stream.getTracks().forEach(t => t.stop());
-              return;
+            if (doneRef.current || monitorStreamRef.current !== stream) {
+              return; // stopped (interview ended, or superseded by a restart)
             }
             analyser.getByteFrequencyData(dataArray);
             let sum = 0;
@@ -881,7 +1016,23 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
         }
       })
       .catch(e => console.warn('Could not monitor interview audio:', e));
-  };
+  }, []);
+
+  // Release the proctoring mic the moment the candidate starts speaking into
+  // the answer mic, and bring it back once they stop — so only one consumer
+  // ever holds the microphone at a time. Also release if AI is speaking or thinking
+  // to avoid device conflicts and feedback false positives.
+  useEffect(() => {
+    if (!selectedDuration) return;
+    if (isActive || listening || aiSpeaking || loading) {
+      stopInterviewAudioMonitor();
+    } else if (!done) {
+      startInterviewAudioMonitor();
+    }
+  }, [isActive, listening, aiSpeaking, loading, selectedDuration, done, startInterviewAudioMonitor, stopInterviewAudioMonitor]);
+
+  // Make sure the proctoring stream is always released on unmount
+  useEffect(() => () => stopInterviewAudioMonitor(), [stopInterviewAudioMonitor]);
 
   // Tab switch / window focus proctoring
   useEffect(() => {
@@ -890,12 +1041,18 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
       if (document.hidden) {
         setShowGazeAlert(true);
         setGazeWarningCount(c => c + 1);
-      } else {
-        setTimeout(() => setShowGazeAlert(false), 2000);
       }
     };
+    const handleBlur = () => {
+      setShowGazeAlert(true);
+      setGazeWarningCount(c => c + 1);
+    };
     document.addEventListener('visibilitychange', handleVis);
-    return () => document.removeEventListener('visibilitychange', handleVis);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVis);
+      window.removeEventListener('blur', handleBlur);
+    };
   }, [selectedDuration, done]);
 
   // Proctoring timer effect (runs every 1s)
@@ -909,7 +1066,9 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
           setGazeAwaySeconds(s => {
             const next = s + 1;
             if (next >= 3) {
-              setShowGazeAlert(true);
+              if (!gazeAlertDismissed.current) {
+                setShowGazeAlert(true);
+              }
               if (next % 3 === 0) {
                 setGazeWarningCount(c => c + 1);
               }
@@ -917,18 +1076,23 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
             return next;
           });
         } else {
+          // Candidate is looking at the screen again — clear immediately,
+          // don't wait around before dismissing the alert.
           setGazeAwaySeconds(0);
           setShowGazeAlert(false);
+          gazeAlertDismissed.current = false;
         }
       }
 
       // 2. Background talking detection proctoring (trigger when not recording)
-      const isCandidateSpeaking = listening || (liveText && liveText.length > 0);
+      const isCandidateSpeaking = isActive || listening || (liveText && liveText.length > 0);
       if (!isCandidateSpeaking && realtimeInputVol > 35) {
         setBgNoiseSeconds(s => {
           const next = s + 1;
           if (next >= 5) {
-            setShowBgNoiseAlert(true);
+            if (!bgNoiseAlertDismissed.current) {
+              setShowBgNoiseAlert(true);
+            }
             if (next % 5 === 0) {
               setBgNoiseWarningCount(w => w + 1);
             }
@@ -938,11 +1102,12 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
       } else {
         setBgNoiseSeconds(0);
         setShowBgNoiseAlert(false);
+        bgNoiseAlertDismissed.current = false;
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [selectedDuration, done, camEnabled, trackingLoaded, facePresent, listening, liveText, realtimeInputVol]);
+  }, [selectedDuration, done, camEnabled, trackingLoaded, facePresent, isActive, listening, liveText, realtimeInputVol]);
 
   // ── Countdown timer ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -956,6 +1121,7 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
             setDone(true);
             window.speechSynthesis?.cancel();
             setAiSpeaking(false);
+            stopInterviewAudioMonitor();
             setMsgs(prev => [...prev, { role: 'ai', content: "⏱️ Time's up! Great effort. Your interview session has ended. Saving your results..." }]);
             saveInterviewReport();
           }
@@ -966,6 +1132,21 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [selectedDuration, done]);
+
+  const handleMicStart = useCallback(() => {
+    setLiveText('');
+    setInput('');
+    setSttError('');
+    stopInterviewAudioMonitor(); // Explicitly release monitor before starting SpeechRecognition to avoid race condition
+    try {
+      const p = startMic();
+      if (p && typeof p.catch === 'function') {
+        p.catch(e => console.warn('[STT] Manual start mic failed:', e?.message));
+      }
+    } catch (e) {
+      console.warn('[STT] Exception on mic start:', e);
+    }
+  }, [startMic, stopInterviewAudioMonitor]);
 
   // TTS
   const speak = useCallback(async (text) => {
@@ -992,22 +1173,17 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
     setDone(true);
     window.speechSynthesis?.cancel();
     if (window.pragatiAudioPlayer) {
-      try { window.pragatiAudioPlayer.pause(); } catch {}
+      try { window.pragatiAudioPlayer.pause(); } catch { }
     }
     setAiSpeaking(false);
     stopMic();
+    stopInterviewAudioMonitor();
     if (document.fullscreenElement) {
-      try { document.exitFullscreen().catch(() => {}); } catch {}
+      try { document.exitFullscreen().catch(() => { }); } catch { }
     }
     setMsgs(prev => [...prev, { role: 'ai', content: '🛑 Interview stopped by candidate. Generating your evaluation report...' }]);
     saveInterviewReport();
-  }, [stopMic]);
-
-  const handleMicStart = useCallback(() => {
-    setLiveText('');
-    setInput('');
-    startMic().catch(e => console.warn('[STT] Manual start mic failed:', e.message));
-  }, [startMic]);
+  }, [stopMic, stopInterviewAudioMonitor]);
 
   const handleMicStop = useCallback(() => {
     stopMic();
@@ -1035,16 +1211,16 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
     // Request full screen for real interview feel
     try {
       if (document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
+        document.documentElement.requestFullscreen().catch(() => { });
       } else if (document.documentElement.webkitRequestFullscreen) {
         document.documentElement.webkitRequestFullscreen();
       }
-    } catch (e) {}
+    } catch (e) { }
 
-    // Start active mic volume analyzer for proctoring
-    startInterviewAudioMonitor();
-
-    const openers = DYNAMIC_OPENERS[interviewType] || DYNAMIC_OPENERS.Technical;
+    const openersDict = (typeof DYNAMIC_OPENERS !== 'undefined' && DYNAMIC_OPENERS) || (typeof window !== 'undefined' && window.DYNAMIC_OPENERS) || {};
+    const openers = openersDict[interviewType] || openersDict.Technical || [
+      "Let's start with a quick introduction. Walk me through your technical background, the projects you've built, and the technologies you're most comfortable with."
+    ];
     const openQ = openers[Math.floor(Math.random() * openers.length)];
 
     setTimeout(() => {
@@ -1256,37 +1432,44 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
     );
   }
 
+  const latestAiMsg = [...msgs].reverse().find(m => m.role === 'ai' && !m.loading);
+  let currentQuestionText = '';
+  if (latestAiMsg) {
+    const rawContent = latestAiMsg.content;
+    const parts = rawContent.split('❓ Question');
+    if (parts.length > 1) {
+      currentQuestionText = ('❓ Question' + parts[1]).trim();
+    } else {
+      currentQuestionText = rawContent;
+    }
+  }
+
   const timerColor = timeLeft > 120 ? '#47d372' : timeLeft > 30 ? '#f59e0b' : '#ef4444';
 
   return (
-    <div style={{
+    <div className={`interview-room ${selectedDuration && !done ? 'active-session' : ''}`} style={{
       fontFamily: "'Nunito',sans-serif",
       background: '#090d16',
       borderRadius: 18,
       overflow: 'hidden',
       border: '1.5px solid #1e293b',
       boxShadow: '0 12px 36px rgba(0,0,0,0.3)',
-      display: 'flex',
-      flexDirection: 'row',
-      flexWrap: 'nowrap',
-      height: '660px',
-      width: '100%',
       position: 'relative'
     }}>
 
-      {/* Proctoring Warning Overlay */}
+      {/* Proctoring Warning Toast */}
       {(showGazeAlert || showBgNoiseAlert) && (
         <div style={{
-          position: 'absolute', inset: 0, background: 'rgba(239,68,68,0.28)', backdropFilter: 'blur(4px)',
-          zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          animation: 'avPulse 2s ease-in-out infinite', pointerEvents: 'none'
+          position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg,#7f1d1d,#991b1b)', color: '#fecaca',
+          padding: '12px 20px', borderRadius: 14, border: '2px solid #f87171',
+          boxShadow: '0 8px 32px rgba(239,68,68,0.5)', zIndex: 1000,
+          display: 'flex', alignItems: 'center', gap: 12, maxWidth: 540, width: '90%',
+          pointerEvents: 'auto', animation: 'avPulse 2s ease-in-out infinite'
         }}>
-          <div style={{
-            background: '#7f1d1d', color: '#fecaca', padding: '24px 32px', borderRadius: 16,
-            border: '3px solid #f87171', boxShadow: '0 8px 32px rgba(239,68,68,0.4)', textAlign: 'center'
-          }}>
-            <span style={{ fontSize: '3rem' }}>🚨</span>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1.3rem', marginTop: 12 }}>PROCTORING RED ALERT</div>
+          <span style={{ fontSize: '1.6rem' }}>🚨</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.9rem', color: '#fff' }}>PROCTORING ALERT</div>
             <div style={{ fontSize: '.9rem', marginTop: 6, maxWidth: 380, lineHeight: 1.5 }}>
               {showGazeAlert && "Candidate is looking away from camera! Keep eyes on screen."}
               {showGazeAlert && showBgNoiseAlert && " & "}
@@ -1295,19 +1478,25 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
             <div style={{ fontSize: '.72rem', color: '#f87171', marginTop: 12, fontWeight: 800 }}>
               Warnings Counted · Logged to Final Campus Report
             </div>
+            <button onClick={() => {
+              setShowGazeAlert(false);
+              setShowBgNoiseAlert(false);
+              gazeAlertDismissed.current = true;
+              bgNoiseAlertDismissed.current = true;
+            }} style={{ marginTop: 12, padding: '6px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.15)', color: '#fff', fontSize: '.8rem', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>
+              Dismiss Alert ✕
+            </button>
           </div>
         </div>
       )}
 
       {/* ── LEFT PANE: MAIN MEETING SCREEN (70% width) ── */}
-      <div style={{
-        flex: 1,
+      <div className="left-pane" style={{
         background: '#020617',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
         overflow: 'hidden',
-        height: '100%'
       }}>
         {/* Call metadata overlays */}
         <div style={{
@@ -1410,18 +1599,134 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
         }}>
           <WebcamPanel enabled={camEnabled} onToggle={setCamEnabled} onFaceDetected={setFacePresent} trackingLoaded={trackingLoaded} />
         </div>
+
+        {/* Mobile controls overlay (visible only on mobile/tablet via CSS) */}
+        {selectedDuration && !done && (
+          <div className="mobile-controls-overlay" style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 50
+          }}>
+            {/* Live speech recognition caption overlay */}
+            {listening && liveText && (
+              <div style={{
+                position: 'absolute', bottom: 175, left: 16, right: 16,
+                textAlign: 'center', pointerEvents: 'auto'
+              }}>
+                <div style={{
+                  display: 'inline-block', padding: '6px 12px', borderRadius: 8,
+                  background: 'rgba(83, 22, 151, 0.75)', backdropFilter: 'blur(6px)',
+                  border: '1px dashed rgba(196, 160, 245, 0.4)',
+                  fontSize: '.78rem', color: '#c4a0f5', fontStyle: 'italic', fontFamily: "'Nunito',sans-serif"
+                }}>
+                  <span style={{
+                    display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                    background: '#ef4444', marginRight: 6, verticalAlign: 'middle',
+                    animation: 'blink 0.7s infinite'
+                  }} />
+                  {liveText}
+                </div>
+              </div>
+            )}
+
+            {/* Current Question Subtitle */}
+            {currentQuestionText && (
+              <div style={{
+                position: 'absolute', bottom: 95, left: 16, right: 16,
+                textAlign: 'center', pointerEvents: 'auto'
+              }}>
+                <div style={{
+                  display: 'inline-block', padding: '8px 14px', borderRadius: 10,
+                  background: 'rgba(15, 23, 42, 0.78)', backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#fff', fontSize: '.82rem', lineHeight: 1.45,
+                  maxWidth: '90%', boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                  textAlign: 'left'
+                }}>
+                  <div style={{ fontSize: '.62rem', color: '#13a1a5', fontWeight: 800, textTransform: 'uppercase', marginBottom: 3 }}>Current Question</div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{currentQuestionText}</div>
+                </div>
+              </div>
+            )}
+
+            {/* Floating Action Button Bar */}
+            <div style={{
+              position: 'absolute', bottom: 20, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.12)', padding: '8px 18px',
+              borderRadius: 30, display: 'flex', alignItems: 'center', gap: 12,
+              pointerEvents: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+            }}>
+              {/* Mic button */}
+              {supported && (
+                <button
+                  onClick={micPermError ? undefined : (listening ? handleMicStop : handleMicStart)}
+                  disabled={loading || !ready}
+                  title={micPermError ? 'Microphone blocked' : listening ? 'Stop & Send' : 'Speak'}
+                  style={{
+                    width: 44, height: 44, borderRadius: '50%', border: 'none',
+                    cursor: loading || !ready || micPermError ? 'not-allowed' : 'pointer',
+                    background: micPermError ? '#475569' : listening ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : 'linear-gradient(135deg,#531697,#13a1a5)',
+                    color: '#fff', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: micPermError ? 'none' : listening ? '0 0 12px rgba(239,68,68,0.4)' : '0 3px 10px rgba(83,22,151,0.2)',
+                    animation: listening ? 'micRing 1.4s ease-in-out infinite' : 'none', transition: 'background 0.2s'
+                  }}>
+                  {micPermError ? '🚫' : listening ? '⏹' : '🎙️'}
+                </button>
+              )}
+
+              {/* TTS Mute toggle */}
+              <button onClick={() => setTtsEnabled(t => !t)}
+                title={ttsEnabled ? 'Mute voice' : 'Unmute voice'}
+                style={{
+                  width: 38, height: 38, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)',
+                  background: ttsEnabled ? 'rgba(19, 161, 165, 0.25)' : 'rgba(255,255,255,0.06)',
+                  color: ttsEnabled ? '#13a1a5' : '#94a3b8', cursor: 'pointer', fontSize: '.9rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                {ttsEnabled ? '🔊' : '🔇'}
+              </button>
+
+              {/* Skip question */}
+              <button onClick={() => {
+                window.speechSynthesis?.cancel();
+                setAiSpeaking(false);
+                sendAnswer('I would like to skip this question.');
+              }}
+                title="Skip question"
+                style={{
+                  width: 38, height: 38, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(255,255,255,0.06)', color: '#94a3b8',
+                  cursor: 'pointer', fontSize: '.9rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                ⏭️
+              </button>
+
+              {/* Separator */}
+              <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
+
+              {/* Stop button */}
+              <button onClick={handleStopInterview}
+                title="Stop Interview"
+                style={{
+                  width: 38, height: 38, borderRadius: '50%', border: 'none',
+                  background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: '.9rem',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 3px 8px rgba(239,68,68,0.3)'
+                }}>
+                🛑
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── RIGHT PANE: MEETING SIDEBAR (300px width) ── */}
-      <div style={{
-        width: 320,
+      <div className="right-pane" style={{
         display: 'flex',
         flexDirection: 'column',
         background: '#0f172a',
-        borderLeft: '1px solid #1e293b',
         boxSizing: 'border-box',
         overflow: 'hidden',
-        height: '100%'
       }}>
         {/* Top: Metadata & Quick Controls */}
         <div style={{
@@ -1578,6 +1883,12 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
             <span>🎙️ Click mic to start recording · Click again to stop &amp; send your answer</span>
             {scores.length > 0 && <span style={{ color: '#13a1a5', fontWeight: 800 }}>Score: {avgScore}/100</span>}
           </div>
+          {sttError && (
+            <div style={{ marginTop: 6, padding: '6px 10px', borderRadius: 7, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5', fontSize: '.68rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span>⚠️ {sttError}</span>
+              <button onClick={() => setSttError('')} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: '.75rem', fontWeight: 800, lineHeight: 1 }}>✕</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1614,6 +1925,71 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
       )}
 
       <style>{`
+        .interview-room {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          height: 660px;
+          width: 100%;
+        }
+        .left-pane {
+          flex: 1;
+          height: 100%;
+        }
+        .right-pane {
+          width: 320px;
+          height: 100%;
+          border-left: 1px solid #1e293b;
+        }
+
+        @media (max-width: 1024px) {
+          .interview-room {
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 660px;
+          }
+          .left-pane {
+            height: 520px !important;
+            flex: none !important;
+            width: 100% !important;
+          }
+          .right-pane {
+            width: 100% !important;
+            height: 400px !important;
+            border-left: none !important;
+            border-top: 1px solid #1e293b !important;
+          }
+
+          /* Active mobile session overlay configuration */
+          .interview-room.active-session {
+            height: 100vh !important;
+            min-height: 100vh !important;
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 9999 !important;
+            border-radius: 0 !important;
+            border: none !important;
+          }
+          .interview-room.active-session .right-pane {
+            display: none !important;
+          }
+          .interview-room.active-session .left-pane {
+            height: 100% !important;
+            width: 100% !important;
+            flex: 1 !important;
+          }
+
+          .mobile-controls-overlay {
+            display: flex !important;
+          }
+        }
+
+        @media (min-width: 1025px) {
+          .mobile-controls-overlay {
+            display: none !important;
+          }
+        }
+
         @keyframes avSpin   { to{transform:rotate(360deg)} }
         @keyframes avPulse  { 0%,100%{opacity:.65}50%{opacity:1} }
         @keyframes breathe  { 0%,100%{transform:scale(1)}50%{transform:scale(1.016)} }
@@ -1799,184 +2175,184 @@ export default function InterviewPrepPage() {
         }}>
           {/* Target Role */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🎯</span>
-                  <span style={{ fontSize: '.8rem', fontWeight: 800, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>Target Role</span>
-                </div>
-                <input value={targetRole} onChange={e => setRole(e.target.value)}
-                  placeholder="e.g. Software Engineer, Data Scientist, Product Manager"
-                  style={{
-                    flex: 1, minWidth: 220, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #d0d7e8',
-                    fontFamily: "'Nunito',sans-serif", fontSize: '.92rem', outline: 'none', color: 'var(--text)',
-                    background: 'var(--surface)', transition: 'border-color .2s'
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#531697'}
-                  onBlur={e => e.target.style.borderColor = '#d0d7e8'}
-                />
-                {latest && <div style={{ fontSize: '.72rem', color: 'var(--text-3)', flexShrink: 0 }}>ATS: <strong style={{ color: '#531697' }}>{latest.atsScore}/100</strong> · Gaps: <strong style={{ color: '#991b1b' }}>{gaps.length}</strong></div>}
-              </div>
-
-              {/* Resume + JD Upload */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
-                <div style={{
-                  padding: '16px 18px', borderRadius: 12, border: '1.5px dashed #d0d7e8',
-                  background: 'linear-gradient(135deg,rgba(83,22,151,0.02),rgba(19,161,165,0.02))',
-                  transition: 'all .2s',
-                }}>
-                  <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#531697', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span>📄</span> Resume Upload <span style={{ color: '#94a3b8', fontWeight: 500 }}>(optional)</span>
-                  </div>
-                  <input type="file" accept=".pdf,.docx,.txt" onChange={e => handleResumeUpload(e.target.files?.[0])}
-                    style={{ fontSize: '.78rem', color: '#531697', cursor: 'pointer', marginBottom: 6 }} />
-                  {uploadingResume && <div style={{ fontSize: '.68rem', color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Extracting text…</div>}
-                  {resumeText && !uploadingResume && (
-                    <div style={{ fontSize: '.7rem', color: '#166534', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                      ✅ Resume loaded — AI will personalise questions
-                    </div>
-                  )}
-                </div>
-                <div style={{
-                  padding: '16px 18px', borderRadius: 12, border: '1.5px dashed #d0d7e8',
-                  background: 'linear-gradient(135deg,rgba(83,22,151,0.02),rgba(19,161,165,0.02))',
-                }}>
-                  <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#13a1a5', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span>📋</span> Job Description <span style={{ color: '#94a3b8', fontWeight: 500 }}>(optional)</span>
-                  </div>
-                  <textarea value={jdText} onChange={e => setJdText(e.target.value)}
-                    placeholder="Paste the JD here — e.g. Amazon SDE-2 requirements…" rows={3}
-                    style={{
-                      width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #d0d7e8',
-                      fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', outline: 'none',
-                      resize: 'vertical', color: 'var(--text)', boxSizing: 'border-box',
-                      background: 'transparent', transition: 'border-color .2s'
-                    }}
-                    onFocus={e => e.target.style.borderColor = '#13a1a5'}
-                    onBlur={e => e.target.style.borderColor = '#d0d7e8'}
-                  />
-                  {jdText && <div style={{ fontSize: '.68rem', color: '#166534', marginTop: 2, fontWeight: 700 }}>✅ JD loaded — questions tailored to this role</div>}
-                </div>
-              </div>
-
-              {/* Interview Type */}
-              <div style={{ marginBottom: 6 }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Interview Type</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {ITYPES.map(t => (
-                    <button key={t.id} onClick={() => setIType(t.id)} style={{
-                      padding: '10px 20px', borderRadius: 12,
-                      border: `1.5px solid ${iType === t.id ? t.color : '#e0e7f0'}`,
-                      background: iType === t.id ? `linear-gradient(135deg,${t.color}18,${t.color}08)` : 'transparent',
-                      color: iType === t.id ? t.color : 'var(--text-3)',
-                      fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif",
-                      fontSize: '.82rem', display: 'flex', alignItems: 'center', gap: 8,
-                      transition: 'all .18s',
-                      boxShadow: iType === t.id ? `0 4px 14px ${t.color}25` : 'none',
-                    }}>
-                      {t.icon} {t.id}{iType === t.id && <span style={{ fontSize: '.65rem', opacity: .7 }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
-                {iType && <div style={{ marginTop: 8, fontSize: '.75rem', color: 'var(--text-3)', paddingLeft: 2 }}>{ITYPES.find(t => t.id === iType)?.desc}</div>}
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+              <span style={{ fontSize: '1.2rem' }}>🎯</span>
+              <span style={{ fontSize: '.8rem', fontWeight: 800, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>Target Role</span>
             </div>
-          )}
+            <input value={targetRole} onChange={e => setRole(e.target.value)}
+              placeholder="e.g. Software Engineer, Data Scientist, Product Manager"
+              style={{
+                flex: 1, minWidth: 220, padding: '10px 16px', borderRadius: 10, border: '1.5px solid #d0d7e8',
+                fontFamily: "'Nunito',sans-serif", fontSize: '.92rem', outline: 'none', color: 'var(--text)',
+                background: 'var(--surface)', transition: 'border-color .2s'
+              }}
+              onFocus={e => e.target.style.borderColor = '#531697'}
+              onBlur={e => e.target.style.borderColor = '#d0d7e8'}
+            />
+            {latest && <div style={{ fontSize: '.72rem', color: 'var(--text-3)', flexShrink: 0 }}>ATS: <strong style={{ color: '#531697' }}>{latest.atsScore}/100</strong> · Gaps: <strong style={{ color: '#991b1b' }}>{gaps.length}</strong></div>}
+          </div>
 
-          {mode && <button onClick={() => { setMode(null); setPrepResult(null); setDeepResult(null); setPrepError(''); window.speechSynthesis?.cancel(); }}
-            style={{ marginBottom: 18, padding: '7px 18px', borderRadius: 9, border: '1.5px solid #e0e7f0', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-            ← Back to modes
-          </button>}
-
-          {/* ── MODE CARDS ── */}
-          {!mode && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
-
-              {/* AI Mock Interview Card */}
-              <div onClick={() => setMode('mock')}
-                style={{
-                  background: 'linear-gradient(145deg,#07051c 0%,#1a0935 40%,#06213d 100%)',
-                  border: '1px solid rgba(83,22,151,0.35)', borderRadius: 18, padding: '24px 22px',
-                  cursor: 'pointer', transition: 'all .25s',
-                  boxShadow: '0 12px 36px rgba(83,22,151,0.25)',
-                  position: 'relative', overflow: 'hidden',
-                }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 24px 52px rgba(83,22,151,0.4)'; e.currentTarget.style.borderColor = 'rgba(83,22,151,0.6)'; }}
-                onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 12px 36px rgba(83,22,151,0.25)'; e.currentTarget.style.borderColor = 'rgba(83,22,151,0.35)'; }}>
-                {/* Glow */}
-                <div style={{ position: 'absolute', top: -50, right: -50, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(83,22,151,0.4) 0%,transparent 70%)', pointerEvents: 'none' }} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-                    <AIAvatar isSpeaking={false} isThinking={false} isListening={false} persona={persona} size={72} />
-                    <div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.88rem', color: '#fff' }}>{persona.name}</div>
-                      <div style={{ fontSize: '.68rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{persona.title} · {persona.company}</div>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1.05rem', color: '#fff', marginBottom: 8 }}>🎤 AI Mock Interview</div>
-                  <div style={{ fontSize: '.8rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, marginBottom: 16 }}>
-                    Human-like AI speaks your questions aloud, adapts follow-ups to every answer, and watches your camera for real interview immersion.
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 18 }}>
-                    {['🗣️ Speaks Aloud', '🎙️ Voice Input', '📷 Camera', '🧠 Adaptive AI'].map(t => (
-                      <span key={t} style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)', fontSize: '.62rem', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)' }}>{t}</span>
-                    ))}
-                  </div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', borderRadius: 999, background: 'linear-gradient(135deg,#7c3aed,#13a1a5)', color: '#fff', fontWeight: 800, fontSize: '.82rem', boxShadow: '0 4px 14px rgba(124,58,237,0.4)' }}>
-                    Start Interview <span style={{ fontSize: '1rem' }}>→</span>
-                  </div>
-                </div>
+          {/* Resume + JD Upload */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+            <div style={{
+              padding: '16px 18px', borderRadius: 12, border: '1.5px dashed #d0d7e8',
+              background: 'linear-gradient(135deg,rgba(83,22,151,0.02),rgba(19,161,165,0.02))',
+              transition: 'all .2s',
+            }}>
+              <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#531697', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span>📄</span> Resume Upload <span style={{ color: '#94a3b8', fontWeight: 500 }}>(optional)</span>
               </div>
-
-              {/* Full Prep Card */}
-              <div onClick={() => { setMode('prep'); runPrep(); }}
-                style={{ background: 'var(--surface)', border: '1.5px solid #e8edf5', borderRadius: 18, padding: '24px 22px', cursor: 'pointer', transition: 'all .25s', boxShadow: '0 4px 16px rgba(4,44,93,0.05)' }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#531697'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(83,22,151,0.12)'; }}
-                onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e8edf5'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(4,44,93,0.05)'; }}>
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg,rgba(83,22,151,0.12),rgba(83,22,151,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', marginBottom: 14 }}>🎯</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1rem', color: 'var(--text)', marginBottom: 8 }}>Full Interview Prep</div>
-                <div style={{ fontSize: '.82rem', color: 'var(--text-3)', lineHeight: 1.65 }}>Personalised guide: technical Q&A, behavioral prep, skill gap analysis, and quick wins based on your profile.</div>
-              </div>
-
-              {/* Deep Dive Card */}
-              <div onClick={() => setMode('tips')}
-                style={{ background: 'var(--surface)', border: '1.5px solid #e8edf5', borderRadius: 18, padding: '24px 22px', cursor: 'pointer', transition: 'all .25s', boxShadow: '0 4px 16px rgba(4,44,93,0.05)' }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#13a1a5'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(19,161,165,0.12)'; }}
-                onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e8edf5'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(4,44,93,0.05)'; }}>
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg,rgba(19,161,165,0.12),rgba(19,161,165,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', marginBottom: 14 }}>💡</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1rem', color: 'var(--text)', marginBottom: 8 }}>Topic Deep Dive</div>
-                <div style={{ fontSize: '.82rem', color: 'var(--text-3)', lineHeight: 1.65 }}>Pick any skill gap or topic — get a focused explanation, curated practice questions, and rapid interview prep.</div>
-              </div>
-            </div>
-          )}
-
-          {mode === 'mock' && <MockInterview key={mockKey} targetRole={targetRole} interviewType={iType} userName={user?.name} resumeText={resumeText} jdText={jdText} onEnd={() => { setMockKey(k => k + 1); setMode(null); }} />}
-
-          {mode === 'prep' && (
-            <div>
-              {prepLoading && <div style={{ textAlign: 'center', padding: '50px 0' }}><div style={{ width: 42, height: 42, border: '3px solid #e8edf5', borderTopColor: '#531697', borderRadius: '50%', animation: 'spin .7s linear infinite', margin: '0 auto 14px' }} /><div style={{ color: 'var(--text-3)' }}>Generating prep guide…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>}
-              {prepError && <div style={{ padding: '14px 18px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 10, color: '#991b1b', fontSize: '.85rem', fontWeight: 600, marginBottom: 14 }}>⚠️ {prepError} <button onClick={runPrep} style={{ marginLeft: 10, padding: '4px 12px', borderRadius: 7, border: 'none', background: '#991b1b', color: '#fff', cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>Retry</button></div>}
-              {prepResult && !prepLoading && <PrepResult data={prepResult} targetRole={targetRole} />}
-            </div>
-          )}
-
-          {mode === 'tips' && (
-            <div>
-              <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 14, padding: '20px 22px', marginBottom: 16 }}>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', marginBottom: 12, color: 'var(--text)' }}>💡 Topic Deep Dive</div>
-                {gaps.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: '.7rem', fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>YOUR SKILL GAPS:</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{gaps.slice(0, 10).map(s => <button key={s} onClick={() => setDeepTopic(s)} style={{ padding: '5px 12px', borderRadius: 999, border: `1.5px solid ${deepTopic === s ? '#531697' : 'rgba(239,68,68,0.3)'}`, background: deepTopic === s ? 'rgba(83,22,151,0.08)' : 'rgba(239,68,68,0.06)', color: deepTopic === s ? '#531697' : '#991b1b', fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>{s}</button>)}</div></div>}
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input value={deepTopic} onChange={e => setDeepTopic(e.target.value)} placeholder="Type any skill: Docker, System Design, React Hooks…" style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.9rem', outline: 'none' }} />
-                  <button onClick={runDeep} disabled={!deepTopic.trim() || deepLoading} style={{ padding: '10px 24px', borderRadius: 9, border: 'none', background: !deepTopic.trim() || deepLoading ? '#e8edf5' : 'linear-gradient(135deg,#531697,#13a1a5)', color: !deepTopic.trim() ? '#b0bec9' : '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>{deepLoading ? '…' : 'Dive In →'}</button>
-                </div>
-              </div>
-              {deepResult && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 13, padding: '16px 18px' }}><div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', marginBottom: 10, color: 'var(--text)' }}>📖 About {deepTopic}</div><div style={{ fontSize: '.86rem', color: 'var(--text-2)', lineHeight: 1.75 }}>{deepResult.explanation}</div></div>
-                  {deepResult.practice_questions?.length > 0 && <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 13, padding: '16px 18px' }}><div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', marginBottom: 10, color: 'var(--text)' }}>❓ Practice Questions</div>{deepResult.practice_questions.map((q, i) => <div key={i} style={{ padding: '9px 12px', background: '#f8f9fc', borderRadius: 8, marginBottom: 7, fontSize: '.84rem', color: 'var(--text-2)' }}>Q{i + 1}. {q}</div>)}</div>}
-                  {deepResult.quick_prep && <div style={{ background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.12)', borderRadius: 13, padding: '14px 18px', fontSize: '.84rem', color: 'var(--text-2)', lineHeight: 1.7 }}><strong style={{ color: '#531697' }}>⚡ Quick Interview Prep: </strong>{deepResult.quick_prep}</div>}
+              <input type="file" accept=".pdf,.docx,.txt" onChange={e => handleResumeUpload(e.target.files?.[0])}
+                style={{ fontSize: '.78rem', color: '#531697', cursor: 'pointer', marginBottom: 6 }} />
+              {uploadingResume && <div style={{ fontSize: '.68rem', color: '#64748b', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>⏳ Extracting text…</div>}
+              {resumeText && !uploadingResume && (
+                <div style={{ fontSize: '.7rem', color: '#166534', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
+                  ✅ Resume loaded — AI will personalise questions
                 </div>
               )}
             </div>
+            <div style={{
+              padding: '16px 18px', borderRadius: 12, border: '1.5px dashed #d0d7e8',
+              background: 'linear-gradient(135deg,rgba(83,22,151,0.02),rgba(19,161,165,0.02))',
+            }}>
+              <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#13a1a5', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span>📋</span> Job Description <span style={{ color: '#94a3b8', fontWeight: 500 }}>(optional)</span>
+              </div>
+              <textarea value={jdText} onChange={e => setJdText(e.target.value)}
+                placeholder="Paste the JD here — e.g. Amazon SDE-2 requirements…" rows={3}
+                style={{
+                  width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #d0d7e8',
+                  fontFamily: "'Nunito',sans-serif", fontSize: '.8rem', outline: 'none',
+                  resize: 'vertical', color: 'var(--text)', boxSizing: 'border-box',
+                  background: 'transparent', transition: 'border-color .2s'
+                }}
+                onFocus={e => e.target.style.borderColor = '#13a1a5'}
+                onBlur={e => e.target.style.borderColor = '#d0d7e8'}
+              />
+              {jdText && <div style={{ fontSize: '.68rem', color: '#166534', marginTop: 2, fontWeight: 700 }}>✅ JD loaded — questions tailored to this role</div>}
+            </div>
+          </div>
+
+          {/* Interview Type */}
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Interview Type</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {ITYPES.map(t => (
+                <button key={t.id} onClick={() => setIType(t.id)} style={{
+                  padding: '10px 20px', borderRadius: 12,
+                  border: `1.5px solid ${iType === t.id ? t.color : '#e0e7f0'}`,
+                  background: iType === t.id ? `linear-gradient(135deg,${t.color}18,${t.color}08)` : 'transparent',
+                  color: iType === t.id ? t.color : 'var(--text-3)',
+                  fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif",
+                  fontSize: '.82rem', display: 'flex', alignItems: 'center', gap: 8,
+                  transition: 'all .18s',
+                  boxShadow: iType === t.id ? `0 4px 14px ${t.color}25` : 'none',
+                }}>
+                  {t.icon} {t.id}{iType === t.id && <span style={{ fontSize: '.65rem', opacity: .7 }}>✓</span>}
+                </button>
+              ))}
+            </div>
+            {iType && <div style={{ marginTop: 8, fontSize: '.75rem', color: 'var(--text-3)', paddingLeft: 2 }}>{ITYPES.find(t => t.id === iType)?.desc}</div>}
+          </div>
+        </div>
+      )}
+
+      {mode && <button onClick={() => { setMode(null); setPrepResult(null); setDeepResult(null); setPrepError(''); window.speechSynthesis?.cancel(); }}
+        style={{ marginBottom: 18, padding: '7px 18px', borderRadius: 9, border: '1.5px solid #e0e7f0', background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.82rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+        ← Back to modes
+      </button>}
+
+      {/* ── MODE CARDS ── */}
+      {!mode && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
+
+          {/* AI Mock Interview Card */}
+          <div onClick={() => setMode('mock')}
+            style={{
+              background: 'linear-gradient(145deg,#07051c 0%,#1a0935 40%,#06213d 100%)',
+              border: '1px solid rgba(83,22,151,0.35)', borderRadius: 18, padding: '24px 22px',
+              cursor: 'pointer', transition: 'all .25s',
+              boxShadow: '0 12px 36px rgba(83,22,151,0.25)',
+              position: 'relative', overflow: 'hidden',
+            }}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-6px)'; e.currentTarget.style.boxShadow = '0 24px 52px rgba(83,22,151,0.4)'; e.currentTarget.style.borderColor = 'rgba(83,22,151,0.6)'; }}
+            onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 12px 36px rgba(83,22,151,0.25)'; e.currentTarget.style.borderColor = 'rgba(83,22,151,0.35)'; }}>
+            {/* Glow */}
+            <div style={{ position: 'absolute', top: -50, right: -50, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle,rgba(83,22,151,0.4) 0%,transparent 70%)', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+                <AIAvatar isSpeaking={false} isThinking={false} isListening={false} persona={persona} size={72} />
+                <div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '.88rem', color: '#fff' }}>{persona.name}</div>
+                  <div style={{ fontSize: '.68rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{persona.title} · {persona.company}</div>
+                </div>
+              </div>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1.05rem', color: '#fff', marginBottom: 8 }}>🎤 AI Mock Interview</div>
+              <div style={{ fontSize: '.8rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, marginBottom: 16 }}>
+                Human-like AI speaks your questions aloud, adapts follow-ups to every answer, and watches your camera for real interview immersion.
+              </div>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 18 }}>
+                {['🗣️ Speaks Aloud', '🎙️ Voice Input', '📷 Camera', '🧠 Adaptive AI'].map(t => (
+                  <span key={t} style={{ padding: '3px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.75)', fontSize: '.62rem', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)' }}>{t}</span>
+                ))}
+              </div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', borderRadius: 999, background: 'linear-gradient(135deg,#7c3aed,#13a1a5)', color: '#fff', fontWeight: 800, fontSize: '.82rem', boxShadow: '0 4px 14px rgba(124,58,237,0.4)' }}>
+                Start Interview <span style={{ fontSize: '1rem' }}>→</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Full Prep Card */}
+          <div onClick={() => { setMode('prep'); runPrep(); }}
+            style={{ background: 'var(--surface)', border: '1.5px solid #e8edf5', borderRadius: 18, padding: '24px 22px', cursor: 'pointer', transition: 'all .25s', boxShadow: '0 4px 16px rgba(4,44,93,0.05)' }}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#531697'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(83,22,151,0.12)'; }}
+            onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e8edf5'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(4,44,93,0.05)'; }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg,rgba(83,22,151,0.12),rgba(83,22,151,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', marginBottom: 14 }}>🎯</div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1rem', color: 'var(--text)', marginBottom: 8 }}>Full Interview Prep</div>
+            <div style={{ fontSize: '.82rem', color: 'var(--text-3)', lineHeight: 1.65 }}>Personalised guide: technical Q&A, behavioral prep, skill gap analysis, and quick wins based on your profile.</div>
+          </div>
+
+          {/* Deep Dive Card */}
+          <div onClick={() => setMode('tips')}
+            style={{ background: 'var(--surface)', border: '1.5px solid #e8edf5', borderRadius: 18, padding: '24px 22px', cursor: 'pointer', transition: 'all .25s', boxShadow: '0 4px 16px rgba(4,44,93,0.05)' }}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = '#13a1a5'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(19,161,165,0.12)'; }}
+            onMouseOut={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = '#e8edf5'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(4,44,93,0.05)'; }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg,rgba(19,161,165,0.12),rgba(19,161,165,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', marginBottom: 14 }}>💡</div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1rem', color: 'var(--text)', marginBottom: 8 }}>Topic Deep Dive</div>
+            <div style={{ fontSize: '.82rem', color: 'var(--text-3)', lineHeight: 1.65 }}>Pick any skill gap or topic — get a focused explanation, curated practice questions, and rapid interview prep.</div>
+          </div>
+        </div>
+      )}
+
+      {mode === 'mock' && <MockInterview key={mockKey} targetRole={targetRole} interviewType={iType} userName={user?.name} resumeText={resumeText} jdText={jdText} onEnd={() => { setMockKey(k => k + 1); setMode(null); }} />}
+
+      {mode === 'prep' && (
+        <div>
+          {prepLoading && <div style={{ textAlign: 'center', padding: '50px 0' }}><div style={{ width: 42, height: 42, border: '3px solid #e8edf5', borderTopColor: '#531697', borderRadius: '50%', animation: 'spin .7s linear infinite', margin: '0 auto 14px' }} /><div style={{ color: 'var(--text-3)' }}>Generating prep guide…</div><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>}
+          {prepError && <div style={{ padding: '14px 18px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 10, color: '#991b1b', fontSize: '.85rem', fontWeight: 600, marginBottom: 14 }}>⚠️ {prepError} <button onClick={runPrep} style={{ marginLeft: 10, padding: '4px 12px', borderRadius: 7, border: 'none', background: '#991b1b', color: '#fff', cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>Retry</button></div>}
+          {prepResult && !prepLoading && <PrepResult data={prepResult} targetRole={targetRole} />}
+        </div>
+      )}
+
+      {mode === 'tips' && (
+        <div>
+          <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 14, padding: '20px 22px', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', marginBottom: 12, color: 'var(--text)' }}>💡 Topic Deep Dive</div>
+            {gaps.length > 0 && <div style={{ marginBottom: 14 }}><div style={{ fontSize: '.7rem', fontWeight: 800, color: '#991b1b', marginBottom: 8 }}>YOUR SKILL GAPS:</div><div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{gaps.slice(0, 10).map(s => <button key={s} onClick={() => setDeepTopic(s)} style={{ padding: '5px 12px', borderRadius: 999, border: `1.5px solid ${deepTopic === s ? '#531697' : 'rgba(239,68,68,0.3)'}`, background: deepTopic === s ? 'rgba(83,22,151,0.08)' : 'rgba(239,68,68,0.06)', color: deepTopic === s ? '#531697' : '#991b1b', fontSize: '.78rem', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>{s}</button>)}</div></div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <input value={deepTopic} onChange={e => setDeepTopic(e.target.value)} placeholder="Type any skill: Docker, System Design, React Hooks…" style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.9rem', outline: 'none' }} />
+              <button onClick={runDeep} disabled={!deepTopic.trim() || deepLoading} style={{ padding: '10px 24px', borderRadius: 9, border: 'none', background: !deepTopic.trim() || deepLoading ? '#e8edf5' : 'linear-gradient(135deg,#531697,#13a1a5)', color: !deepTopic.trim() ? '#b0bec9' : '#fff', fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>{deepLoading ? '…' : 'Dive In →'}</button>
+            </div>
+          </div>
+          {deepResult && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 13, padding: '16px 18px' }}><div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', marginBottom: 10, color: 'var(--text)' }}>📖 About {deepTopic}</div><div style={{ fontSize: '.86rem', color: 'var(--text-2)', lineHeight: 1.75 }}>{deepResult.explanation}</div></div>
+              {deepResult.practice_questions?.length > 0 && <div style={{ background: 'var(--surface)', border: '1px solid #e8edf5', borderRadius: 13, padding: '16px 18px' }}><div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.9rem', marginBottom: 10, color: 'var(--text)' }}>❓ Practice Questions</div>{deepResult.practice_questions.map((q, i) => <div key={i} style={{ padding: '9px 12px', background: '#f8f9fc', borderRadius: 8, marginBottom: 7, fontSize: '.84rem', color: 'var(--text-2)' }}>Q{i + 1}. {q}</div>)}</div>}
+              {deepResult.quick_prep && <div style={{ background: 'rgba(83,22,151,0.04)', border: '1px solid rgba(83,22,151,0.12)', borderRadius: 13, padding: '14px 18px', fontSize: '.84rem', color: 'var(--text-2)', lineHeight: 1.7 }}><strong style={{ color: '#531697' }}>⚡ Quick Interview Prep: </strong>{deepResult.quick_prep}</div>}
+            </div>
           )}
+        </div>
+      )}
     </div>
   );
 }
