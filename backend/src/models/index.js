@@ -275,3 +275,33 @@ const interviewSessionSchema = new mongoose.Schema({
 
 module.exports.InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
 
+// ─── Discovered Alumni (discovered globally from social patterns) ─────────────
+const discoveredAlumniSchema = new mongoose.Schema({
+  name:          { type: String, required: true },
+  linkedinUrl:   { type: String, required: true, unique: true },
+  currentCompany:{ type: String, required: true },
+  role:          { type: String },
+  branch:        { type: String }, // e.g. "CSE", "ENTC", "Mechanical" (parsed from profile)
+  gradYear:      { type: String },
+  discoveredAt:  { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const DiscoveredAlumni = mongoose.models.DiscoveredAlumni || mongoose.model('DiscoveredAlumni', discoveredAlumniSchema);
+module.exports.DiscoveredAlumni = DiscoveredAlumni;
+
+// ─── Scraped External Openings (scraped globally via RSS/Crawlers) ─────────────
+const scrapedOpeningSchema = new mongoose.Schema({
+  title:        { type: String, required: true },
+  companyName:  { type: String, required: true },
+  ctc:          { type: Number }, // CTC in LPA for package-based filtering
+  allowedBranches: [String],      // e.g. ["CSE", "IT"]
+  applyLink:    { type: String, required: true },
+  source:       { type: String, default: 'RSS' },
+  embedding:    { type: [Number] }, // For semantic RAG recommendation matching
+  scrapedAt:    { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const ScrapedOpening = mongoose.models.ScrapedOpening || mongoose.model('ScrapedOpening', scrapedOpeningSchema);
+module.exports.ScrapedOpening = ScrapedOpening;
+
+

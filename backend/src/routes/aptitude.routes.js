@@ -546,4 +546,46 @@ router.post('/bulk', authenticate, authorize('admin', 'faculty'), async (req, re
   }
 });
 
-module.exports = router;
+// ── GET /api/aptitude/company-blueprint — RAG Pattern Blueprints ─────────────
+router.get('/company-blueprint', authenticate, async (req, res) => {
+  try {
+    const { company = 'TCS' } = req.query;
+    const ragService = require('../utils/ragService');
+    const { companies, problems } = await ragService.searchKnowledgeBase(company);
+
+    const blueprints = {
+      TCS: {
+        pattern: 'TCS NQT (Foundation + Advanced)',
+        sections: ['Numerical Ability (20 mins)', 'Verbal Ability (25 mins)', 'Reasoning Ability (25 mins)', 'Advanced Coding (45 mins)'],
+        tips: 'Focus on time management, speed math, and edge-case handling in Coding.'
+      },
+      Infosys: {
+        pattern: 'Infosys Specialist Programmer & System Engineer',
+        sections: ['Mathematical Ability', 'Logical Reasoning', 'Pseudocode', 'Puzzle Solving'],
+        tips: 'Attention to detail in Pseudocode execution and graph algorithms.'
+      },
+      Capgemini: {
+        pattern: 'Capgemini Cognitive & Game-Based Assessment',
+        sections: ['Pseudo Coding', 'English Communication', 'Game-based Aptitude (Grid challenge, Motion challenge)'],
+        tips: 'Practice spatial memory games and basic C++/Java output prediction.'
+      },
+      default: {
+        pattern: `${company} Placement Test Pattern`,
+        sections: ['Quantitative Aptitude', 'Logical Reasoning', 'Technical MCQs'],
+        tips: 'Master core CS subjects (DSA, DBMS, OS) along with speed calculations.'
+      }
+    };
+
+    const targetPattern = blueprints[company] || blueprints.default;
+    res.json({
+      company,
+      blueprint: targetPattern,
+      referencedCompanies: companies,
+      relatedProblems: problems
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

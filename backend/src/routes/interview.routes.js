@@ -32,18 +32,34 @@ router.get('/', authenticate, async (req, res) => {
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
 
-// POST /api/interview/ai-answer — AI answer for any question
+// POST /api/interview/ai-answer — RAG Context Injected AI answer for any question
 router.post('/ai-answer', authenticate, async (req, res) => {
   try {
-    const { question, role, subject } = req.body;
+    const { question, role, subject, company } = req.body;
     if (!question) return res.status(400).json({ error: 'question required' });
 
-    // Try ML service first, fall back to canned response
+    const ragService = require('../utils/ragService');
+    
+    // RAG Retrieval: fetch live matching job listings & KIT alumni
+    const [openings, alumni] = await Promise.all([
+      ragService.searchScrapedOpenings(role || subject || question, req.user.department || 'CSE', 1),
+      ragService.searchDiscoveredAlumni(question, company || '', req.user.department || 'CSE', 1)
+    ]);
+
+    let ragContext = '';
+    if (openings.length > 0) {
+      ragContext += `\n[Live Industry Reference: ${openings[0].title} at ${openings[0].companyName} - Package: ${openings[0].ctc} LPA]`;
+    }
+    if (alumni.length > 0) {
+      ragContext += `\n[KIT Alumni Insight: ${alumni[0].name} is working at ${alumni[0].currentCompany} as ${alumni[0].role || 'Software Engineer'}]`;
+    }
+
+    // Try ML service first
     let answer = null;
     try {
       const mlRes = await fetch(`${process.env.ML_SERVICE_URL || 'http://ml-service:8000'}/interview-answer`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, role, subject }),
+        body: JSON.stringify({ question, role, subject, ragContext }),
         signal: AbortSignal.timeout(8000)
       });
       if (mlRes.ok) {
@@ -53,16 +69,21 @@ router.post('/ai-answer', authenticate, async (req, res) => {
     } catch(e) { /* ML service unavailable, use fallback */ }
 
     if (!answer) {
-      // Fallback: structured answer template
-      answer = `This is a common ${subject || 'technical'} interview question${role ? ` for ${role} roles` : ''}. ` +
-        `To answer effectively: (1) Define the core concept clearly, (2) Give a real-world example or use case, ` +
-        `(3) Mention trade-offs or limitations if applicable, (4) Relate to your experience. ` +
-        `Make sure you understand the fundamentals deeply before your interview.`;
+      // Structured RAG enriched answer template
+      const liveRef = openings[0] ? ` (Matching live hiring for ${openings[0].title} at ${openings[0].companyName})` : '';
+      const alumRef = alumni[0] ? ` KIT Alumnus ${alumni[0].name} (${alumni[0].role} at ${alumni[0].currentCompany}) cracked interviews on this topic.` : '';
+      
+      answer = `Here is how to answer "${question}" effectively for ${role || 'Software Engineering'} roles${liveRef}:\n\n` +
+        `1. Core Technical Concept: Define the underlying mechanisms clearly.\n` +
+        `2. Implementation & Trade-offs: Highlight efficiency, time/space complexity, and practical edge cases.\n` +
+        `3. Real-world Industry Application: Relate your approach to production systems used by top hiring companies.${alumRef}\n\n` +
+        `Pro Tip: Focus on clear problem-solving rationale rather than just memorized syntax!`;
     }
 
-    res.json({ answer });
+    res.json({ answer, ragContext: ragContext.trim() });
   } catch(err) { res.status(500).json({ error: err.message }); }
 });
+
 
 // POST /api/interview — admin adds question
 router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) => {

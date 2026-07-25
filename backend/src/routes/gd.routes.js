@@ -23,7 +23,7 @@ async function groqChat(system, user, maxTokens = 500) {
   return res.choices[0]?.message?.content?.trim() || '';
 }
 
-// ── Generate topic ─────────────────────────────────────────────────────────
+// ── Generate topic (RAG Context Injected) ──────────────────────────────────
 async function generateTopic(company, difficulty, category) {
   const cats = {
     TCS: ['Digital India','AI Automation','Cybersecurity','Cloud Ethics'],
@@ -36,16 +36,28 @@ async function generateTopic(company, difficulty, category) {
   };
   const list = cats[company] || cats.default;
   const cat  = category || list[Math.floor(Math.random() * list.length)];
+
+  // RAG Reference Context
+  let ragContext = '';
+  try {
+    const ragService = require('../utils/ragService');
+    const openings = await ragService.searchScrapedOpenings(cat, 'CSE', 2);
+    if (openings.length > 0) {
+      ragContext = `Industry hiring trends highlight ${openings[0].title} at ${openings[0].companyName}.`;
+    }
+  } catch (e) {}
+
   try {
     const text = await groqChat(
-      'You generate GD topics. Return ONLY the topic text, no quotes or explanation.',
-      `Generate ONE debatable GD topic for ${company || 'top IT'} company placement.\nCategory: ${cat}\nDifficulty: ${difficulty}\nRules: 8-14 words, no question marks, must be a proposition.`
+      'You generate high-impact GD topics based on latest industry trends. Return ONLY the topic text, no quotes or explanation.',
+      `Generate ONE debatable GD topic for ${company || 'top IT'} company placement.\nCategory: ${cat}\nDifficulty: ${difficulty}\nReference Context: ${ragContext}\nRules: 8-14 words, no question marks, must be a proposition.`
     );
     if (text?.length > 8) return text.replace(/['"]/g, '');
   } catch {}
   const fallback = ['AI will eliminate more jobs than it creates','India needs Universal Basic Income now','Social media regulation harms free speech','Remote work permanently changes urban economies'];
   return fallback[Math.floor(Math.random() * fallback.length)];
 }
+
 
 // ── Full 7-dimension evaluation ────────────────────────────────────────────
 async function evaluateParticipant(participant, topic, allParticipants) {

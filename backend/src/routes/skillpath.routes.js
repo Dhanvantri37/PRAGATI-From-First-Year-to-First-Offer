@@ -777,7 +777,7 @@ Click below to launch your full Placement Prep practice set! 🎯`;
       return res.json({ reply: overrideReply, action });
     }
 
-    // ── 5. WEB SEARCH TRIGGER (if user asks for live/current web data) ──────
+    // ── 5. WEB & RAG KNOWLEDGE RETRIEVAL ──────────────────────────────────
     let webContext = '';
     if (lower.startsWith('search') || lower.includes('google') || lower.includes('latest news') || lower.includes('latest cutoff') || lower.includes('web search')) {
       const searchQuery = lower.replace(/search|google|the web|for/g, '').trim();
@@ -785,6 +785,24 @@ Click below to launch your full Placement Prep practice set! 🎯`;
         const results = await searchWeb(searchQuery);
         if (results) webContext = `\n\nLive Web Search Results for "${searchQuery}":\n${results}\n`;
       }
+    }
+
+    // RAG Retrieval: fetch live openings, alumni, and company patterns
+    let ragKnowledgeContext = '';
+    try {
+      const ragService = require('../utils/ragService');
+      const [openings, alumni] = await Promise.all([
+        ragService.searchScrapedOpenings(message, u.department || 'CSE', 2),
+        ragService.searchDiscoveredAlumni(message, '', u.department || 'CSE', 2)
+      ]);
+      if (openings.length > 0) {
+        ragKnowledgeContext += `\n- Active Live Openings: ${openings.map(o => `${o.title} at ${o.companyName} (${o.ctc || 'N/A'} LPA)`).join('; ')}`;
+      }
+      if (alumni.length > 0) {
+        ragKnowledgeContext += `\n- Relevant KIT Alumni: ${alumni.map(a => `${a.name} (${a.role || 'Engineer'} at ${a.currentCompany})`).join('; ')}`;
+      }
+    } catch (ragErr) {
+      console.warn('[pragati-assistant] RAG lookup warning:', ragErr.message);
     }
 
     // ── 6. Fetch user's latest SkillPath result (Cleaned) ──────────────────
@@ -808,6 +826,7 @@ About the user:
 - Year: ${u.year ? `Year ${u.year}` : 'Unknown'}
 - Streak: ${u.streak || 0} days
 ${skillContext}
+${ragKnowledgeContext ? `\nRAG Knowledge Vector Retrival:${ragKnowledgeContext}` : ''}
 ${webContext}
 
 Capabilities & Personality:

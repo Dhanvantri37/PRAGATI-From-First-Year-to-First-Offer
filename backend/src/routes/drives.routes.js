@@ -72,6 +72,60 @@ router.post('/:id/apply', authenticate, async (req, res) => {
   }
 });
 
+// ─── GET /api/drives/external-openings (RAG Scraped Listings) ───────────────
+router.get('/external-openings', authenticate, async (req, res) => {
+  try {
+    const { query = '', branch, limit = 10 } = req.query;
+    const userBranch = branch || req.user.department || req.user.branch || 'CSE';
+    const ragService = require('../utils/ragService');
+    const openings = await ragService.searchScrapedOpenings(query, userBranch, Number(limit));
+    res.json({ openings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET /api/drives/alumni (Discovered KIT Alumni Matching) ────────────────
+router.get('/alumni', authenticate, async (req, res) => {
+  try {
+    const { company, branch, search } = req.query;
+    const userBranch = branch || req.user.department || req.user.branch || 'CSE';
+    const ragService = require('../utils/ragService');
+    const alumni = await ragService.searchDiscoveredAlumni(search || '', company, userBranch);
+    res.json({ alumni });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/drives/linkedin-draft (AI Connection Template) ───────────────
+router.post('/linkedin-draft', authenticate, async (req, res) => {
+  try {
+    const { alumniName, alumniCompany, alumniRole, userBranch } = req.body;
+    const name = alumniName || 'Alumnus';
+    const company = alumniCompany || 'Target Enterprise';
+    const studentName = req.user.name || 'KIT Student';
+    const branch = userBranch || req.user.department || 'Computer Science';
+
+    const draft = `Hello ${name}! 👋\n\nI am ${studentName}, currently pursuing engineering in ${branch} at KIT's College of Engineering. I noticed your inspiring work as ${alumniRole || 'an Engineer'} at ${company}.\n\nAs a fellow KIT student preparing for campus placements and software roles at ${company}, I would be extremely grateful to connect with you and learn from your experience!\n\nBest regards,\n${studentName}`;
+
+    res.json({ draft });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POST /api/drives/run-crawler (Admin Trigger Background Ingestor) ───────
+router.post('/run-crawler', authenticate, authorize('admin', 'faculty'), async (req, res) => {
+  try {
+    const { runCrawlerWorker } = require('../utils/crawlerWorker');
+    const results = await runCrawlerWorker();
+    res.json({ message: 'Crawler worker completed successfully', results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE drive (admin/faculty)
 router.delete('/:id', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
@@ -83,3 +137,4 @@ router.delete('/:id', authenticate, authorize('admin', 'faculty'), async (req, r
 });
 
 module.exports = router;
+
