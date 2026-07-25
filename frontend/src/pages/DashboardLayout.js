@@ -262,6 +262,7 @@ export default function DashboardLayout() {
   const wakeRestartRef  = useRef(null); // callback to restart wake SR after mic releases
   const wakePausedRef   = useRef(false); // true while in-chat mic is active — stops wake SR from restarting
   const [micBlocked,   setMicBlocked]   = useState(false); // true if user denied mic permission
+  const wakeBlockedRef  = useRef(false);
   
   const pragatiVoiceRef = React.useRef(pragatiVoice);
   React.useEffect(() => { pragatiVoiceRef.current = pragatiVoice; }, [pragatiVoice]);
@@ -411,17 +412,24 @@ export default function DashboardLayout() {
 
     let active = true;
     let retryTimer = null;
-    let permissionDenied = false;
     let silenceTimer = null;
     let wakeSRRunning = false;
 
     // Request mic permission upfront — keeps Chrome from playing "ding" on SR restart
     navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then(stream => { window._dummyAudioStream = stream; })
-      .catch(() => {});
+      .then(stream => { 
+        window._dummyAudioStream = stream; 
+        wakeBlockedRef.current = false;
+        setMicBlocked(false);
+        startWake();
+      })
+      .catch(() => {
+        wakeBlockedRef.current = true;
+        setMicBlocked(true);
+      });
 
     function startWake() {
-      if (!active || permissionDenied || wakePausedRef.current || wakeSRRunning) return;
+      if (!active || wakeBlockedRef.current || wakePausedRef.current || wakeSRRunning) return;
       try {
         const sr = new SR();
         wakeSRRef.current = sr;
@@ -503,7 +511,7 @@ export default function DashboardLayout() {
 
         sr.onend = () => {
           wakeSRRunning = false;
-          if (active && !permissionDenied && !wakePausedRef.current) {
+          if (active && !wakeBlockedRef.current && !wakePausedRef.current) {
             retryTimer = setTimeout(startWake, 300);
           }
         };
@@ -511,7 +519,7 @@ export default function DashboardLayout() {
         sr.onerror = e => {
           wakeSRRunning = false;
           if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-            permissionDenied = true;
+            wakeBlockedRef.current = true;
             active = false;
             setMicBlocked(true);
             return;
@@ -538,6 +546,8 @@ export default function DashboardLayout() {
       try { wakeSRRef.current?.abort(); } catch {}
     };
     const handleResumeWake = () => {
+      wakeBlockedRef.current = false;
+      setMicBlocked(false);
       wakePausedRef.current = false;
       startWake();
     };
@@ -545,8 +555,7 @@ export default function DashboardLayout() {
     window.addEventListener('pragati-pause-wake-word', handlePauseWake);
     window.addEventListener('pragati-resume-wake-word', handleResumeWake);
 
-    startWake();
-    wakeRestartRef.current = () => { if (active && !permissionDenied) startWake(); };
+    wakeRestartRef.current = () => { if (active && !wakeBlockedRef.current) startWake(); };
     return () => {
       active = false;
       clearTimeout(retryTimer);
@@ -684,6 +693,8 @@ export default function DashboardLayout() {
     let permStream = null;
     try {
       permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      wakeBlockedRef.current = false;
+      setMicBlocked(false);
     } catch {
       setPragatiMsgs(m => [...m, { role: 'ai', text: '🎙️ Microphone access was denied. Please click the 🔒 icon in your browser address bar and allow microphone access, then try again.', ts: Date.now() }]);
       return;

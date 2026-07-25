@@ -64,7 +64,7 @@ function useContinuousSTT({ lang = (navigator.language || 'en-US'), onPartial, o
     try { recRef.current?.abort(); } catch { }
 
     const r = new SR();
-    r.continuous = false; // Workaround for Chrome continuous STT freeze bug
+    r.continuous = true; // Enable continuous speech recognition so pauses do not cut off the student's voice
     r.interimResults = true;
     r.lang = langRef.current || 'en-US';
     r.maxAlternatives = 1;
@@ -1971,12 +1971,15 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
             border: none !important;
           }
           .interview-room.active-session .right-pane {
-            display: none !important;
+            display: flex !important;
+            height: 55% !important;
+            width: 100% !important;
+            border-top: 1px solid #1e293b !important;
           }
           .interview-room.active-session .left-pane {
-            height: 100% !important;
+            height: 45% !important;
             width: 100% !important;
-            flex: 1 !important;
+            flex: none !important;
           }
 
           .mobile-controls-overlay {
