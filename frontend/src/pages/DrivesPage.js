@@ -418,7 +418,7 @@ export default function DrivesPage() {
                     <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 6 }}>Branch: {alm.branch || 'CSE'} ({alm.gradYear || 'Batch'})</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                    <a href={alm.linkedinUrl} target="_blank" rel="noreferrer"
+                    <a href={alm.linkedinUrl && !alm.linkedinUrl.includes('kit-alumni-discovered') && !alm.linkedinUrl.includes('-kitcoek') ? alm.linkedinUrl : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(alm.name + ' ' + (alm.currentCompany || ''))}`} target="_blank" rel="noreferrer"
                       style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #0077b5', color: '#0077b5', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: '.76rem' }}>
                       LinkedIn ↗
                     </a>

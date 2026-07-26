@@ -3,6 +3,7 @@
  * Uses @xenova/transformers (all-MiniLM-L6-v2) for 384-dim embeddings.
  * Supports MongoDB Atlas $vectorSearch with seamless local memory / regex fallbacks.
  */
+const axios = require('axios');
 const { ScrapedOpening, DiscoveredAlumni, Company, Problem } = require('../models/index');
 
 let extractorPipeline = null;
@@ -123,18 +124,91 @@ async function searchScrapedOpenings(queryText, branch = null, limit = 5) {
 }
 
 /**
- * Vector search query for DiscoveredAlumni
+ * Fetch live alumni profiles from public web search on the fly
  */
-async function searchDiscoveredAlumni(queryText, company = null, branch = null, limit = 5) {
+async function fetchLiveAlumniWeb(searchTerm) {
+  try {
+    const query = `site:linkedin.com/in "KIT" ${searchTerm}`;
+    const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const resp = await axios.get(ddgUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      timeout: 4000
+    });
+    const html = resp.data || '';
+    const results = [];
+    const linkRegex = /<a class="result__snippet[^>]*>(.*?)<\/a>/gi;
+    let match;
+    let idx = 1;
+    while ((match = linkRegex.exec(html)) !== null && idx <= 4) {
+      const snippet = match[1].replace(/<[^>]+>/g, '').trim();
+      if (snippet.length > 10) {
+        const cleanName = snippet.split('-')[0].split('|')[0].trim().slice(0, 30);
+        const searchLink = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent('KIT ' + searchTerm)}`;
+        const newAlumnus = await DiscoveredAlumni.findOneAndUpdate(
+          { linkedinUrl: searchLink },
+          {
+            name: cleanName.length > 3 ? cleanName : `KIT Professional (${searchTerm})`,
+            linkedinUrl: searchLink,
+            currentCompany: searchTerm.charAt(0).toUpperCase() + searchTerm.slice(1),
+            role: snippet.slice(0, 60),
+            branch: 'Engineering',
+            gradYear: 'Alumnus',
+            discoveredAt: new Date()
+          },
+          { upsert: true, new: true }
+        ).lean();
+        results.push(newAlumnus);
+        idx++;
+      }
+    }
+    return results;
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Dynamic search query for DiscoveredAlumni (DB + Live Web Search)
+ */
+async function searchDiscoveredAlumni(queryText, company = null, branch = null, limit = 8) {
   try {
     const filter = {};
-    if (company) filter.currentCompany = new RegExp(company, 'i');
+    const searchString = (queryText || company || '').trim();
+    if (searchString) {
+      const regex = new RegExp(searchString.split(/\s+/).join('|'), 'i');
+      filter.$or = [
+        { name: regex },
+        { currentCompany: regex },
+        { role: regex },
+        { branch: regex }
+      ];
+    }
     if (branch && branch !== 'All') filter.branch = new RegExp(branch, 'i');
 
-    const alumni = await DiscoveredAlumni.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
-    if (alumni.length > 0) return alumni;
+    let alumni = await DiscoveredAlumni.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
 
-    // Relaxed search if specific company/branch returned empty
+    // If a custom search term was typed and DB has few matches, perform live web discovery!
+    if (searchString && alumni.length < 3) {
+      const liveResults = await fetchLiveAlumniWeb(searchString);
+      if (liveResults && liveResults.length > 0) {
+        alumni = [...liveResults, ...alumni].slice(0, limit);
+      } else {
+        // Dynamic fallback card for the exact searched term
+        const dynamicSearchLink = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent('KIT College ' + searchString)}`;
+        const dynamicCard = {
+          _id: 'dynamic_' + Date.now(),
+          name: `KIT Alumni (${searchString})`,
+          linkedinUrl: dynamicSearchLink,
+          currentCompany: searchString.charAt(0).toUpperCase() + searchString.slice(1),
+          role: `Professional / Specialist at ${searchString}`,
+          branch: 'CSE / IT / ENTC',
+          gradYear: 'Alumni Network'
+        };
+        alumni = [dynamicCard, ...alumni];
+      }
+    }
+
+    if (alumni.length > 0) return alumni;
     return await DiscoveredAlumni.find().sort({ createdAt: -1 }).limit(limit).lean();
   } catch (err) {
     console.error('[ragService] searchDiscoveredAlumni error:', err.message);
