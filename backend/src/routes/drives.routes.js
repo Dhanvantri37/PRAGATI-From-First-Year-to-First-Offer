@@ -98,18 +98,45 @@ router.get('/alumni', authenticate, async (req, res) => {
   }
 });
 
-// ─── POST /api/drives/linkedin-draft (AI Connection Template) ───────────────
+// ─── POST /api/drives/linkedin-draft (AI Outreach & Referral Generator) ──
 router.post('/linkedin-draft', authenticate, async (req, res) => {
   try {
-    const { alumniName, alumniCompany, alumniRole, userBranch } = req.body;
+    const { alumniName, alumniCompany, alumniRole, userBranch, goal = 'referral' } = req.body;
     const name = alumniName || 'Alumnus';
-    const company = alumniCompany || 'Target Enterprise';
+    const company = alumniCompany || 'Target Tech Company';
     const studentName = req.user.name || 'KIT Student';
     const branch = userBranch || req.user.department || 'Computer Science';
+    const role = alumniRole || 'Software Engineer';
 
-    const draft = `Hello ${name}! 👋\n\nI am ${studentName}, currently pursuing engineering in ${branch} at KIT's College of Engineering. I noticed your inspiring work as ${alumniRole || 'an Engineer'} at ${company}.\n\nAs a fellow KIT student preparing for campus placements and software roles at ${company}, I would be extremely grateful to connect with you and learn from your experience!\n\nBest regards,\n${studentName}`;
+    let linkedinNote = '';
+    let directMsg = '';
+    let emailSubject = '';
+    let coldEmail = '';
 
-    res.json({ draft });
+    if (goal === 'referral') {
+      linkedinNote = `Hi ${name}! 👋 I'm ${studentName}, CSE student at KIT. I saw your SDE journey at ${company} & admire your work. As I prepare for ${company} openings, could I connect for a quick referral or guidance? Best, ${studentName}`;
+      
+      directMsg = `Hello ${name}! 👋\n\nI hope you're doing well! My name is ${studentName}, pursuing engineering in ${branch} at KIT's College of Engineering.\n\nI've been following ${company}'s tech innovations and noticed your position as ${role}. I'm actively preparing for upcoming software engineering roles at ${company}.\n\nGiven our shared KIT alumni background, I would be deeply grateful if you could consider referring me for entry-level / intern SDE openings at ${company}, or share any guidance on your preparation path.\n\nThank you so much for your time!\n\nWarm regards,\n${studentName}\nKIT College of Engineering`;
+
+      emailSubject = `KIT Student Referral Inquiry - ${company} (${studentName})`;
+      coldEmail = `Dear ${name},\n\nI hope this email finds you well.\n\nMy name is ${studentName}, studying ${branch} Engineering at KIT College of Engineering. I am reaching out as a fellow KIT student aspiring to join ${company} as a ${role}.\n\nI have attached my resume and would be extremely thankful if you could refer me for suitable software engineering roles at ${company}.\n\nThank you for your guidance and support!\n\nBest regards,\n${studentName}`;
+    } else if (goal === 'mentorship') {
+      linkedinNote = `Hi ${name}! 👋 I'm ${studentName} from KIT (${branch}). I really admire your journey to ${company} as ${role}. Would love to connect and learn 1-2 tips about cracking interviews at ${company}!`;
+      
+      directMsg = `Hello ${name}! 👋\n\nI hope you are having a great week! I am ${studentName}, studying ${branch} at KIT College of Engineering.\n\nYour career trajectory from KIT to ${company} as ${role} is truly inspiring. As I prepare for technical placement rounds, I would love to connect and get your advice on interview prep strategy, key tech stacks, or mock interview tips.\n\nLooking forward to connecting with you!\n\nBest regards,\n${studentName}`;
+
+      emailSubject = `Mentorship & Interview Guidance Request - KIT Alumni Connection`;
+      coldEmail = `Dear ${name},\n\nHope you are doing well!\n\nI am ${studentName}, currently pursuing engineering in ${branch} at KIT. I noticed your career growth at ${company} as ${role}.\n\nAs a student at KIT preparing for placement rounds, I would be grateful if you could spare 10 minutes to share your prep roadmap or review my resume.\n\nThank you so much!\n\nSincerely,\n${studentName}`;
+    } else {
+      linkedinNote = `Hello ${name}! 👋 I'm ${studentName}, engineering student at KIT. Noticed your great work as ${role} at ${company}. Would love to connect with a fellow KIT alumnus!`;
+      
+      directMsg = `Hello ${name}! 👋\n\nI am ${studentName}, an engineering student studying ${branch} at KIT College of Engineering. I noticed your work as ${role} at ${company} and wanted to reach out.\n\nIt's always great to connect with KIT alumni excelling in the industry. I look forward to staying connected and following your journey!\n\nBest,\n${studentName}`;
+
+      emailSubject = `KIT Alumni Connection - ${studentName}`;
+      coldEmail = `Dear ${name},\n\nMy name is ${studentName} from KIT College of Engineering (${branch}). I wanted to connect with fellow KIT alumni working at top engineering firms like ${company}.\n\nWish you continued success and hope to stay connected!\n\nBest regards,\n${studentName}`;
+    }
+
+    res.json({ draft: directMsg, linkedinNote, directMsg, emailSubject, coldEmail });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

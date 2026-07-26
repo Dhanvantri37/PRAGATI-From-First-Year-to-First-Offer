@@ -36,6 +36,9 @@ export default function DrivesPage() {
   const [linkedinDraft, setLinkedinDraft]       = useState('');
   const [draftLoading, setDraftLoading]         = useState(false);
   const [copiedDraft, setCopiedDraft]           = useState(false);
+  const [outreachGoal, setOutreachGoal]         = useState('referral'); // 'referral' | 'mentorship' | 'networking'
+  const [outreachTab, setOutreachTab]           = useState('linkedinNote'); // 'linkedinNote' | 'directMsg' | 'coldEmail'
+  const [draftData, setDraftData]               = useState(null);
 
   async function load() {
     setLoading(true);
@@ -70,8 +73,10 @@ export default function DrivesPage() {
     }
   }, [activeTab, searchQuery]);
 
-  async function generateLinkedInDraft(alumnus) {
+  async function generateLinkedInDraft(alumnus, goalOverride) {
+    const targetGoal = goalOverride || outreachGoal;
     setSelectedAlumni(alumnus);
+    setOutreachGoal(targetGoal);
     setDraftLoading(true);
     setCopiedDraft(false);
     try {
@@ -81,11 +86,13 @@ export default function DrivesPage() {
           alumniName: alumnus.name,
           alumniCompany: alumnus.currentCompany,
           alumniRole: alumnus.role,
-          userBranch: user?.department || 'Computer Science'
+          userBranch: user?.department || 'Computer Science',
+          goal: targetGoal
         })
       });
       const d = await res.json();
-      setLinkedinDraft(d.draft || '');
+      setDraftData(d);
+      setLinkedinDraft(d[outreachTab] || d.directMsg || d.draft || '');
     } catch {}
     setDraftLoading(false);
   }
@@ -397,9 +404,34 @@ export default function DrivesPage() {
       {/* Discovered KIT Alumni Tab */}
       {activeTab === 'alumni' && (
         <div>
+          {/* Alumni Connection Playbook Banner */}
+          <div style={{ background: 'linear-gradient(135deg, rgba(83,22,151,0.08), rgba(19,161,165,0.08))', border: '1px solid rgba(83,22,151,0.18)', borderRadius: 14, padding: '16px 20px', marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: '.95rem', color: '#531697', marginBottom: 4 }}>🤝 KIT Alumni Referral & Mentorship Network</div>
+            <div style={{ fontSize: '.82rem', color: 'var(--text-2)', lineHeight: 1.4 }}>
+              Connect directly with alumni working at top companies (Amazon, Swiggy, TCS, Capgemini, Infosys, etc.). Use the AI Draft tool to generate tailored <b>Job Referral Requests</b>, <b>Mentorship Messages</b>, or <b>Cold Emails</b> in seconds!
+            </div>
+          </div>
+
+          {/* Quick Filters */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {[
+              ['', '🌟 All Alumni'],
+              ['Amazon', '🔥 Amazon'],
+              ['Swiggy', '🍔 Swiggy'],
+              ['TCS', '🏢 TCS Digital'],
+              ['Capgemini', '⚙️ Capgemini'],
+              ['Infosys', '💻 Infosys']
+            ].map(([comp, label]) => (
+              <button key={comp} onClick={() => setSearchQuery(comp)}
+                style={{ padding: '6px 12px', borderRadius: 999, border: `1.5px solid ${searchQuery === comp ? '#531697' : '#d0d7e8'}`, background: searchQuery === comp ? 'rgba(83,22,151,0.1)' : 'var(--surface)', color: searchQuery === comp ? '#531697' : 'var(--text-3)', fontWeight: 700, fontSize: '.76rem', cursor: 'pointer' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
           <div style={{ marginBottom: 16 }}>
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="🔍 Search alumni by company or role (e.g. Amazon, TCS, SDE)..."
+              placeholder="🔍 Search alumni by company or role (e.g. Amazon, TCS, SDE, Google)..."
               style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1.5px solid #d0d7e8', outline: 'none', fontSize: '.88rem' }} />
           </div>
 
@@ -410,9 +442,12 @@ export default function DrivesPage() {
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
               {alumniList.map((alm, idx) => (
-                <div key={idx} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid #e8edf5', padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div key={idx} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid #e8edf5', padding: '16px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text)' }}>🎓 {alm.name}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text)' }}>🎓 {alm.name}</div>
+                      <span style={{ fontSize: '.68rem', fontWeight: 800, background: 'rgba(83,22,151,0.08)', color: '#531697', padding: '2px 7px', borderRadius: 999 }}>KIT Alumni</span>
+                    </div>
                     <div style={{ fontSize: '.84rem', color: '#531697', fontWeight: 700, marginTop: 4 }}>{alm.role || 'Software Engineer'}</div>
                     <div style={{ fontSize: '.8rem', color: 'var(--text-2)', marginTop: 2 }}>🏢 {alm.currentCompany}</div>
                     <div style={{ fontSize: '.75rem', color: 'var(--text-3)', marginTop: 6 }}>Branch: {alm.branch || 'CSE'} ({alm.gradYear || 'Batch'})</div>
@@ -422,9 +457,9 @@ export default function DrivesPage() {
                       style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #0077b5', color: '#0077b5', textAlign: 'center', textDecoration: 'none', fontWeight: 700, fontSize: '.76rem' }}>
                       LinkedIn ↗
                     </a>
-                    <button onClick={() => generateLinkedInDraft(alm)}
+                    <button onClick={() => generateLinkedInDraft(alm, 'referral')}
                       style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.76rem' }}>
-                      ✨ AI Draft
+                      ✨ Request Referral
                     </button>
                   </div>
                 </div>
@@ -432,25 +467,71 @@ export default function DrivesPage() {
             </div>
           )}
 
-          {/* AI LinkedIn Draft Modal */}
+          {/* AI LinkedIn & Referral Outreach Modal */}
           {selectedAlumni && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-              <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 500, padding: 22, boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text)' }}>✨ AI LinkedIn Draft for {selectedAlumni.name}</div>
-                  <button onClick={() => setSelectedAlumni(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+              <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 540, padding: 24, boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text)' }}>🤝 Connect with {selectedAlumni.name}</div>
+                    <div style={{ fontSize: '.78rem', color: 'var(--text-3)' }}>{selectedAlumni.role} at {selectedAlumni.currentCompany}</div>
+                  </div>
+                  <button onClick={() => setSelectedAlumni(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--text-3)' }}>✕</button>
                 </div>
+
+                {/* Select Goal */}
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: '.75rem', fontWeight: 800, color: 'var(--text-3)', display: 'block', marginBottom: 6 }}>1. Select Your Outreach Objective:</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[
+                      ['referral', '🚀 Referral Request'],
+                      ['mentorship', '🎓 Mentorship & Prep'],
+                      ['networking', '🤝 General Connection']
+                    ].map(([gKey, gLabel]) => (
+                      <button key={gKey} onClick={() => generateLinkedInDraft(selectedAlumni, gKey)}
+                        style={{ flex: 1, padding: '7px 8px', borderRadius: 8, border: `1.5px solid ${outreachGoal === gKey ? '#531697' : '#d0d7e8'}`, background: outreachGoal === gKey ? 'rgba(83,22,151,0.08)' : 'var(--surface)', color: outreachGoal === gKey ? '#531697' : 'var(--text-3)', fontWeight: 700, fontSize: '.75rem', cursor: 'pointer' }}>
+                        {gLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {draftLoading ? (
-                  <div style={{ padding: 20, textAlign: 'center' }}>Generating tailored AI draft…</div>
+                  <div style={{ padding: 30, textAlign: 'center', color: '#531697', fontWeight: 700 }}>✨ Generating AI Outreach Template…</div>
                 ) : (
                   <div>
+                    {/* Format Tabs */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid #e8edf5', marginBottom: 10 }}>
+                      {[
+                        ['directMsg', '💬 LinkedIn DM'],
+                        ['linkedinNote', '📝 Note (<300 char)'],
+                        ['coldEmail', '✉️ Cold Email']
+                      ].map(([fKey, fLabel]) => (
+                        <button key={fKey} onClick={() => { setOutreachTab(fKey); setLinkedinDraft(draftData?.[fKey] || ''); setCopiedDraft(false); }}
+                          style={{ padding: '6px 12px', border: 'none', borderBottom: outreachTab === fKey ? '2px solid #531697' : '2px solid transparent', background: 'transparent', color: outreachTab === fKey ? '#531697' : 'var(--text-3)', fontWeight: 800, cursor: 'pointer', fontSize: '.78rem' }}>
+                          {fLabel}
+                        </button>
+                      ))}
+                    </div>
+
+                    {outreachTab === 'coldEmail' && draftData?.emailSubject && (
+                      <div style={{ marginBottom: 8, fontSize: '.8rem', color: 'var(--text-2)', background: 'rgba(83,22,151,0.04)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(83,22,151,0.1)' }}>
+                        <b>Subject:</b> {draftData.emailSubject}
+                      </div>
+                    )}
+
                     <textarea value={linkedinDraft} onChange={e => setLinkedinDraft(e.target.value)} rows={7}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontSize: '.84rem', outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-                      <span style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>Copy and paste into your LinkedIn connection note</span>
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #d0d7e8', fontSize: '.84rem', outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: "'Nunito',sans-serif" }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+                      <a href={selectedAlumni.linkedinUrl && !selectedAlumni.linkedinUrl.includes('kit-alumni-discovered') && !selectedAlumni.linkedinUrl.includes('-kitcoek') ? selectedAlumni.linkedinUrl : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(selectedAlumni.name + ' ' + selectedAlumni.currentCompany)}`}
+                        target="_blank" rel="noreferrer"
+                        style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #0077b5', color: '#0077b5', textDecoration: 'none', fontWeight: 800, fontSize: '.78rem' }}>
+                        Open LinkedIn Profile ↗
+                      </a>
                       <button onClick={() => { navigator.clipboard.writeText(linkedinDraft); setCopiedDraft(true); }}
-                        style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: copiedDraft ? '#166534' : '#531697', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.82rem' }}>
-                        {copiedDraft ? '✅ Copied!' : '📋 Copy Draft'}
+                        style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: copiedDraft ? '#166534' : 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.82rem' }}>
+                        {copiedDraft ? '✅ Copied to Clipboard!' : '📋 Copy Outreach Note'}
                       </button>
                     </div>
                   </div>
