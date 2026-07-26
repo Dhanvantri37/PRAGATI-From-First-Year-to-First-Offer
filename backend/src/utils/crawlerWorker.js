@@ -3,6 +3,10 @@
  * Crawls public RSS feeds for internships/jobs and discovers college alumni.
  * Generates vector embeddings using ragService and upserts into MongoDB.
  */
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
+
 const Parser = require('rss-parser');
 const axios = require('axios');
 const { ScrapedOpening, DiscoveredAlumni } = require('../models/index');
@@ -12,8 +16,8 @@ const rssParser = new Parser();
 
 // Public RSS Feeds for live jobs & internships
 const RSS_FEEDS = [
-  'https://remoteok.com/remote-jobs.rss',
   'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss',
+  'https://weworkremotely.com/categories/remote-front-end-programming-jobs.rss',
   'https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss'
 ];
 
