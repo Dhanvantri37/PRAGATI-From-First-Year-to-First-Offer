@@ -69,7 +69,7 @@ const DEMO_OPENINGS = [
 const DEMO_ALUMNI = [
   {
     name: 'Rohan Deshmukh',
-    linkedinUrl: 'https://www.linkedin.com/in/rohan-deshmukh-kitcoek',
+    linkedinUrl: 'https://www.linkedin.com/search/results/people/?keywords=Rohan%20Deshmukh%20Amazon',
     currentCompany: 'Amazon',
     role: 'SDE II (Cloud Systems)',
     branch: 'CSE',
@@ -77,7 +77,7 @@ const DEMO_ALUMNI = [
   },
   {
     name: 'Priya Kulkarni',
-    linkedinUrl: 'https://www.linkedin.com/in/priya-kulkarni-kitcoek',
+    linkedinUrl: 'https://www.linkedin.com/search/results/people/?keywords=Priya%20Kulkarni%20TCS',
     currentCompany: 'TCS Digital',
     role: 'Senior System Engineer',
     branch: 'CSE',
@@ -85,7 +85,7 @@ const DEMO_ALUMNI = [
   },
   {
     name: 'Aditya Patil',
-    linkedinUrl: 'https://www.linkedin.com/in/aditya-patil-kitcoek',
+    linkedinUrl: 'https://www.linkedin.com/search/results/people/?keywords=Aditya%20Patil%20Swiggy',
     currentCompany: 'Swiggy',
     role: 'Product Engineer',
     branch: 'IT',
@@ -93,7 +93,7 @@ const DEMO_ALUMNI = [
   },
   {
     name: 'Sneha Shinde',
-    linkedinUrl: 'https://www.linkedin.com/in/sneha-shinde-kitcoek',
+    linkedinUrl: 'https://www.linkedin.com/search/results/people/?keywords=Sneha%20Shinde%20Capgemini',
     currentCompany: 'Capgemini',
     role: 'DevOps Lead',
     branch: 'ENTC',
@@ -101,7 +101,7 @@ const DEMO_ALUMNI = [
   },
   {
     name: 'Amit Joshi',
-    linkedinUrl: 'https://www.linkedin.com/in/amit-joshi-kitcoek',
+    linkedinUrl: 'https://www.linkedin.com/search/results/people/?keywords=Amit%20Joshi%20Infosys',
     currentCompany: 'Infosys',
     role: 'Specialist Programmer',
     branch: 'CSE',
