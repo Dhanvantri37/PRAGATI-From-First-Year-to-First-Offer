@@ -1,7 +1,7 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
-try { dns.setServers(['8.8.8.8', '1.1.1.1']); } catch (e) {}
 require('dotenv').config();
+
 
 
 const express = require('express');
@@ -32,7 +32,9 @@ const compileRoutes      = require('./routes/compile.routes');
 const ttsRoutes          = require('./routes/tts.routes');
 const drivesRoutes       = require('./routes/drives.routes');
 const gdRoutes           = require('./routes/gd.routes');
+const alumniRoutes       = require('./routes/alumni.routes');
 const GDRoom             = require('./models/GDRoom.model');
+
 const { registerGDSocket } = require('./utils/gdSocket');
 const { registerCompileSocket } = require('./utils/compileSocket');
 
@@ -88,7 +90,9 @@ app.use('/api/compile',        compileRoutes);
 app.use('/api/tts',            ttsRoutes);
 app.use('/api/drives',         drivesRoutes);
 app.use('/api/gd',             gdRoutes);
+app.use('/api/alumni',         alumniRoutes);
 app.use('/api/settings',       require('./routes/settings.routes'));
+
 app.use('/api/notifications', require('./routes/notifications.routes'));
 
 // Error handler
@@ -133,48 +137,62 @@ io.on('connection', (socket) => {
 registerGDSocket(io, GDRoom);
 registerCompileSocket(io);
 
-mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI)
-  .then(async () => {
-    console.log('✅ MongoDB connected');
+const dbUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+const localUri = 'mongodb://127.0.0.1:27017/pragati';
 
-    // ── Start server immediately — don't block on seeding ─────────────────
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 PRAGATI Backend running on port ${PORT}`);
-      console.log(`   GD WebSocket /gd namespace active`);
-      console.log(`   Groq AI integration active`);
-    });
+console.log('[DB] Connecting to database...');
+mongoose.connect(dbUri, {
+  serverSelectionTimeoutMS: 20000, // 20 seconds timeout
+})
+  .then(() => {
+    console.log('✅ MongoDB Atlas connected');
+    startApp();
+  })
+  .catch(err => {
+    console.warn('⚠️ MongoDB Atlas connection failed/timed out:', err.message);
+    console.log('[DB] Falling back to local MongoDB at:', localUri);
+    return mongoose.connect(localUri, { serverSelectionTimeoutMS: 10000 })
+      .then(() => {
+        console.log('✅ Local MongoDB connected');
+        startApp();
+      })
+      .catch(localErr => {
+        console.error('❌ Both local and Atlas MongoDB connections failed:', localErr.message);
+        process.exit(1);
+      });
+  });
 
-    // ── Seed LeetCode problems in background (only if DB is empty) ─────────
-    const { Problem, AptitudeQuestion } = require('./models/index');
-    const count = await Problem.countDocuments();
+function startApp() {
+  // ── Start server immediately — don't block on seeding ─────────────────
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 PRAGATI Backend running on port ${PORT}`);
+    console.log(`   GD WebSocket /gd namespace active`);
+    console.log(`   Groq AI integration active`);
+  });
+
+  // ── Seed LeetCode problems in background (only if DB is empty) ─────────
+  const { Problem } = require('./models/index');
+  Problem.countDocuments().then(count => {
     if (count < 10) {
       console.log('📦 Problem DB empty — running background seed...');
-      (async () => {
-        try {
-          const { seedProblems } = require('./utils/leetcode-problems-seed');
-          await seedProblems({ shouldDisconnect: false });
-        } catch (e) {
-          console.warn('⚠️ Problem seed warning:', e.message);
-        }
-      })();
+      try {
+        const { seedProblems } = require('./utils/leetcode-problems-seed');
+        seedProblems({ shouldDisconnect: false }).catch(e => console.warn('⚠️ Problem seed warning:', e.message));
+      } catch (e) {
+        console.warn('⚠️ Problem seed warning:', e.message);
+      }
     } else {
       console.log(`📊 Problem DB ready (${count} problems loaded)`);
     }
+  }).catch(() => {});
 
-    // ── Seed Aptitude questions in background ───────────────────────────────
-    (async () => {
-      try {
-        const { seedAptitudeQuestions } = require('./utils/aptitude-docx-seed');
-        await seedAptitudeQuestions();
-      } catch (e) {
-        console.warn('⚠️ Aptitude DOCX seed warning:', e.message);
-      }
-    })();
-
-  })
-  .catch(err => {
-    console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
-  });
+  // ── Seed Aptitude questions in background ───────────────────────────────
+  try {
+    const { seedAptitudeQuestions } = require('./utils/aptitude-docx-seed');
+    seedAptitudeQuestions().catch(e => console.warn('⚠️ Aptitude DOCX seed warning:', e.message));
+  } catch (e) {
+    console.warn('⚠️ Aptitude DOCX seed warning:', e.message);
+  }
+}
 
 module.exports = app;

@@ -163,20 +163,28 @@ const applicationSchema = new mongoose.Schema({
   notes: { type: String }
 }, { timestamps: true });
 
-// ─── Announcement ────────────────────────────────────────────────────────────
+// ─── Announcement ─────────────────────────────────────────────────────────────
 const announcementSchema = new mongoose.Schema({
   title:   { type: String, required: true },
   message: { type: String, required: true },
   link:    { type: String, default: '' },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // optional for system-generated
   targetFilter: {
     role:       { type: String },
     department: { type: String },
     year:       { type: Number },
     atsBelow:   { type: Number },
   },
-  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  readBy:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   priority: { type: String, enum: ['normal','high','urgent'], default: 'normal' },
+  // RAG / System-generated fields
+  isSystemGenerated: { type: Boolean, default: false },  // true = created by daily announcer
+  opportunities: [{                                       // embedded verified job cards
+    title:    { type: String },
+    company:  { type: String },
+    link:     { type: String },
+    branches: [String],
+  }],
 }, { timestamps: true });
 
 // ─── AptitudeNote ──────────────────────────────────────────────────────────
@@ -246,9 +254,23 @@ const placementDriveSchema = new mongoose.Schema({
   status:       { type: String, enum: ['open', 'closed', 'upcoming'], default: 'upcoming' },
   createdBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   applicants:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+  // ── Scraped / External opportunity fields ────────────────────────────────
+  isScraped:       { type: Boolean, default: false },    // true = from RSS/job board crawler
+  opportunityType: { type: String, enum: ['internship', 'job'], default: 'internship' }, // 'internship' vs 'job'
+  location:        { type: String, default: 'India' },   // 'India', 'Remote', 'Govt / India'
+  isGovt:          { type: Boolean, default: false },    // DRDO, ISRO, IIT, BARC, AICTE
+  branches:        [{ type: String }],                   // ['CSE / IT', 'AIML', 'ENTC', 'Mechanical']
+  aiDescription:   { type: String },                     // Groq-generated rich description
+  sourceName:      { type: String },                     // 'DRDO', 'ISRO', 'IIT', 'Jobicy', etc.
+  sourceUrl:       { type: String },                     // original job posting URL
+  scrapedDate:     { type: Date },                       // when this was scraped
+
 }, { timestamps: true });
 
 module.exports.PlacementDrive = mongoose.model('PlacementDrive', placementDriveSchema);
+
+
 
 // ─── InterviewSession (records past AI mock interviews for students) ──────────
 const interviewSessionSchema = new mongoose.Schema({
@@ -273,5 +295,50 @@ const interviewSessionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports.InterviewSession = mongoose.model('InterviewSession', interviewSessionSchema);
 
+// ─── DiscoveredAlumni (auto-crawled from DuckDuckGo weekly) ────────────────────
+const discoveredAlumniSchema = new mongoose.Schema({
+  name:           { type: String },
+  linkedinUrl:    { type: String, unique: true, required: true },
+  currentCompany: { type: String },
+  role:           { type: String },
+  branch:         { type: String },   // e.g. CSE, AIML, ENTC, Mechanical
+  snippet:        { type: String },   // raw DDG search snippet
+  embedding:      { type: [Number] }, // 384-dim Xenova/all-MiniLM-L6-v2 vector
+  discoveredAt:   { type: Date, default: Date.now },
+}, { timestamps: true });
+
+module.exports.DiscoveredAlumni = mongoose.models.DiscoveredAlumni ||
+  mongoose.model('DiscoveredAlumni', discoveredAlumniSchema);
+
+// ─── ScrapedOpening (verified external internships/jobs from RSS) ────────────
+const scrapedOpeningSchema = new mongoose.Schema({
+  title:           { type: String, required: true },
+  companyName:     { type: String },
+  description:     { type: String },
+  applyLink:       { type: String, unique: true, required: true },
+  allowedBranches: [String],           // e.g. ["CSE", "AIML"]
+  source:          { type: String, default: 'RSS' },
+  isVerified:      { type: Boolean, default: false }, // Groq fraud-check passed
+  embedding:       { type: [Number] }, // 384-dim vector
+  scrapedAt:       { type: Date, default: Date.now },
+}, { timestamps: true });
+
+module.exports.ScrapedOpening = mongoose.models.ScrapedOpening ||
+  mongoose.model('ScrapedOpening', scrapedOpeningSchema);
+
+// ─── InterviewKnowledge (curated Q&A bank with vector embeddings) ──────────
+const interviewKnowledgeSchema = new mongoose.Schema({
+  question:   { type: String, required: true },
+  answer:     { type: String, required: true },
+  role:       { type: String },          // e.g. Frontend Developer
+  subject:    { type: String },          // e.g. React, OS, DBMS, DSA
+  company:    { type: String },          // e.g. Google, TCS (if company-specific)
+  difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' },
+  tags:       [String],
+  source:     { type: String, default: 'curated' }, // curated | scraped | alumni
+  embedding:  { type: [Number] },        // 384-dim vector
+}, { timestamps: true });
+
+module.exports.InterviewKnowledge = mongoose.models.InterviewKnowledge ||
+  mongoose.model('InterviewKnowledge', interviewKnowledgeSchema);

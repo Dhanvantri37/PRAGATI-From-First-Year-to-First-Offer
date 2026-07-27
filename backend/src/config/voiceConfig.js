@@ -135,12 +135,17 @@ if (process.env.USE_ELEVENLABS_FREE_VOICES === 'true') {
 const ELEVENLABS_MODEL = 'eleven_multilingual_v2';
 
 /**
- * Default voice settings optimized for Indian English clarity
+ * Default voice settings — optimized for warm, human-sounding Indian English.
+ * 
+ * stability: 0.45       — allows natural prosody variation (less robotic)
+ * similarity_boost: 0.85 — preserves strong voice identity
+ * style: 0.35           — motivational, confident expressive delivery
+ * use_speaker_boost     — enhances clarity in Indian accent
  */
 const ELEVENLABS_VOICE_SETTINGS = {
-  stability: 0.55,  // Natural variation
-  similarity_boost: 0.80,  // Voice identity fidelity
-  style: 0.20,  // Style emphasis
+  stability:         0.45,
+  similarity_boost:  0.85,
+  style:             0.35,
   use_speaker_boost: true,
 };
 

@@ -1,0 +1,358 @@
+/**
+ * dailyOpportunitiesAnnouncer.js — PRAGATI Daily Internship & Job Announcer
+ *
+ * Runs every day via GitHub Actions (free compute).
+ * 1. Scrapes fresh internships & job opportunities from verified RSS feeds.
+ * 2. Runs Groq fraud detection on each listing.
+ * 3. Groups the verified listings into a daily digest announcement.
+ * 4. Saves the announcement directly to MongoDB (Announcement collection).
+ * 5. Sends web-push notifications to all students with push subscriptions.
+ *
+ * Usage:
+ *   node backend/src/utils/dailyOpportunitiesAnnouncer.js
+ *
+ * Environment variables required:
+ *   MONGO_URI, GROQ_API_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_EMAIL
+ */
+
+const mongoose = require('mongoose');
+const axios    = require('axios');
+const webpush  = require('web-push');
+const xml2js   = require('xml2js');
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+
+// ── Configure Web Push ────────────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    `mailto:${process.env.VAPID_EMAIL || 'pragati@college.edu'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
+
+// ── Schemas ───────────────────────────────────────────────────────────────────
+const announcementSchema = new mongoose.Schema({
+  title:     { type: String, required: true },
+  message:   { type: String, required: true },
+  link:      { type: String, default: '' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  targetFilter: {
+    role:       { type: String },
+    department: { type: String },
+  },
+  readBy:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  priority: { type: String, enum: ['normal','high','urgent'], default: 'normal' },
+  isSystemGenerated: { type: Boolean, default: false }, // flag for RAG announcements
+  opportunities: [{ // embedded summary cards for display
+    title:    String,
+    company:  String,
+    link:     String,
+    branches: [String],
+  }],
+}, { timestamps: true });
+
+const userSchema = new mongoose.Schema({
+  name:             String,
+  role:             String,
+  department:       String,
+  pushSubscription: Object,
+});
+
+const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
+const User         = mongoose.models.User         || mongoose.model('User', userSchema);
+
+// ── RSS & Govt Feed Sources (trusted, no API key, fraud-filtered) ───────────
+const RSS_FEEDS = [
+  // ── National & Govt Prestigious Internships (DRDO, ISRO, IITs, AICTE) ────
+  { url: 'https://news.google.com/rss/search?q=DRDO+Internship+2026',        source: 'DRDO Research', tags: ['Defense', 'Govt', 'Research'] },
+  { url: 'https://news.google.com/rss/search?q=ISRO+Internship+recruitment', source: 'ISRO Space',    tags: ['Aerospace', 'Govt', 'Space'] },
+  { url: 'https://news.google.com/rss/search?q=IIT+Research+Internship+2026',source: 'IIT Research',  tags: ['Research', 'Academia'] },
+  { url: 'https://news.google.com/rss/search?q=AICTE+Internship+Portal',      source: 'AICTE Govt',   tags: ['Govt', 'National'] },
+
+  // ── Tech & Corporate Global Openings ─────────────────────────────────────
+  { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', source: 'WWR',        tags: ['Remote', 'Programming'] },
+  { url: 'https://jobicy.com/?feed=job_feed&job_category=engineering',        source: 'Jobicy',     tags: ['Engineering'] },
+  { url: 'https://remotive.com/api/remote-jobs?category=software-dev&limit=15',source: 'Remotive',  tags: ['Software'], isJSON: true },
+  { url: 'https://news.google.com/rss/search?q=Software+Engineer+Internship+India+2026', source: 'Campus Tech', tags: ['Internship'] },
+];
+
+
+// ── Groq Fraud Filter ─────────────────────────────────────────────────────────
+async function isGenuineOpportunity(title, description) {
+  const GROQ_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_KEY) return true;
+  try {
+    const resp = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{
+          role: 'user',
+          content: `Is this a genuine internship or job from a legitimate company?
+Title: "${title}"
+Description snippet: "${(description || '').slice(0, 200)}"
+
+Return ONLY "true" if it:
+- Has a clear tech/engineering role
+- Does NOT ask candidates to pay anything
+- Is NOT a vague "earn from home" or MLM scheme
+- Is NOT blank or spam
+
+Return ONLY "false" otherwise.`,
+        }],
+        max_tokens: 5,
+        temperature: 0,
+      },
+      { headers: { Authorization: `Bearer ${GROQ_KEY}` }, timeout: 8000 }
+    );
+    const verdict = resp.data?.choices?.[0]?.message?.content?.trim().toLowerCase();
+    return verdict !== 'false';
+  } catch {
+    return true; // on network error, assume genuine
+  }
+}
+
+// ── Branch Tag Detector ───────────────────────────────────────────────────────
+function detectBranches(text) {
+  const rules = {
+    'CSE / IT':  /\b(javascript|react|node|python|java|backend|frontend|fullstack|software|web|api|cloud|devops|code)\b/i,
+    'AIML':      /\b(machine learning|deep learning|nlp|data science|ai|tensorflow|pytorch|llm|generative|research)\b/i,
+    'ENTC':      /\b(embedded|iot|firmware|fpga|verilog|electronics|hardware|pcb|rtos|drdo|isro|telecom)\b/i,
+    'Mechanical':/\b(mechanical|cad|solidworks|autocad|manufacturing|thermal|automobile|production|aerospace)\b/i,
+    'Civil':     /\b(civil|structure|surveying|cad|construction|infra)\b/i,
+  };
+  const matched = Object.entries(rules)
+    .filter(([, rx]) => rx.test(text))
+    .map(([branch]) => branch);
+
+  return matched.length > 0 ? matched : ['CSE / IT', 'ENTC']; // default for general engineering
+}
+
+
+// ── Parse RSS / JSON Feeds ───────────────────────────────────────────────────
+async function fetchOpportunities() {
+  const verified = [];
+
+  for (const feed of RSS_FEEDS) {
+    try {
+      const { data } = await axios.get(feed.url, { timeout: 12000 });
+
+      let items = [];
+
+      if (feed.isJSON) {
+        // Remotive returns JSON
+        items = (data.jobs || []).slice(0, 15).map(j => ({
+          title: j.title,
+          company: j.company_name,
+          link: j.url,
+          description: j.description || '',
+        }));
+      } else {
+        // XML RSS
+        const parsed = await xml2js.parseStringPromise(data, { explicitArray: false });
+        const rawItems = parsed?.rss?.channel?.item || [];
+        const list = Array.isArray(rawItems) ? rawItems : [rawItems];
+        items = list.slice(0, 15).map(i => ({
+          title: (i.title || '').replace(/<[^>]+>/g, '').trim(),
+          company: feed.source,
+          link: i.link || i.guid || '',
+          description: (i.description || i['content:encoded'] || '').replace(/<[^>]+>/g, '').trim(),
+        }));
+      }
+
+      for (const item of items) {
+        if (!item.title || !item.link) continue;
+
+        // AI fraud check
+        const genuine = await isGenuineOpportunity(item.title, item.description);
+        if (!genuine) {
+          console.log(`[Announcer] ❌ Filtered: "${item.title}"`);
+          continue;
+        }
+
+        const branches = detectBranches(`${item.title} ${item.description}`);
+
+        verified.push({
+          title:   item.title,
+          company: item.company || feed.source,
+          link:    item.link,
+          branches,
+        });
+
+        console.log(`[Announcer] ✅ Verified: "${item.title}" (${branches.join(', ') || 'General'})`);
+
+        // Respectful rate limit on fraud-check API
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      // Delay between feeds
+      await new Promise(r => setTimeout(r, 2000));
+
+    } catch (err) {
+      console.warn(`[Announcer] Feed "${feed.source}" failed: ${err.message}`);
+    }
+  }
+
+  return verified;
+}
+
+// ── Build Announcement Message ────────────────────────────────────────────────
+function buildMessage(opportunities) {
+  const today = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  const lines = [`🎯 **Daily Opportunities Digest — ${today}**\n`];
+  lines.push(`We found **${opportunities.length} verified** internship & job openings for you today!\n`);
+
+  // Group by branch
+  const grouped = {};
+  opportunities.forEach(op => {
+    const key = op.branches.length ? op.branches[0] : 'General';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(op);
+  });
+
+  for (const [branch, ops] of Object.entries(grouped)) {
+    lines.push(`\n**${branch} Opportunities:**`);
+    ops.slice(0, 5).forEach(op => {
+      lines.push(`• [${op.title}](${op.link}) — ${op.company}`);
+    });
+  }
+
+  lines.push('\n\n📌 All listings are fraud-filtered. Visit the **Placement Drive** section to apply!');
+  return lines.join('\n');
+}
+
+// ── Send Web Push to All Students ─────────────────────────────────────────────
+async function broadcastPush(title, body, count) {
+  if (!process.env.VAPID_PUBLIC_KEY) {
+    console.log('[Announcer] VAPID not configured — skipping push notifications');
+    return;
+  }
+
+  const students = await User.find({
+    role: 'student',
+    pushSubscription: { $exists: true, $ne: null },
+  }).select('_id pushSubscription');
+
+  console.log(`[Announcer] Sending push to ${students.length} students...`);
+
+  const results = await Promise.allSettled(
+    students.map(u =>
+      webpush.sendNotification(
+        u.pushSubscription,
+        JSON.stringify({
+          title: `🎯 PRAGATI — ${title}`,
+          body,
+          url: '/dashboard/placement-drive',
+          tag: `daily-opportunities-${Date.now()}`,
+        })
+      ).catch(async err => {
+        if (err.statusCode === 410) {
+          await User.findByIdAndUpdate(u._id, { $unset: { pushSubscription: 1 } });
+        }
+      })
+    )
+  );
+
+  const sent = results.filter(r => r.status === 'fulfilled').length;
+  console.log(`[Announcer] Push sent to ${sent}/${students.length} students ✅`);
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────────
+async function run() {
+  try {
+    const dbUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/pragati';
+    const localUri = 'mongodb://127.0.0.1:27017/pragati';
+
+    console.log('[Announcer] Connecting to database...');
+    try {
+      await mongoose.connect(dbUri, { serverSelectionTimeoutMS: 15000 });
+      console.log('[Announcer] MongoDB Atlas connected ✅');
+    } catch (err) {
+      console.warn('[Announcer] ⚠️ MongoDB Atlas connection timed out/failed, trying local MongoDB...');
+      await mongoose.connect(localUri, { serverSelectionTimeoutMS: 10000 });
+      console.log('[Announcer] Local MongoDB connected ✅');
+    }
+
+
+    // 1. Fetch and verify opportunities
+    console.log('[Announcer] Fetching opportunities from RSS feeds...');
+    const opportunities = await fetchOpportunities();
+
+    if (opportunities.length === 0) {
+      console.log('[Announcer] No verified opportunities found today. Skipping announcement.');
+      return;
+    }
+
+    console.log(`[Announcer] ${opportunities.length} verified opportunities found ✅`);
+
+    // Ingestion will run and update placement drives. Deduplication is handled by the backend.
+
+
+    // 3. Build message
+    const title   = `🎯 ${opportunities.length} New Verified Internship & Job Openings Today!`;
+    const message = buildMessage(opportunities);
+
+    // 4. POST to the live backend — each job becomes a PlacementDrive entry
+    //    The /api/drives/scraped-batch route handles:
+    //    - Groq AI description generation per listing
+    //    - Upsert into PlacementDrive collection (visible in Placement Drive tab)
+    //    - ONE summary Announcement + Socket.io notification to all students
+    const BACKEND_URL   = process.env.BACKEND_URL   || 'http://localhost:5000';
+    const SYSTEM_SECRET = process.env.SYSTEM_SECRET || 'myPragatiSystemSecretKey2026';
+
+    try {
+      const resp = await axios.post(
+        `${BACKEND_URL}/api/drives/scraped-batch`,
+        { opportunities },
+        {
+          headers: { 'Content-Type': 'application/json', 'x-system-token': SYSTEM_SECRET },
+          timeout: 120000,  // Groq description generation takes time per listing
+        }
+      );
+
+      const { upserted } = resp.data;
+      console.log(`[Announcer] ✅ ${upserted} opportunities added to Placement Drive tab!`);
+      console.log(`[Announcer] 🔔 Summary announcement + Socket.io notifications fired by backend`);
+
+    } catch (apiErr) {
+      // Fallback: direct DB write if server unreachable
+      console.warn(`[Announcer] ⚠️ Backend API unreachable (${apiErr.message}), falling back to direct DB write...`);
+
+      let systemUser = await User.findOne({ role: 'admin' }).select('_id');
+      if (!systemUser) systemUser = await User.findOne({ role: 'faculty' }).select('_id');
+
+      const ann = await Announcement.create({
+        title:             `🎯 ${opportunities.length} New Verified Internship & Job Openings!`,
+        message:           buildMessage(opportunities),
+        link:              '/dashboard/drives',
+        createdBy:         systemUser?._id || null,
+        targetFilter:      { role: 'student' },
+        priority:          'high',
+        isSystemGenerated: true,
+        opportunities:     opportunities.slice(0, 20),
+      });
+      console.log(`[Announcer] ✅ Fallback DB write (ID: ${ann._id})`);
+
+      await broadcastPush(
+        'New Internships Available!',
+        `${opportunities.length} verified opportunities added — check Placement Drives tab!`,
+        opportunities.length
+      );
+    }
+
+    console.log('[Announcer] Daily job announcement complete 🎉');
+
+
+  } catch (err) {
+    console.error('[Announcer] Fatal error:', err.message);
+    process.exit(1);
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+run();
+

@@ -53,19 +53,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       const raw = err.message || 'Action failed. Please try again.';
-      if (mode === 'login') {
-        if (raw.toLowerCase().includes('credentials') || raw.toLowerCase().includes('invalid')) {
-          setError('Incorrect email or password. Please check and try again.');
-        } else if (raw.toLowerCase().includes('deactivated')) {
-          setError('Your account has been deactivated. Contact the administrator.');
-        } else if (raw.toLowerCase().includes('network') || raw.toLowerCase().includes('fetch')) {
-          setError('Cannot connect to the server. Please check your connection.');
-        } else {
-          setError(raw);
-        }
-      } else {
-        setError(raw);
-      }
+      setError(raw);
     } finally { setLoading(false); }
   }
 

@@ -798,6 +798,44 @@ Click below to launch your full Placement Prep practice set! 🎯`;
       }
     } catch {}
 
+    // ── 7. RAG Context Retrieval ────────────────────────────────────────────
+    // Retrieve relevant alumni, job openings, and college knowledge before prompting Groq
+    let ragContext = '';
+    try {
+      const { vectorSearch } = require('../utils/ragService');
+      const u = userData || {};
+
+      // Search alumni matching user's department or message topic
+      const alumniResults = await vectorSearch(
+        `${u.department || 'engineering'} ${message}`,
+        'discoveredalumni', 2
+      );
+
+      // Search relevant job openings for user's branch
+      const jobResults = await vectorSearch(
+        `${u.department || 'software'} internship jobs`,
+        'scrapedopenings', 2
+      );
+
+      // Search college knowledge base (announcements, drives, notes)
+      const collegeResults = await vectorSearch(message, 'collegeknowledge', 2);
+
+      if (alumniResults.length) {
+        ragContext += `\n\nKITCOEK Alumni currently in industry (verified):\n`;
+        ragContext += alumniResults.map(a => `- ${a.name || 'Alumni'} at ${a.currentCompany || 'a top company'} (${a.role || 'Engineer'})`).join('\n');
+      }
+      if (jobResults.length) {
+        ragContext += `\n\nRelevant verified internship/job openings:\n`;
+        ragContext += jobResults.map(j => `- ${j.title} at ${j.companyName || 'a company'}: ${j.applyLink}`).join('\n');
+      }
+      if (collegeResults.length) {
+        ragContext += `\n\nCollege/Platform knowledge base:\n`;
+        ragContext += collegeResults.map(c => `- ${c.title || ''}: ${c.content || ''}`).join('\n');
+      }
+    } catch (ragErr) {
+      console.warn('[RAG] Assistant context retrieval failed:', ragErr.message);
+    }
+
     const u = userData || {};
     const systemPrompt = `You are PRAGATI — a warm, highly intelligent, and versatile AI companion built into the PRAGATI career readiness platform for engineering students & faculty.
 
@@ -809,12 +847,15 @@ About the user:
 - Streak: ${u.streak || 0} days
 ${skillContext}
 ${webContext}
+${ragContext}
 
 Capabilities & Personality:
 1. ACCURATE SOLVER: Give exact, step-by-step mathematical/code solutions for any Aptitude problem, LeetCode/DSA problem, SQL query, or Group Discussion topic.
 2. ADAPTIVE: If the user asks a question, answer it directly without generic fluff.
 3. CONVERSATIONAL: Warm, supportive, and clear.
 4. WEB AWARE: If web search results are attached, use them to provide up-to-date accurate information.
+5. RAG AWARE: If alumni or job context is provided above, reference it naturally in your response to make it specific to the user's college network.
+6. HONEST: Never hallucinate placement dates, drive names, or alumni details not present in the context above.
 
 Previous conversation:
 ${conversationHistory || 'None'}
@@ -824,9 +865,11 @@ User message: "${message}"
 Instructions:
 - If asked a math/aptitude/DSA question, provide the correct formula/code and exact answer.
 - Keep response under 5-6 concise sentences unless a step-by-step code/math solution requires more detail.
-- Use 1-2 relevant emojis naturally.`;
+- Use 1-2 relevant emojis naturally.
+- If alumni or job context above is relevant to the query, mention it specifically.`;
 
     const reply = await callAI(systemPrompt, 500);
+
     if (reply) return res.json({ reply, action });
 
     // Fallback response

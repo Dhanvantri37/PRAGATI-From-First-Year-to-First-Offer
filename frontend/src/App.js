@@ -25,6 +25,8 @@ import FacultyAnnouncementsPage from './pages/faculty/FacultyAnnouncementsPage';
 import GDLobbyPage  from './pages/gd/GDLobbyPage';
 import GDRoomPage   from './pages/gd/GDRoomPage';
 import GDReportPage from './pages/gd/GDReportPage';
+import AlumniPage   from './pages/AlumniPage';
+
 
 function RequireAuth({ children, role }) {
   const { user, loading } = useAuth();
@@ -91,9 +93,11 @@ function AppRoutes() {
         <Route path="announcements"    element={<FacultyAnnouncementsPage />} />
         {/* Lobby stays inside dashboard — it uses the sidebar */}
         <Route path="gd"               element={<GDLobbyPage />} />
+        <Route path="alumni"           element={<AlumniPage />} />
         <Route path="admin"            element={
           <RequireAuth role="admin"><AdminPage /></RequireAuth>
         } />
+
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

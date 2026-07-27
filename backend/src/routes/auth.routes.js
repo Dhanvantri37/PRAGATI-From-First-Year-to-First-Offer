@@ -21,10 +21,13 @@ const uploadResume = multer({ storage: resumeStorage, limits: { fileSize: 5 * 10
 router.post('/register', uploadResume.single('resume'), async (req, res) => {
   try {
     const { name, email, password, role, department, year, rollNumber, prn, division, linkedinUrl, githubUrl, portfolioUrl } = req.body;
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ error: 'Email already registered' });
+    const cleanEmail = email?.trim()?.toLowerCase();
+    if (!cleanEmail || !password) return res.status(400).json({ error: 'Email and password required' });
 
-    const userData = { name, email, password, role: role || 'student', department };
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing) return res.status(400).json({ error: 'An account with this email is already registered. Please log in.' });
+
+    const userData = { name: name?.trim(), email: cleanEmail, password, role: role || 'student', department: department || 'CSE' };
     if (year) userData.year = Number(year);
     if (rollNumber) userData.rollNumber = rollNumber;
     if (prn) userData.prn = prn;
@@ -46,15 +49,27 @@ router.post('/register', uploadResume.single('resume'), async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+
+    const cleanEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      return res.status(401).json({ error: 'No account found with this email address. Please register first.' });
+    }
+
     const valid = await user.comparePassword(password);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!user.isActive) return res.status(403).json({ error: 'Account deactivated' });
+    if (!valid) {
+      return res.status(401).json({ error: 'Incorrect password. Please verify your password.' });
+    }
+
+    if (!user.isActive) return res.status(403).json({ error: 'Account has been deactivated. Please contact your college administrator.' });
+
     const tokens = generateTokens(user._id, user.role);
     res.json({ message: 'Login successful', user, ...tokens });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const { sendEmail } = require('../utils/mailer');

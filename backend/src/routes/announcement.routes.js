@@ -29,8 +29,70 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// POST /api/announcements/system — system crawler creates an announcement & triggers Socket.io + Push
+router.post('/system', async (req, res) => {
+  try {
+    const systemToken = req.headers['x-system-token'];
+    const expectedSecret = process.env.SYSTEM_SECRET || 'myPragatiSystemSecretKey2026';
+    if (!systemToken || systemToken !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized system request' });
+    }
+
+    const { title, message, link, targetFilter, priority, isSystemGenerated, opportunities } = req.body;
+    if (!title || !message) return res.status(400).json({ error: 'title and message required' });
+
+    // Find system admin or faculty user ID for reference
+    let systemUser = await User.findOne({ role: 'admin' }).select('_id');
+    if (!systemUser) {
+      systemUser = await User.findOne({ role: 'faculty' }).select('_id');
+    }
+
+    const ann = await Announcement.create({
+      title,
+      message,
+      link: link || '',
+      createdBy: systemUser?._id || null,
+      targetFilter: targetFilter || { role: 'all' },
+      priority: priority || 'normal',
+      isSystemGenerated: isSystemGenerated || false,
+      opportunities: opportunities || []
+    });
+
+    // Build notification payload
+    const notifPayload = {
+      _id: ann._id,
+      type: 'announcement',
+      title: `📢 ${title}`,
+      message,
+      link: link || '/dashboard/announcements',
+      priority: priority || 'normal',
+      createdAt: ann.createdAt,
+      createdBy: { name: 'PRAGATI System', role: 'system' }
+    };
+
+    // Emit live Socket.io and push notifications
+    const allQuery = {};
+    if (targetFilter?.role && targetFilter.role !== 'all') allQuery.role = targetFilter.role;
+    if (targetFilter?.department) allQuery.department = targetFilter.department;
+
+    const { emitToUser } = require('./notifications.routes');
+    const app = req.app;
+    User.find(allQuery).select('_id pushSubscription').then(allTargetUsers => {
+      allTargetUsers.forEach(u => {
+        const hasPush = !!u.pushSubscription?.endpoint;
+        emitToUser(app, u._id, notifPayload, { push: hasPush }).catch(() => {});
+      });
+    }).catch(err => console.error('[System Announcement notify error]', err.message));
+
+    res.status(201).json({ announcement: ann });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // POST /api/announcements — faculty/admin creates
 router.post('/', authenticate, authorize('faculty', 'admin'), async (req, res) => {
+
   try {
     const { title, message, link, targetFilter, priority } = req.body;
     if (!title || !message) return res.status(400).json({ error: 'title and message required' });

@@ -17,10 +17,12 @@ const NAV_STUDENT = [
   { to:'/dashboard/ai-interview',  icon:'🤖', label:'AI Interviewer'},
   { to:'/dashboard/companies',     icon:'🏢', label:'Companies' },
   { to:'/dashboard/drives',        icon:'🗓️', label:'Placement Drives' },
+  { to:'/dashboard/alumni',        icon:'🎓', label:'Alumni Network' },
   { to:'/dashboard/skillpath',     icon:'🧠', label:'SkillPath AI' },
   { to:'/dashboard/gd',            icon:'🎤', label:'Group Discussion' },
   { to:'/dashboard/discussions',   icon:'💬', label:'Doubt Resolution' },
 ];
+
 const NAV_FACULTY = [
   { to:'/dashboard',                  icon:'🏠', label:'Dashboard' },
   { to:'/dashboard/students',         icon:'👥', label:'Students' },

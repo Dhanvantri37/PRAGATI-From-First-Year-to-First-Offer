@@ -1,6 +1,7 @@
 /**
  * GD Routes — REST API for Group Discussion rooms
  * AI powered by Groq (llama-3.3-70b)
+ * RAG-enhanced: GD topics are generated from live Google News RSS feeds.
  * WebSocket logic → utils/gdSocket.js
  */
 const router  = require('express').Router();
@@ -9,6 +10,8 @@ const User    = require('../models/User.model');
 const { authenticate } = require('../middleware/auth.middleware');
 const Groq    = require('groq-sdk');
 const { v4: uuidv4 } = require('uuid');
+const axios   = require('axios');
+const { vectorSearch } = require('../utils/ragService');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -23,27 +26,56 @@ async function groqChat(system, user, maxTokens = 500) {
   return res.choices[0]?.message?.content?.trim() || '';
 }
 
-// ── Generate topic ─────────────────────────────────────────────────────────
+// ── Fetch live company/topic news from Google News RSS (free, no API key) ──
+async function fetchLatestNews(company) {
+  try {
+    const searchTerm = encodeURIComponent(`${company || 'technology'} India jobs hiring 2025`);
+    const rssUrl = `https://news.google.com/rss/search?q=${searchTerm}&hl=en-IN&gl=IN&ceid=IN:en`;
+    const { data: xml } = await axios.get(rssUrl, { timeout: 8000 });
+    // Extract titles from RSS XML
+    const titles = [...xml.matchAll(/<title><![CDATA[(.*?)]]><\/title>/g)].map(m => m[1]);
+    // Skip the first (channel title), take 3 article titles
+    return titles.slice(1, 4).join(' | ');
+  } catch {
+    return '';
+  }
+}
+
+// ── Generate topic — RAG-enhanced with live news context ────────────────────
 async function generateTopic(company, difficulty, category) {
-  const cats = {
-    TCS: ['Digital India','AI Automation','Cybersecurity','Cloud Ethics'],
-    Infosys: ['AI in Finance','Blockchain','Digital Transformation'],
-    Wipro: ['Climate Tech','EdTech','Healthcare AI'],
-    Cognizant: ['Remote Work','Diversity in Tech','Open Source'],
-    Capgemini: ['Smart Cities','EV Revolution','Data Privacy'],
-    Accenture: ['ESG Business','Future of Work','Digital Health'],
-    default: ['AI & Society','Startup Culture','India@2047','Education Reform','Mental Health'],
-  };
-  const list = cats[company] || cats.default;
-  const cat  = category || list[Math.floor(Math.random() * list.length)];
+  // Fetch real-time news for the company to seed Groq with current affairs
+  const latestNews = await fetchLatestNews(company);
+
+  // RAG: retrieve trending GD topics from our knowledge base
+  const ragCtx = await vectorSearch(`${company || 'technology'} group discussion topic ${difficulty}`, 'gdknowledge', 2);
+  const ragBlock = ragCtx.length
+    ? `Trending topics from our placement database: ${ragCtx.map(t => t.topic || t.content).join(' | ')}`
+    : '';
+
   try {
     const text = await groqChat(
-      'You generate GD topics. Return ONLY the topic text, no quotes or explanation.',
-      `Generate ONE debatable GD topic for ${company || 'top IT'} company placement.\nCategory: ${cat}\nDifficulty: ${difficulty}\nRules: 8-14 words, no question marks, must be a proposition.`
+      'You generate GD topics for placement rounds. Return ONLY the topic text, no quotes or explanation.',
+      `Generate ONE debatable GD topic for ${company || 'top IT'} company placement.
+Difficulty: ${difficulty || 'Medium'}
+${latestNews ? `\nReal-time news context (use for inspiration, not directly): ${latestNews}` : ''}
+${ragBlock ? `\n${ragBlock}` : ''}
+
+Rules:
+- 8–14 words, no question marks
+- Must be a bold proposition students can argue BOTH sides
+- Must be relevant to current Indian tech/business landscape
+- Must be suitable for a ${company || 'software company'} placement GD round`
     );
     if (text?.length > 8) return text.replace(/['"]/g, '');
   } catch {}
-  const fallback = ['AI will eliminate more jobs than it creates','India needs Universal Basic Income now','Social media regulation harms free speech','Remote work permanently changes urban economies'];
+
+  const fallback = [
+    'AI will create more opportunities than jobs it eliminates in India',
+    'Remote work culture permanently reduces urban economic growth',
+    'Social media companies must be regulated like public utilities',
+    'India should prioritize manufacturing over software exports by 2030',
+    'Engineering colleges must replace traditional curricula with AI-first education',
+  ];
   return fallback[Math.floor(Math.random() * fallback.length)];
 }
 

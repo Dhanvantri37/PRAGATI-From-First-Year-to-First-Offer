@@ -74,7 +74,9 @@ function speakEdge(text, voiceName) {
 
     // Escape text characters for command line safety
     const escapedText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const cmd = `python -m edge_tts --text "${escapedText}" --voice "${voiceName}" --write-media "${tempFile}"`;
+    // --rate "-5%"   → slightly slower than default for clarity and gravitas
+    // --pitch "+10Hz" → warmer, more confident and motivational tone
+    const cmd = `python -m edge_tts --text "${escapedText}" --voice "${voiceName}" --rate "-5%" --pitch "+10Hz" --write-media "${tempFile}"`;
 
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
@@ -132,42 +134,26 @@ router.post('/', authenticate, async (req, res) => {
       console.log(`[TTS] Edge-TTS ✅ role=${role} voice=${voiceCfg.edge}`);
     };
 
-    // If Indian accent, prioritize Edge-TTS (since ElevenLabs free plan lacks native Indian voices)
-    const prioritizeEdge = (accent && accent.toLowerCase() === 'indian');
-
-    if (prioritizeEdge) {
+    // ── Universal Provider Priority: ElevenLabs → Edge-TTS → Browser ──────
+    // ElevenLabs first for ALL roles — best quality for interview, GD, and chat
+    // Edge-TTS (NeerjaNeural / PrabhatNeural) as automatic fallback if ElevenLabs
+    // fails (quota exhausted, network error, etc.)
+    try {
+      await tryElevenLabs();
+    } catch (elErr) {
+      console.warn(`[TTS] ElevenLabs failed for "${role}" (${elErr.message}) → trying Edge-TTS...`);
       try {
         await tryEdge();
       } catch (edgeErr) {
-        console.warn(`[TTS] Prioritized Edge-TTS failed (${edgeErr.message}), trying ElevenLabs...`);
-        try {
-          await tryElevenLabs();
-        } catch (elErr) {
-          console.warn(`[TTS] ElevenLabs fallback failed (${elErr.message}), falling back to browser TTS`);
-          return res.status(503).json({
-            error: 'All TTS providers unavailable',
-            fallback: 'browser',
-            message: 'Use browser speechSynthesis as fallback',
-          });
-        }
-      }
-    } else {
-      try {
-        await tryElevenLabs();
-      } catch (elErr) {
-        console.warn(`[TTS] ElevenLabs failed (${elErr.message}), trying Edge-TTS...`);
-        try {
-          await tryEdge();
-        } catch (edgeErr) {
-          console.warn(`[TTS] Edge-TTS fallback failed (${edgeErr.message}), falling back to browser TTS`);
-          return res.status(503).json({
-            error: 'All TTS providers unavailable',
-            fallback: 'browser',
-            message: 'Use browser speechSynthesis as fallback',
-          });
-        }
+        console.warn(`[TTS] Edge-TTS fallback also failed (${edgeErr.message}) → browser TTS`);
+        return res.status(503).json({
+          error: 'All TTS providers unavailable',
+          fallback: 'browser',
+          message: 'Use browser speechSynthesis as fallback',
+        });
       }
     }
+
 
     // ── Stream audio back to client ──────────────────────────────────────
     res.setHeader('Content-Type',  'audio/mpeg');
