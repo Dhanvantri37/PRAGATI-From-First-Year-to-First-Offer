@@ -182,6 +182,13 @@ async function fetchOpportunities() {
       for (const item of items) {
         if (!item.title || !item.link) continue;
 
+        // Strict Year Filter: Reject outdated items from 2025, 2024, 2023, 2022
+        const fullContent = `${item.title} ${item.description}`.toLowerCase();
+        if (/\b(2025|2024|2023|2022|2021)\b/.test(fullContent) && !/\b(2026|2027)\b/.test(fullContent)) {
+          console.log(`[Announcer] ⏳ Filtered outdated year item: "${item.title}"`);
+          continue;
+        }
+
         // AI fraud check
         const genuine = await isGenuineOpportunity(item.title, item.description);
         if (!genuine) {

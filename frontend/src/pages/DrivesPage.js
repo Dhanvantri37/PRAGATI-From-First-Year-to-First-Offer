@@ -353,13 +353,16 @@ export default function DrivesPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* External apply button for scraped drives (SINGLE primary button) */}
+                    {/* External apply button for scraped drives (records application in student history) */}
                     {drive.isScraped && drive.applyLink && (
                       <a href={drive.applyLink} target="_blank" rel="noreferrer"
+                        onClick={() => apply(drive._id)}
                         style={{ padding: '8px 18px', borderRadius: 9, border: 'none',
-                          background: 'linear-gradient(135deg,#13a1a5,#531697)', color: '#fff',
+                          background: drive.applied ? 'rgba(71,211,114,0.15)' : 'linear-gradient(135deg,#13a1a5,#531697)',
+                          color: drive.applied ? '#166534' : '#fff',
+                          border: drive.applied ? '1.5px solid rgba(71,211,114,0.4)' : 'none',
                           fontWeight: 800, textDecoration: 'none', fontSize: '.82rem' }}>
-                        🚀 Apply Externally
+                        {drive.applied ? '✅ Applied / Official Portal' : '🚀 Apply Externally'}
                       </a>
                     )}
                     {/* Internal apply button for campus drives */}
@@ -369,8 +372,10 @@ export default function DrivesPage() {
                         {applying[drive._id] ? 'Applying…' : '🚀 Apply Now'}
                       </button>
                     )}
-                    {user?.role === 'student' && drive.status === 'open' && drive.applied && (
-                      <span style={{ padding: '8px 16px', borderRadius: 9, background: 'rgba(71,211,114,0.08)', color: '#166534', fontWeight: 800, fontSize: '.82rem', border: '1px solid rgba(71,211,114,0.2)' }}>✅ Application Submitted</span>
+                    {user?.role === 'student' && drive.applied && !drive.isScraped && (
+                      <span style={{ padding: '6px 14px', borderRadius: 999, background: 'rgba(71,211,114,0.1)', color: '#166534', fontWeight: 700, fontSize: '.78rem' }}>
+                        ✅ Applied
+                      </span>
                     )}
                     {/* Non-scraped official link */}
                     {!drive.isScraped && drive.applyLink && (
