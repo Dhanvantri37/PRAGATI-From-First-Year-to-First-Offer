@@ -95,9 +95,10 @@ function UploadForm({ user, onUploaded }) {
           )}
           <div>
             <LBL req>Company Name</LBL>
-            <select {...INP} value={form.companyName} onChange={set('companyName')}>
-              {COMPANY_SUGGESTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <input {...INP} list="company-suggestions" value={form.companyName} onChange={set('companyName')} placeholder="e.g. Capgemini, TCS, Google, Tesla..." />
+            <datalist id="company-suggestions">
+              {COMPANY_SUGGESTIONS.map(c => <option key={c} value={c} />)}
+            </datalist>
           </div>
           <div>
             <LBL req>Resource Type</LBL>

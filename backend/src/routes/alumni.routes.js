@@ -272,6 +272,21 @@ router.post('/generate-outreach-draft', authenticate, async (req, res) => {
       draft = `Hi ${firstName}, I'm ${studentName} from KIT's College of Engineering, Kolhapur (${studentDept}). Excited to connect with fellow KIT alumni working at top companies like ${alumni.company}!`;
     }
 
+    // Save to student's My Connections history
+    await AlumniConnection.findOneAndUpdate(
+      { student: req.user._id, alumni: alumni._id },
+      {
+        $set: {
+          student: req.user._id,
+          alumni: alumni._id,
+          helpType: helpType || 'referral',
+          message: draft,
+          status: 'pending',
+        }
+      },
+      { upsert: true, new: true }
+    );
+
     res.json({ draftMessage: draft, linkedinUrl: alumni.linkedinUrl, alumniName: alumni.name, company: alumni.company });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -17,14 +17,15 @@ export default function DrivesPage() {
   const [loading, setLoading]     = useState(true);
   const [applying, setApplying]   = useState({});
   const [showForm, setShowForm]   = useState(false);
-  const [filter, setFilter]       = useState('all');
-  const [form, setForm]           = useState({
+  const [filter, setFilter]           = useState('all');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [form, setForm]               = useState({
     companyName: '', role: '', ctc: '', driveDate: '',
     lastApplyDate: '', eligibility: '', description: '',
     applyLink: '', status: 'upcoming', logoUrl: '',
   });
   const [formLoading, setFormLoading] = useState(false);
-  const [msg, setMsg]             = useState('');
+  const [msg, setMsg]                 = useState('');
 
   async function load() {
     setLoading(true);
@@ -49,54 +50,36 @@ export default function DrivesPage() {
     setApplying(a => ({ ...a, [id]: false }));
   }
 
-  async function createDrive(e) {
-    e.preventDefault();
-    setFormLoading(true);
-    try {
-      const res = await fetch(`${API}/drives`, {
-        method: 'POST', headers: tks(),
-        body: JSON.stringify(form),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'Failed');
-      setMsg('✅ Drive created and announcement sent!');
-      setShowForm(false);
-      setForm({ companyName: '', role: '', ctc: '', driveDate: '', lastApplyDate: '', eligibility: '', description: '', applyLink: '', status: 'upcoming', logoUrl: '' });
-      load();
-      setTimeout(() => setMsg(''), 4000);
-    } catch (err) { setMsg(`❌ ${err.message}`); }
-    setFormLoading(false);
-  }
-
-  async function deleteDrive(id) {
-    if (!window.confirm('Delete this drive?')) return;
-    await fetch(`${API}/drives/${id}`, { method: 'DELETE', headers: tk() });
-    load();
-  }
-
+  const appliedCount    = drives.filter(d => d.applied).length;
   const internshipCount = drives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`)).length;
   const jobCount        = drives.filter(d => d.opportunityType === 'job' || !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`)).length;
   const scrapedCount    = drives.filter(d => d.isScraped).length;
 
   const userDept = (user?.department || 'CSE').toUpperCase();
 
+  // Unique companies for filter dropdown
+  const uniqueCompanies = [...new Set(drives.map(d => d.companyName).filter(Boolean))].sort();
+
   // Filter out non-technical/unrelated HR roles for engineering students
   const techOnlyDrives = drives.filter(d => {
     const text = `${d.companyName} ${d.role} ${d.description || ''}`.toLowerCase();
-    return !/\b(hr manager|recruiter|telecaller|bpo|front desk|accounts executive|payroll)\b/i.test(text);
+    const isHR = /\b(hr manager|recruiter|telecaller|bpo|front desk|accounts executive|payroll)\b/i.test(text);
+    const matchesCompany = !companyFilter || (d.companyName && d.companyName.toLowerCase().includes(companyFilter.toLowerCase()));
+    return !isHR && matchesCompany;
   });
 
   const filtered = (filter === 'all'
     ? techOnlyDrives
-    : filter === 'internships'
-      ? techOnlyDrives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
-      : filter === 'jobs'
-        ? techOnlyDrives.filter(d => d.opportunityType === 'job' && !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
-        : filter === 'external'
-          ? techOnlyDrives.filter(d => d.isScraped)
-          : techOnlyDrives.filter(d => d.status === filter)
+    : filter === 'applied'
+      ? drives.filter(d => d.applied)
+      : filter === 'internships'
+        ? techOnlyDrives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
+        : filter === 'jobs'
+          ? techOnlyDrives.filter(d => d.opportunityType === 'job' && !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
+          : filter === 'external'
+            ? techOnlyDrives.filter(d => d.isScraped)
+            : techOnlyDrives.filter(d => d.status === filter)
   ).sort((a, b) => {
-    // Rank opportunities matching student's department first
     const aMatch = (a.branches || []).some(b => b.toUpperCase().includes(userDept));
     const bMatch = (b.branches || []).some(b => b.toUpperCase().includes(userDept));
     if (aMatch && !bMatch) return -1;
@@ -138,11 +121,12 @@ export default function DrivesPage() {
         </div>
       )}
 
-      {/* Controls */}
+      {/* Controls & Company Filter */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {[
             { id: 'all',         label: `All (${drives.length})` },
+            { id: 'applied',     label: `📜 My Applied History (${appliedCount})` },
             { id: 'internships', label: `🎓 Internships (${internshipCount})` },
             { id: 'jobs',        label: `💼 Full-Time Jobs (${jobCount})` },
             { id: 'open',        label: 'Open Drives' },
@@ -153,6 +137,19 @@ export default function DrivesPage() {
               {f.label}
             </button>
           ))}
+
+          {/* Company Filter Dropdown */}
+          <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}
+            style={{ padding: '6px 14px', borderRadius: 999, border: '1.5px solid #d0d7e8', background: companyFilter ? 'rgba(83,22,151,0.08)' : '#fff', color: companyFilter ? '#531697' : 'var(--text-3)', fontWeight: 700, fontFamily: "'Nunito',sans-serif", fontSize: '.78rem', outline: 'none' }}>
+            <option value="">🏢 All Companies</option>
+            {uniqueCompanies.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {companyFilter && (
+            <button onClick={() => setCompanyFilter('')}
+              style={{ padding: '4px 8px', borderRadius: 999, border: 'none', background: 'rgba(239,68,68,0.1)', color: '#991b1b', fontWeight: 700, fontSize: '.72rem', cursor: 'pointer' }}>
+              ✕ Clear Company
+            </button>
+          )}
         </div>
 
         {isAdmin && (

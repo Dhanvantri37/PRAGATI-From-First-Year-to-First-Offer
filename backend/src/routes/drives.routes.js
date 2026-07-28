@@ -2,12 +2,29 @@ const router = require('express').Router();
 const { PlacementDrive, Announcement } = require('../models/index');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
 
-// GET all drives (students can see open/upcoming)
+// GET all drives (students can see active open/upcoming drives)
 router.get('/', authenticate, async (req, res) => {
   try {
-    const drives = await PlacementDrive.find()
+    const now = new Date();
+    // Auto-delete expired scraped opportunities from DB
+    await PlacementDrive.deleteMany({
+      isScraped: true,
+      lastApplyDate: { $lt: now },
+      driveDate: { $lt: now }
+    }).catch(() => {});
+
+    // Retrieve active drives
+    const drives = await PlacementDrive.find({
+      $or: [
+        { lastApplyDate: { $gte: now } },
+        { driveDate: { $gte: now } },
+        { lastApplyDate: { $exists: false } },
+        { isScraped: false }
+      ]
+    })
       .populate('createdBy', 'name')
       .sort({ driveDate: 1 });
+
     const result = drives.map(d => ({
       ...d.toObject(),
       applied: Array.isArray(d.applicants) ? d.applicants.some(uid => uid?.toString() === req.user._id.toString()) : false,

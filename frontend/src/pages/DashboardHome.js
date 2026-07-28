@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CalendarHeatmap from '../components/CalendarHeatmap';
-import { AnnouncementModal, AllAnnouncementsModal, DriveModal } from '../components/DashboardModals';
+import { AnnouncementModal, AllAnnouncementsModal, DriveModal, DailyOpportunitiesDigestModal } from '../components/DashboardModals';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const tk = () => ({ Authorization: `Bearer ${localStorage.getItem('pragati_token')}` });
@@ -739,6 +739,7 @@ function StudentDash() {
   const [activeAnnouncement, setActiveAnnouncement] = useState(null);
   const [showAllAnnouncements, setShowAllAnnouncements] = useState(false);
   const [activeDrive, setActiveDrive] = useState(null);
+  const [showDailyDigest, setShowDailyDigest] = useState(false);
 
   const load = useCallback(async () => {
     // ── WAVE 1: Critical data — renders the page immediately ──────────────────
@@ -774,7 +775,15 @@ function StudentDash() {
         setNewAnnouncementsCount(ann.announcements.filter(a => new Date(a.createdAt).getTime() > lastSeen).length);
       }
     }).catch(()=>{});
-    apiFetch('/drives').then(driveData => { if (driveData?.drives) setDrives(driveData.drives); }).catch(()=>{});
+    apiFetch('/drives').then(driveData => {
+      if (driveData?.drives && driveData.drives.length > 0) {
+        setDrives(driveData.drives);
+        const todayStr = new Date().toDateString();
+        if (localStorage.getItem('pragati_opp_popup_date') !== todayStr) {
+          setShowDailyDigest(true);
+        }
+      }
+    }).catch(()=>{});
 
   }, [setUser]);
 
@@ -1780,6 +1789,14 @@ function StudentDash() {
           )}
         </div>
       </div>
+
+      {/* Daily Opportunities Digest Modal Popup */}
+      {showDailyDigest && (
+        <DailyOpportunitiesDigestModal user={user} drives={drives} onClose={() => {
+          setShowDailyDigest(false);
+          localStorage.setItem('pragati_opp_popup_date', new Date().toDateString());
+        }} />
+      )}
     </div>
   );
 }

@@ -146,22 +146,45 @@ router.post('/upload-admin', authenticate, authorize('admin'), upload.single('fi
 
 router.patch('/:id/approve', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
-    const note = await Note.findByIdAndUpdate(req.params.id, { status: 'approved', approvedBy: req.user._id, approvedAt: new Date() }, { new: true });
+    const note = await Note.findByIdAndUpdate(req.params.id, { status: 'approved', approvedBy: req.user._id, approvedAt: new Date() }, { new: true }).populate('uploadedBy', 'name');
     
-    // Web Push Notification to students in the department
+    // Web Push Notification & System Announcement to students in the department
     if (note && note.visibility === 'public') {
       try {
-        const users = await User.find({ role: 'student', department: note.department, pushSubscription: { $exists: true, $ne: null } }).select('pushSubscription _id');
+        const { Announcement } = require('../models/index');
+        const annTitle = `📚 New ${note.companyName || 'Company'} Resource Approved: ${note.title}`;
+        const annMessage = `A new career resource for ${note.companyName || 'general prep'} (${note.resourceType || 'Resource'}) uploaded for ${note.department} branch has been approved.`;
+
+        await Announcement.create({
+          title: annTitle,
+          message: annMessage,
+          link: '/notes',
+          createdBy: req.user._id,
+          targetFilter: { role: 'student', department: note.department },
+          priority: 'normal',
+          isSystemGenerated: true,
+        }).catch(() => {});
+
+        const users = await User.find({ role: 'student', department: note.department }).select('pushSubscription _id');
         const payload = JSON.stringify({
-          title: 'PRAGATI',
-          body: `New Resource Approved: ${note.title} for ${note.companyName}`,
+          title: 'PRAGATI — New Resource Approved',
+          body: `${note.companyName}: ${note.title} (${note.resourceType})`,
           url: '/notes',
           tag: 'note-approved',
           id: note._id.toString()
         });
+
+        const io = req.app.get('io');
+        users.forEach(u => {
+          if (io) io.to(`user:${u._id}`).emit('notification:new', {
+            _id: note._id, type: 'note',
+            title: annTitle, message: annMessage,
+            link: '/notes', priority: 'normal', createdAt: new Date()
+          });
+        });
         
         await Promise.allSettled(
-          users.map(u => webpush.sendNotification(u.pushSubscription, payload).catch(async err => {
+          users.filter(u => u.pushSubscription).map(u => webpush.sendNotification(u.pushSubscription, payload).catch(async err => {
             if (err.statusCode === 410) {
               await User.findByIdAndUpdate(u._id, { $unset: { pushSubscription: 1 } });
             }

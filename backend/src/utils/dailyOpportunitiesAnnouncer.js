@@ -61,30 +61,38 @@ const userSchema = new mongoose.Schema({
 const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
 const User         = mongoose.models.User         || mongoose.model('User', userSchema);
 
-// ── RSS & Govt Feed Sources (Unstop, Devfolio, Google, Microsoft, DRDO, ISRO, IITs) ──
-const RSS_FEEDS = [
-  // ── National & Govt Prestigious Internships (DRDO, ISRO, IITs, AICTE) ────
-  { url: 'https://news.google.com/rss/search?q=DRDO+Internship+2026',        source: 'DRDO Research', tags: ['Defense', 'Govt', 'Research'] },
-  { url: 'https://news.google.com/rss/search?q=ISRO+Internship+recruitment', source: 'ISRO Space',    tags: ['Aerospace', 'Govt', 'Space'] },
-  { url: 'https://news.google.com/rss/search?q=IIT+Research+Internship+2026',source: 'IIT Research',  tags: ['Research', 'Academia'] },
-  { url: 'https://news.google.com/rss/search?q=AICTE+Internship+Portal',      source: 'AICTE Govt',   tags: ['Govt', 'National'] },
+// ── Dynamic RAG Feed & Keyword Query Generator (No Static Hardcoded URLs) ───────
+function getDynamicRSSFeeds() {
+  const currentYear = new Date().getFullYear();
+  const searchQueries = [
+    { query: `DRDO Internship ${currentYear}`, source: 'DRDO Research', tags: ['Defense', 'Govt', 'Research'] },
+    { query: `ISRO Internship recruitment ${currentYear}`, source: 'ISRO Space', tags: ['Aerospace', 'Govt', 'Space'] },
+    { query: `IIT Research Internship ${currentYear}`, source: 'IIT Research', tags: ['Research', 'Academia'] },
+    { query: `AICTE Internship Portal ${currentYear}`, source: 'AICTE Govt', tags: ['Govt', 'National'] },
+    { query: `Unstop hackathon OR hiring challenge ${currentYear}`, source: 'Unstop (Dare2Compete)', tags: ['Hackathon', 'Hiring Drive'] },
+    { query: `Devfolio hackathon ${currentYear}`, source: 'Devfolio', tags: ['Hackathon', 'Web3', 'AI'] },
+    { query: `HackerEarth hiring challenge ${currentYear}`, source: 'HackerEarth', tags: ['Coding Challenge'] },
+    { query: `TCS CodeVita OR HackWithInfy ${currentYear}`, source: 'TCS & Infosys', tags: ['National Drive'] },
+    { query: `Google Software Engineer Internship India ${currentYear}`, source: 'Google Careers', tags: ['Google', 'Internship'] },
+    { query: `Microsoft Explore Internship India ${currentYear}`, source: 'Microsoft Careers', tags: ['Microsoft', 'Internship'] },
+    { query: `Amazon SDE Internship India ${currentYear}`, source: 'Amazon Careers', tags: ['Amazon', 'SDE'] },
+  ];
 
-  // ── Top Student Hiring Platforms & Hackathons (Unstop, Devfolio, HackerEarth) ──
-  { url: 'https://news.google.com/rss/search?q=Unstop+hackathon+OR+hiring+challenge+2026', source: 'Unstop (Dare2Compete)', tags: ['Hackathon', 'Hiring Drive'] },
-  { url: 'https://news.google.com/rss/search?q=Devfolio+hackathon+2026',                   source: 'Devfolio',           tags: ['Hackathon', 'Web3', 'AI'] },
-  { url: 'https://news.google.com/rss/search?q=HackerEarth+hiring+challenge+2026',          source: 'HackerEarth',        tags: ['Coding Challenge'] },
-  { url: 'https://news.google.com/rss/search?q=TCS+CodeVita+OR+HackWithInfy+2026',          source: 'TCS & Infosys',      tags: ['National Drive'] },
+  const dynamicRss = searchQueries.map(q => ({
+    url: `https://news.google.com/rss/search?q=${encodeURIComponent(q.query)}&hl=en-IN&gl=IN&ceid=IN:en`,
+    source: q.source,
+    tags: q.tags,
+  }));
 
-  // ── Tech Giants (Google, Microsoft, Amazon, Cloudflare) ──────────────────
-  { url: 'https://news.google.com/rss/search?q=Google+Software+Engineer+Internship+India+2026', source: 'Google Careers',   tags: ['Google', 'Internship'] },
-  { url: 'https://news.google.com/rss/search?q=Microsoft+Explore+Internship+India+2026',       source: 'Microsoft Careers',tags: ['Microsoft', 'Internship'] },
-  { url: 'https://news.google.com/rss/search?q=Amazon+SDE+Internship+India+2026',              source: 'Amazon Careers',   tags: ['Amazon', 'SDE'] },
+  // Direct remote platforms
+  dynamicRss.push(
+    { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', source: 'WWR', tags: ['Remote', 'Programming'] },
+    { url: 'https://jobicy.com/?feed=job_feed&job_category=engineering', source: 'Jobicy', tags: ['Engineering'] },
+    { url: 'https://remotive.com/api/remote-jobs?category=software-dev&limit=15', source: 'Remotive', tags: ['Software'], isJSON: true }
+  );
 
-  // ── Remote & Corporate Openings ──────────────────────────────────────────
-  { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', source: 'WWR',        tags: ['Remote', 'Programming'] },
-  { url: 'https://jobicy.com/?feed=job_feed&job_category=engineering',        source: 'Jobicy',     tags: ['Engineering'] },
-  { url: 'https://remotive.com/api/remote-jobs?category=software-dev&limit=15',source: 'Remotive',  tags: ['Software'], isJSON: true },
-];
+  return dynamicRss;
+}
 
 
 // ── Groq Fraud Filter ─────────────────────────────────────────────────────────
@@ -142,8 +150,9 @@ function detectBranches(text) {
 // ── Parse RSS / JSON Feeds ───────────────────────────────────────────────────
 async function fetchOpportunities() {
   const verified = [];
+  const feeds = getDynamicRSSFeeds();
 
-  for (const feed of RSS_FEEDS) {
+  for (const feed of feeds) {
     try {
       const { data } = await axios.get(feed.url, { timeout: 12000 });
 

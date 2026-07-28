@@ -116,3 +116,59 @@ export function DriveModal({ drive, onClose }) {
     </div>
   );
 }
+
+export function DailyOpportunitiesDigestModal({ user, drives = [], onClose }) {
+  if (!drives || drives.length === 0) return null;
+  const userDept = (user?.department || 'CSE').toUpperCase();
+  const topDrives = drives.slice(0, 4);
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:99999, padding:20 }}>
+      <div style={{ background:'var(--surface)', width:'100%', maxWidth:640, borderRadius:20, overflow:'hidden', boxShadow:'0 20px 60px rgba(83,22,151,0.3)', border:'2px solid rgba(83,22,151,0.2)' }}>
+        <div style={{ padding:'22px 26px', background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:'1.25rem', display:'flex', alignItems:'center', gap:8 }}>
+              <span>🎯</span> Daily Opportunities Digest
+            </div>
+            <div style={{ fontSize:'.78rem', opacity:0.9, marginTop:4 }}>
+              Tailored for {user?.name ? `${user.name} (${userDept})` : `${userDept} Students`} · {new Date().toLocaleDateString('en-IN', { weekday:'short', month:'short', day:'numeric' })}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', width:36, height:36, borderRadius:'50%', cursor:'pointer', fontWeight:800, fontSize:'1.1rem' }}>✕</button>
+        </div>
+
+        <div style={{ padding:'24px', maxHeight:'65vh', overflowY:'auto' }}>
+          <div style={{ fontSize:'.85rem', color:'var(--text-2)', marginBottom:16, fontWeight:700 }}>
+            🔥 We matched {drives.length} verified internships & placement drives for your branch today! Here are top picks:
+          </div>
+
+          <div style={{ display:'grid', gap:12 }}>
+            {topDrives.map(d => (
+              <div key={d._id} style={{ background:'var(--surface-2)', borderRadius:12, padding:'14px 18px', border:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
+                <div>
+                  <div style={{ fontWeight:800, fontSize:'.92rem', color:'var(--text)', fontFamily:"'Syne',sans-serif" }}>{d.companyName}</div>
+                  <div style={{ fontSize:'.78rem', color:'#531697', fontWeight:700 }}>{d.role || 'Software Engineering Role'}</div>
+                  <div style={{ fontSize:'.72rem', color:'var(--text-3)', marginTop:2 }}>
+                    📍 {d.location || 'India & Remote'} · {d.opportunityType === 'internship' ? '🎓 Internship' : '💼 Full-Time'}
+                  </div>
+                </div>
+                <a href={d.applyLink && d.applyLink.startsWith('http') ? d.applyLink : '/dashboard/drives'} target="_blank" rel="noreferrer"
+                  onClick={onClose}
+                  style={{ padding:'8px 16px', borderRadius:9, background:'linear-gradient(135deg,#531697,#13a1a5)', color:'#fff', fontWeight:800, textDecoration:'none', fontSize:'.78rem', whiteSpace:'nowrap', boxShadow:'0 4px 12px rgba(83,22,151,0.2)' }}>
+                  Apply Now →
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop:20, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:'.78rem', color:'var(--text-3)' }}>Never miss a deadline — check Placement Drives daily!</span>
+            <a href="/dashboard/drives" onClick={onClose} style={{ padding:'10px 20px', borderRadius:10, background:'#531697', color:'#fff', fontWeight:800, textDecoration:'none', fontSize:'.82rem' }}>
+              View All {drives.length} Drives →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
