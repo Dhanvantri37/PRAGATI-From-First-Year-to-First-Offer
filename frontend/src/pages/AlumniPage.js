@@ -622,23 +622,46 @@ export default function AlumniPage() {
   const currentYear = new Date().getFullYear();
   const batches = Array.from({ length: 15 }, (_, i) => currentYear - i);
 
+  const userRole = (user?.role || '').toLowerCase();
+  const canManageAlumni = userRole === 'faculty' || userRole === 'admin' || userRole === 'tpo' || user?.role === 'Faculty' || user?.role === 'Admin';
+
   return (
     <div style={{ fontFamily: "'Nunito',sans-serif", maxWidth: 1200 }}>
 
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.6rem',
-          color: 'var(--text)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-          🎓 Alumni Network
-          <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: '.65rem', fontWeight: 700,
-            background: 'rgba(83,22,151,0.08)', color: '#531697',
-            border: '1px solid rgba(83,22,151,0.2)', fontFamily: "'Nunito',sans-serif" }}>
-            KIT's College of Engineering, Kolhapur
-          </span>
-        </h1>
-        <p style={{ color: 'var(--text-3)', marginTop: 6, fontSize: '.88rem' }}>
-          Connect with alumni for mentorship, referrals, resume reviews & mock interviews
-        </p>
+      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.6rem',
+            color: 'var(--text)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+            🎓 Alumni Network
+            <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: '.65rem', fontWeight: 700,
+              background: 'rgba(83,22,151,0.08)', color: '#531697',
+              border: '1px solid rgba(83,22,151,0.2)', fontFamily: "'Nunito',sans-serif" }}>
+              KIT's College of Engineering, Kolhapur
+            </span>
+          </h1>
+          <p style={{ color: 'var(--text-3)', marginTop: 6, fontSize: '.88rem' }}>
+            Connect with alumni for mentorship, referrals, resume reviews & mock interviews
+          </p>
+        </div>
+
+        {/* Quick Action Buttons for Faculty / Admin / TPO */}
+        {canManageAlumni && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={() => setActiveTab('excel')}
+              style={{ padding: '9px 16px', borderRadius: 10, border: 'none',
+                background: 'linear-gradient(135deg,#13a1a5,#531697)', color: '#fff',
+                fontWeight: 800, cursor: 'pointer', fontSize: '.82rem', fontFamily: "'Nunito',sans-serif" }}>
+              📥 Bulk Upload Alumni (Excel)
+            </button>
+            <button onClick={() => setActiveTab('manual')}
+              style={{ padding: '9px 16px', borderRadius: 10, border: '1.5px solid #531697',
+                background: 'rgba(83,22,151,0.06)', color: '#531697',
+                fontWeight: 800, cursor: 'pointer', fontSize: '.82rem', fontFamily: "'Nunito',sans-serif" }}>
+              ➕ Add Single Alumnus
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Toast */}
@@ -655,7 +678,7 @@ export default function AlumniPage() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
           { id: 'browse',      label: `🎓 Browse Alumni (${total})` },
-          ...(user?.role === 'faculty' || user?.role === 'admin' ? [
+          ...(canManageAlumni ? [
             { id: 'excel',     label: `📥 Bulk Upload Alumni (Excel)` },
             { id: 'manual',    label: `➕ Add Single Alumnus` },
           ] : []),
