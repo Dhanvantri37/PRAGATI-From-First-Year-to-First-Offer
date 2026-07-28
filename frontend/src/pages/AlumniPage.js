@@ -299,6 +299,235 @@ function OutreachDraftModal({ alumni, onClose }) {
   );
 }
 
+// ── Excel Upload Component for Faculty / Admin ─────────────────────────────
+function ExcelUploadView({ onUploaded }) {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [resultMsg, setResultMsg] = useState('');
+
+  async function handleDownloadTemplate() {
+    try {
+      const res = await fetch(`${API}/alumni/template/download`, { headers: tk() });
+      if (!res.ok) throw new Error('Failed to download template');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'KIT_Alumni_Upload_Template.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!file) {
+      setResultMsg('❌ Please select an Excel file (.xlsx, .xls) or CSV to upload.');
+      return;
+    }
+    setLoading(true);
+    setResultMsg('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch(`${API}/alumni/upload-excel`, {
+        method: 'POST',
+        headers: tk(),
+        body: fd,
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Upload failed');
+
+      setResultMsg(d.message);
+      setFile(null);
+      if (onUploaded) onUploaded();
+    } catch (err) {
+      setResultMsg(`❌ ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '24px 28px', maxWidth: 800 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.2rem', color: 'var(--text)', margin: 0 }}>
+            📥 Bulk Import KIT Alumni via Excel / CSV
+          </h2>
+          <p style={{ fontSize: '.84rem', color: 'var(--text-3)', marginTop: 4 }}>
+            Faculty members can upload official alumni spreadsheets to instantly populate the directory & vectorize for RAG search.
+          </p>
+        </div>
+        <button onClick={handleDownloadTemplate}
+          style={{ padding: '9px 16px', borderRadius: 9, border: '1.5px solid #13a1a5', background: 'rgba(19,161,165,0.08)', color: '#0d7a7e', fontWeight: 800, cursor: 'pointer', fontSize: '.82rem', fontFamily: "'Nunito',sans-serif" }}>
+          ⬇️ Download Sample Excel Template
+        </button>
+      </div>
+
+      {/* Columns Guide */}
+      <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '16px 20px', border: '1px solid var(--border)', marginBottom: 20 }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.88rem', color: '#531697', marginBottom: 8 }}>
+          📋 Required Excel File Column Headers:
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, fontSize: '.78rem', color: 'var(--text-2)' }}>
+          <div>• <strong>Name</strong> <span style={{ color: '#ef4444' }}>*</span> (Full Name)</div>
+          <div>• <strong>Company</strong> <span style={{ color: '#ef4444' }}>*</span> (e.g. Google, Microsoft, Capgemini)</div>
+          <div>• <strong>Role</strong> <span style={{ color: '#ef4444' }}>*</span> (Designation/Position)</div>
+          <div>• <strong>Department</strong> <span style={{ color: '#ef4444' }}>*</span> (CSE, CSAIML, IT, ENTC)</div>
+          <div>• <strong>Batch</strong> <span style={{ color: '#ef4444' }}>*</span> (e.g. 2023, 2024)</div>
+          <div>• <strong>LinkedIn URL</strong> (Profile link)</div>
+          <div>• <strong>Email</strong> (Contact email)</div>
+          <div>• <strong>Skills</strong> (Comma-separated)</div>
+          <div>• <strong>Location</strong> (e.g. Pune, Bangalore)</div>
+          <div>• <strong>Bio</strong> (Advice/mentorship note)</div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 18 }}>
+          <input type="file" accept=".xlsx, .xls, .csv" onChange={e => setFile(e.target.files[0])}
+            style={{ padding: '12px', borderRadius: 10, border: '1.5px dashed #531697', width: '100%', boxSizing: 'border-box', background: 'rgba(83,22,151,0.03)', cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }} />
+          {file && <div style={{ fontSize: '.8rem', color: '#166534', fontWeight: 700, marginTop: 6 }}>📁 Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)</div>}
+        </div>
+
+        {resultMsg && (
+          <div style={{ padding: '12px 16px', borderRadius: 10, fontSize: '.84rem', fontWeight: 700, marginBottom: 16,
+            background: resultMsg.startsWith('✅') ? 'rgba(71,211,114,0.1)' : 'rgba(239,68,68,0.1)',
+            color: resultMsg.startsWith('✅') ? '#166534' : '#991b1b',
+            border: `1px solid ${resultMsg.startsWith('✅') ? 'rgba(71,211,114,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+            {resultMsg}
+          </div>
+        )}
+
+        <button type="submit" disabled={loading || !file}
+          style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+            background: loading || !file ? '#d0d7e8' : 'linear-gradient(135deg,#531697,#13a1a5)',
+            color: '#fff', fontWeight: 800, fontSize: '.9rem', cursor: loading || !file ? 'default' : 'pointer', fontFamily: "'Nunito',sans-serif" }}>
+          {loading ? 'Uploading & Vectorizing RAG Data...' : '📤 Upload & Import Alumni Data'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ── Manual Add Single Alumnus Component for Faculty / Admin ────────────────
+function ManualAddView({ onAdded }) {
+  const [form, setForm] = useState({
+    name: '', email: '', company: '', role: '', department: 'CSE', batch: '2024',
+    linkedinUrl: '', skills: '', location: 'India', bio: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const setF = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.company.trim()) {
+      setMsg('❌ Name and Company are required.');
+      return;
+    }
+    setLoading(true);
+    setMsg('');
+    try {
+      const payload = {
+        ...form,
+        batch: parseInt(form.batch) || 2024,
+        skills: form.skills ? form.skills.split(',').map(s => s.trim()).filter(Boolean) : [],
+      };
+      const res = await fetch(`${API}/alumni`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify(payload),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to add alumni');
+
+      setMsg('✅ Alumni added successfully!');
+      setForm({ name: '', email: '', company: '', role: '', department: 'CSE', batch: '2024', linkedinUrl: '', skills: '', location: 'India', bio: '' });
+      if (onAdded) onAdded();
+    } catch (err) {
+      setMsg(`❌ ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const INP = { style: { width: '100%', padding: '9px 12px', borderRadius: 8, border: '1.5px solid #d0d7e8', fontFamily: "'Nunito',sans-serif", fontSize: '.85rem', outline: 'none', boxSizing: 'border-box' } };
+  const LBL = ({ children, req }) => <label style={{ display: 'block', fontSize: '.75rem', fontWeight: 800, color: 'var(--text-3)', marginBottom: 4, fontFamily: "'Syne',sans-serif" }}>{children}{req && <span style={{ color: '#ef4444' }}> *</span>}</label>;
+
+  return (
+    <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: '24px 28px', maxWidth: 800 }}>
+      <h2 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.2rem', color: 'var(--text)', margin: '0 0 16px 0' }}>
+        ➕ Add Single Alumnus Profile Manually
+      </h2>
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div style={{ gridColumn: '1/-1' }}>
+            <LBL req>Alumnus Full Name</LBL>
+            <input {...INP} value={form.name} onChange={setF('name')} placeholder="e.g. Sapna Patil" required />
+          </div>
+          <div>
+            <LBL req>Current Company</LBL>
+            <input {...INP} value={form.company} onChange={setF('company')} placeholder="e.g. Google, Microsoft, Capgemini" required />
+          </div>
+          <div>
+            <LBL req>Role / Designation</LBL>
+            <input {...INP} value={form.role} onChange={setF('role')} placeholder="e.g. Senior Software Engineer" required />
+          </div>
+          <div>
+            <LBL req>Department</LBL>
+            <select {...INP} value={form.department} onChange={setF('department')}>
+              {['CSE', 'CSAIML', 'IT', 'ECE', 'Mechanical', 'Civil', 'Other'].map(d => <option key={d}>{d}</option>)}
+            </select>
+          </div>
+          <div>
+            <LBL req>Batch Passout Year</LBL>
+            <input {...INP} type="number" value={form.batch} onChange={setF('batch')} placeholder="e.g. 2023" required />
+          </div>
+          <div>
+            <LBL>LinkedIn URL</LBL>
+            <input {...INP} type="url" value={form.linkedinUrl} onChange={setF('linkedinUrl')} placeholder="https://linkedin.com/in/username" />
+          </div>
+          <div>
+            <LBL>Email Address</LBL>
+            <input {...INP} type="email" value={form.email} onChange={setF('email')} placeholder="alumni@kitcoek.in" />
+          </div>
+          <div style={{ gridColumn: '1/-1' }}>
+            <LBL>Key Skills (comma-separated)</LBL>
+            <input {...INP} value={form.skills} onChange={setF('skills')} placeholder="e.g. React, Python, Machine Learning, System Design" />
+          </div>
+          <div style={{ gridColumn: '1/-1' }}>
+            <LBL>Bio / Mentorship Advice</LBL>
+            <textarea {...INP} value={form.bio} onChange={setF('bio')} rows={3} placeholder="Provide details about their career guidance or referral availability..." style={{ ...INP.style, resize: 'vertical' }} />
+          </div>
+        </div>
+
+        {msg && (
+          <div style={{ padding: '12px 16px', borderRadius: 10, fontSize: '.84rem', fontWeight: 700, marginBottom: 16,
+            background: msg.startsWith('✅') ? 'rgba(71,211,114,0.1)' : 'rgba(239,68,68,0.1)',
+            color: msg.startsWith('✅') ? '#166534' : '#991b1b',
+            border: `1px solid ${msg.startsWith('✅') ? 'rgba(71,211,114,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+            {msg}
+          </div>
+        )}
+
+        <button type="submit" disabled={loading}
+          style={{ width: '100%', padding: '12px', borderRadius: 10, border: 'none',
+            background: loading ? '#d0d7e8' : 'linear-gradient(135deg,#531697,#13a1a5)',
+            color: '#fff', fontWeight: 800, fontSize: '.9rem', cursor: loading ? 'default' : 'pointer', fontFamily: "'Nunito',sans-serif" }}>
+          {loading ? 'Saving Alumnus...' : '💾 Save Alumnus to Directory'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function AlumniPage() {
   const { user } = useAuth();
   const [alumni, setAlumni]           = useState([]);
@@ -427,9 +656,13 @@ export default function AlumniPage() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {[
           { id: 'browse',      label: `🎓 Browse Alumni (${total})` },
+          ...(user?.role === 'faculty' || user?.role === 'admin' ? [
+            { id: 'excel',     label: `📥 Bulk Upload Alumni (Excel)` },
+            { id: 'manual',    label: `➕ Add Single Alumnus` },
+          ] : []),
           { id: 'connections', label: `🤝 My Connections (${connections.length})` },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
@@ -553,6 +786,16 @@ export default function AlumniPage() {
             </>
           )}
         </>
+      )}
+
+      {/* ── EXCEL UPLOAD TAB ── */}
+      {activeTab === 'excel' && (
+        <ExcelUploadView onUploaded={() => { loadAlumni(); setActiveTab('browse'); }} />
+      )}
+
+      {/* ── MANUAL ADD TAB ── */}
+      {activeTab === 'manual' && (
+        <ManualAddView onAdded={() => { loadAlumni(); setActiveTab('browse'); }} />
       )}
 
       {/* ── CONNECTIONS TAB ── */}

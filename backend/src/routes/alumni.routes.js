@@ -19,6 +19,9 @@ const { searchContext } = require('../utils/ragService');
 const axios = require('axios');
 const Groq = require('groq-sdk');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const multer = require('multer');
+const uploadExcel = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const XLSX = require('xlsx');
 
 // Helper function to crawl public web & GitHub for KIT Kolhapur alumni by company or role
 async function crawlAlumniPublicWeb(targetQuery = '') {
@@ -551,6 +554,164 @@ router.post('/system/ingest', async (req, res) => {
     res.json({ upserted, total: profiles.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/alumni/upload-excel — Faculty/Admin bulk upload alumni Excel/CSV ──
+router.post('/upload-excel', authenticate, authorize('admin', 'faculty'), uploadExcel.single('file'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'Please upload a valid Excel (.xlsx, .xls) or CSV file' });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName) return res.status(400).json({ error: 'Excel sheet is empty' });
+
+    const rawRows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
+    if (!rawRows || rawRows.length === 0) {
+      return res.status(400).json({ error: 'No data rows found in the uploaded file' });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+    const { upsertDoc } = require('../utils/ragService');
+
+    for (let index = 0; index < rawRows.length; index++) {
+      const row = rawRows[index];
+      // Flexible case-insensitive header mapping
+      const getVal = (...keys) => {
+        for (const k of keys) {
+          const matchedKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+          if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+            return String(row[matchedKey]).trim();
+          }
+        }
+        return '';
+      };
+
+      const name = getVal('name', 'full name', 'alumni name', 'student name');
+      const company = getVal('company', 'company name', 'current company', 'organization', 'employer');
+      const role = getVal('role', 'position', 'designation', 'job title', 'current role');
+      const department = getVal('department', 'dept', 'branch', 'stream') || 'CSE';
+      const batchStr = getVal('batch', 'batch year', 'graduation year', 'passout year', 'year');
+      const batch = parseInt(batchStr) || 2024;
+      const linkedinUrl = getVal('linkedin', 'linkedin url', 'linkedin profile', 'linkedin link');
+      const email = getVal('email', 'email address', 'contact email');
+      const skillsStr = getVal('skills', 'key skills', 'tech stack', 'technologies');
+      const skills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const location = getVal('location', 'city', 'current location');
+      const bio = getVal('bio', 'about', 'advice', 'mentorship bio');
+
+      if (!name) {
+        errors.push(`Row ${index + 2}: Missing Name`);
+        continue;
+      }
+
+      const filter = email ? { email: email.toLowerCase() } : { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), batch };
+
+      const existing = await Alumni.findOne(filter);
+
+      const alumniDoc = await Alumni.findOneAndUpdate(
+        filter,
+        {
+          $set: {
+            name,
+            company: company || 'Engineering Org',
+            role: role || 'Software Engineer',
+            department,
+            batch,
+            linkedinUrl,
+            email: email ? email.toLowerCase() : undefined,
+            skills,
+            location: location || 'India',
+            bio: bio || `KIT Kolhapur Alumnus (${batch} Batch). Open for mentorship & referrals.`,
+            isOptedIn: true,
+            isVerified: true,
+            source: 'faculty_excel',
+          }
+        },
+        { upsert: true, new: true }
+      );
+
+      if (existing) updated++;
+      else inserted++;
+
+      // Vectorize into RAG Search engine
+      const textForEmbed = `${name} ${department} KIT Kolhapur batch ${batch} ${company} ${role} ${skills.join(' ')} ${bio || ''}`;
+      await upsertDoc('pragati_alumni', {
+        _key: `alumni_${alumniDoc._id}`,
+        type: 'alumni',
+        name, department, batch, company, role, bio,
+        skills,
+      }, textForEmbed, '_key').catch(() => {});
+    }
+
+    res.json({
+      message: `✅ Excel import complete! ${inserted} new alumni added, ${updated} existing alumni updated.`,
+      inserted,
+      updated,
+      totalRows: rawRows.length,
+      errors: errors.slice(0, 10),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Excel import failed: ' + err.message });
+  }
+});
+
+// ── GET /api/alumni/template/download — Download Sample Excel Sheet Template ─────
+router.get('/template/download', authenticate, authorize('admin', 'faculty'), (req, res) => {
+  try {
+    const sampleData = [
+      {
+        'Name': 'Aarav Patil',
+        'Company': 'Google',
+        'Role': 'Software Engineer',
+        'Department': 'CSE',
+        'Batch': 2023,
+        'LinkedIn URL': 'https://linkedin.com/in/aaravpatil',
+        'Email': 'aarav.patil@kitcoek.in',
+        'Skills': 'React, Node.js, System Design, Cloud',
+        'Location': 'Bengaluru',
+        'Bio': 'KIT Kolhapur CSE Alumnus. Open for software referral requests and mock interview guidance.'
+      },
+      {
+        'Name': 'Priya Kulkarni',
+        'Company': 'Microsoft',
+        'Role': 'AI Researcher',
+        'Department': 'CSAIML',
+        'Batch': 2024,
+        'LinkedIn URL': 'https://linkedin.com/in/priyakulkarni',
+        'Email': 'priya.kulkarni@kitcoek.in',
+        'Skills': 'Python, PyTorch, LLMs, Computer Vision',
+        'Location': 'Hyderabad',
+        'Bio': 'CSAIML Graduate working on GenAI models at Microsoft. Happy to guide juniors in AI research.'
+      },
+      {
+        'Name': 'Vikram Shinde',
+        'Company': 'Capgemini',
+        'Role': 'Senior Consultant',
+        'Department': 'IT',
+        'Batch': 2022,
+        'LinkedIn URL': 'https://linkedin.com/in/vikramshinde',
+        'Email': 'vikram.shinde@kitcoek.in',
+        'Skills': 'Java, Spring Boot, Microservices',
+        'Location': 'Pune',
+        'Bio': 'Senior Developer at Capgemini Pune. Connect for campus placement preparation tips.'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'KIT_Alumni_Template');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="KIT_Alumni_Upload_Template.xlsx"');
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate template: ' + err.message });
   }
 });
 
