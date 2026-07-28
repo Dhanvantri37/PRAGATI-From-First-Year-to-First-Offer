@@ -22,7 +22,7 @@ const HELP_TYPES = [
   { value: 'general',          label: '💬 General Connect', desc: 'Just want to network' },
 ];
 
-function AlumniCard({ alumni, onAskMentor, onDraftMessage }) {
+function AlumniCard({ alumni, onAskMentor, onDraftMessage, onDelete, canManageAlumni }) {
   const dept    = alumni.department?.toUpperCase();
   const dc      = DEPT_COLORS[dept] || DEPT_COLORS['CSE'];
   const initials = alumni.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
@@ -99,7 +99,7 @@ function AlumniCard({ alumni, onAskMentor, onDraftMessage }) {
       )}
 
       {/* Action row */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => onAskMentor(alumni)}
           style={{ flex: 1, padding: '8px 12px', borderRadius: 9, border: '1px solid rgba(83,22,151,0.25)',
             background: 'rgba(83,22,151,0.06)', color: '#531697', fontWeight: 800,
@@ -120,6 +120,15 @@ function AlumniCard({ alumni, onAskMentor, onDraftMessage }) {
             textDecoration: 'none', fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 4 }}>
           🔗 View Profile
         </a>
+
+        {canManageAlumni && (
+          <button onClick={() => onDelete(alumni._id, alumni.name)}
+            style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.3)',
+              background: 'rgba(239,68,68,0.08)', color: '#991b1b',
+              fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+            🗑️ Delete
+          </button>
+        )}
       </div>
     </div>
   );
@@ -610,12 +619,27 @@ export default function AlumniPage() {
       setMsg(d.message || '✅ Connection request sent!');
       setConnectTarget(null);
       await loadConnections();
-      setTimeout(() => setMsg(''), 5000);
+      setTimeout(() => setMsg(''), 4000);
     } catch (err) {
       setMsg(`❌ ${err.message}`);
       setTimeout(() => setMsg(''), 4000);
     }
     setConnecting(false);
+  }
+
+  async function handleDeleteAlumni(id, name) {
+    if (!window.confirm(`Are you sure you want to delete "${name}" from the alumni database?`)) return;
+    try {
+      const res = await fetch(`${API}/alumni/${id}`, { method: 'DELETE', headers: tk() });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to delete');
+      setMsg(`✅ Alumni "${name}" deleted successfully.`);
+      loadAlumni();
+      setTimeout(() => setMsg(''), 4000);
+    } catch (err) {
+      setMsg(`❌ ${err.message}`);
+      setTimeout(() => setMsg(''), 4000);
+    }
   }
 
   const DEPTS = ['CSE','IT','AIML','ENTC','ME','CE','EEE'];
@@ -765,7 +789,7 @@ export default function AlumniPage() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 24 }}>
                 {alumni.map(a => (
-                  <AlumniCard key={a._id} alumni={a} onDraftMessage={setDraftTarget} onAskMentor={setAskTarget} />
+                  <AlumniCard key={a._id} alumni={a} onDraftMessage={setDraftTarget} onAskMentor={setAskTarget} onDelete={handleDeleteAlumni} canManageAlumni={canManageAlumni} />
                 ))}
               </div>
 

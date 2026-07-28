@@ -499,11 +499,11 @@ router.patch('/:id', authenticate, authorize('admin', 'faculty'), async (req, re
   }
 });
 
-// ── DELETE /api/alumni/:id — Admin delete ───────────────────────────────────
-router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
+// ── DELETE /api/alumni/:id — Admin & Faculty delete ─────────────────────────
+router.delete('/:id', authenticate, authorize('admin', 'faculty'), async (req, res) => {
   try {
     await Alumni.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Alumni removed' });
+    res.json({ message: 'Alumni record deleted successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
