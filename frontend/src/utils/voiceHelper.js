@@ -88,13 +88,13 @@ function speakBrowser(text, role, options = {}) {
     
     // Map roles to gender/accent styles
     let gender = 'female';
-    if (role.includes('male')) {
+    if (role.includes('male') || role === 'arjun' || role === 'vikram') {
       gender = 'male';
     }
 
     const voice = getNaturalVoice('indian', gender);
-    utt.pitch = 1.0;
-    utt.rate  = 1.0;
+    utt.pitch = gender === 'male' ? 0.90 : 1.10;
+    utt.rate  = gender === 'male' ? 0.95 : 1.0;
     utt.volume = 1.0;
 
     if (voice) {

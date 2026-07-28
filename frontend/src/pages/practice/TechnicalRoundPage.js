@@ -341,35 +341,34 @@ export default function TechnicalRoundPage() {
     loadQuestions(activeSub, activeSubtopic, activeLevel);
   }, [activeSub, activeSubtopic, activeLevel, loadQuestions]);
 
-  const fetchAIQuestions = async () => {
+  const fetchAIQuestions = async (targetCompany = 'TCS') => {
     setAiLoading(true);
     try {
-      const res = await fetch(`${API}/aptitude/ai-quiz`, {
+      const res = await fetch(`${API}/practice/rag-generate-questions`, {
         method: 'POST',
         headers: tks(),
         body: JSON.stringify({
-          company: activeSub,
-          topic: activeSubtopic,
-          difficulty: activeLevel,
-          count: 5
+          roundType: 'TECHNICAL',
+          company: typeof targetCompany === 'string' ? targetCompany : 'TCS',
+          subject: activeSub,
+          difficulty: activeLevel === 'All' ? 'Medium' : activeLevel,
+          domain: 'CSE'
         })
       }).then(r => r.json());
 
       if (res.questions && res.questions.length > 0) {
         const mapped = res.questions.map(q => ({
-          level: activeLevel === 'All' ? 'Intermediate' : activeLevel,
-          company: 'AI Dynamic',
-          q: q.question || q.q,
-          a: q.explanation || q.answer || q.a || 'Standard answer breakdown.'
+          level: q.difficulty || (activeLevel === 'All' ? 'Medium' : activeLevel),
+          company: q.company || 'TCS/Amazon',
+          q: q.question || q.title,
+          a: q.answer || q.sampleAnswer || q.explanation || 'Detailed solution provided.'
         }));
         setQuestions(mapped);
       } else {
-        // Dynamic procedural AI question generator fallback
         const aiGenerated = generateDynamicAIQuestions(activeSub, activeSubtopic, activeLevel);
         setQuestions(aiGenerated);
       }
     } catch (e) {
-      // Dynamic procedural AI question generator fallback
       const aiGenerated = generateDynamicAIQuestions(activeSub, activeSubtopic, activeLevel);
       setQuestions(aiGenerated);
     } finally {

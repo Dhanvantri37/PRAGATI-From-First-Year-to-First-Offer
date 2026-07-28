@@ -142,7 +142,7 @@ const localUri = 'mongodb://127.0.0.1:27017/pragati';
 
 console.log('[DB] Connecting to database...');
 mongoose.connect(dbUri, {
-  serverSelectionTimeoutMS: 20000, // 20 seconds timeout
+  serverSelectionTimeoutMS: 2500, // 2.5s fast timeout to prevent server startup delay
 })
   .then(() => {
     console.log('✅ MongoDB Atlas connected');
@@ -151,7 +151,7 @@ mongoose.connect(dbUri, {
   .catch(err => {
     console.warn('⚠️ MongoDB Atlas connection failed/timed out:', err.message);
     console.log('[DB] Falling back to local MongoDB at:', localUri);
-    return mongoose.connect(localUri, { serverSelectionTimeoutMS: 10000 })
+    return mongoose.connect(localUri, { serverSelectionTimeoutMS: 2500 })
       .then(() => {
         console.log('✅ Local MongoDB connected');
         startApp();

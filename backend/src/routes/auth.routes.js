@@ -66,7 +66,7 @@ router.post('/login', async (req, res) => {
     if (!user.isActive) return res.status(403).json({ error: 'Account has been deactivated. Please contact your college administrator.' });
 
     const tokens = generateTokens(user._id, user.role);
-    res.json({ message: 'Login successful', user, ...tokens });
+    res.json({ message: 'Login successful', user, token: tokens.accessToken, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

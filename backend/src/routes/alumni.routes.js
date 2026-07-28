@@ -15,7 +15,7 @@ const router    = require('express').Router();
 const Alumni    = require('../models/Alumni.model');
 const AlumniConnection = require('../models/AlumniConnection.model');
 const { authenticate, authorize } = require('../middleware/auth.middleware');
-const { searchContext } = require('../utils/ragService');
+const { searchContext, upsertDoc } = require('../utils/ragService');
 const axios = require('axios');
 const Groq = require('groq-sdk');
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -445,6 +445,22 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
             linkedinUrl, bio, mentorshipAreas, availableFor } = req.body;
     if (!name) return res.status(400).json({ error: 'name required' });
 
+    // Deduplication check strictly by Name or LinkedIn URL
+    const cleanLinkedIn = linkedinUrl ? linkedinUrl.trim().toLowerCase().replace(/\/$/, '') : '';
+    const cleanName = name.trim();
+
+    const dbQuery = [
+      { name: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    ];
+    if (cleanLinkedIn) {
+      dbQuery.push({ linkedinUrl: new RegExp(`^${cleanLinkedIn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') });
+    }
+
+    const existing = await Alumni.findOne({ $or: dbQuery });
+    if (existing) {
+      return res.status(400).json({ error: `An Alumnus record already exists with matching Name ("${existing.name}") or LinkedIn URL.` });
+    }
+
     const alumniDoc = await Alumni.create({
       name, email, batch, department, company, role, location,
       skills: skills || [],
@@ -463,7 +479,7 @@ router.post('/', authenticate, authorize('admin', 'faculty'), async (req, res) =
       type: 'alumni',
       name, department, batch, company, role, bio,
       skills: skills || [],
-    }, textForEmbed, '_key');
+    }, textForEmbed, '_key').catch(() => {});
 
     res.status(201).json({ alumni: alumniDoc });
   } catch (err) {
@@ -490,7 +506,7 @@ router.patch('/:id', authenticate, authorize('admin', 'faculty'), async (req, re
         role: updated.role,
         bio: updated.bio,
         skills: updated.skills || [],
-      }, textForEmbed, '_key');
+      }, textForEmbed, '_key').catch(() => {});
     }
 
     res.json({ alumni: updated });
@@ -613,27 +629,27 @@ router.post('/upload-excel', authenticate, authorize('admin', 'faculty'), upload
         continue;
       }
 
-      // Deduplication key by LinkedIn URL or Name+Company+Batch
-      const cleanLinkedIn = linkedinUrl.toLowerCase().replace(/\/$/, '');
-      const nameKey = `${name.toLowerCase()}_${company.toLowerCase()}_${batch}`;
+      // Deduplication key strictly by Name or LinkedIn URL
+      const cleanLinkedIn = linkedinUrl.trim().toLowerCase().replace(/\/$/, '');
+      const cleanName = name.trim().toLowerCase();
 
-      if (seenBatchKeys.has(cleanLinkedIn) || seenBatchKeys.has(nameKey)) {
+      if (seenBatchKeys.has(cleanLinkedIn) || seenBatchKeys.has(cleanName)) {
         skippedDuplicates++;
         continue;
       }
 
-      // Check DB for duplicate record
+      // Check DB for duplicate record strictly by Name or LinkedIn URL
       const existingInDb = await Alumni.findOne({
         $or: [
           { linkedinUrl: { $regex: new RegExp(`^${cleanLinkedIn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-          { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), company: new RegExp(`^${company.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), batch }
+          { name: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
         ]
       });
 
       if (existingInDb) {
         skippedDuplicates++;
         seenBatchKeys.add(cleanLinkedIn);
-        seenBatchKeys.add(nameKey);
+        seenBatchKeys.add(cleanName);
         continue;
       }
 
@@ -653,7 +669,7 @@ router.post('/upload-excel', authenticate, authorize('admin', 'faculty'), upload
 
       inserted++;
       seenBatchKeys.add(cleanLinkedIn);
-      seenBatchKeys.add(nameKey);
+      seenBatchKeys.add(cleanName);
 
       // Vectorize into RAG Search engine
       const textForEmbed = `${name} ${department} KIT Kolhapur batch ${batch} ${company} ${role}`;

@@ -32,28 +32,25 @@ function cleanSkillList(arr) {
     .slice(0, 8);
 }
 
-// ── AI Provider: Groq (primary, free) → Gemini (fallback) ─────────────────────
-// Groq models: openai/gpt-oss-20b (fast, free) — replaces deprecated llama-3.1-8b-instant
-// Gemini: gemini-2.0-flash (free 15 req/min, 1M tokens/day)
+// ── AI Provider: Groq (multi-model fallback chain) → Gemini (fallback) ──────
 async function callAI(prompt, maxTokens = 1500) {
   const GROQ_KEY   = process.env.GROQ_API_KEY;
   const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-  // 1. Try Groq first (faster, generous free tier: 14,400 req/day)
   if (GROQ_KEY) {
-    try {
-      const resp = await axios.post(
-        'https://api.groq.com/openai/v1/chat/completions',
-        { model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }],
-          max_tokens: maxTokens, temperature: 0.7 },
-        { headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' }, timeout: 25000 }
-      );
-      return resp.data?.choices?.[0]?.message?.content?.trim() || null;
-    } catch (err) {
-      const status = err.response?.status;
-      const msg    = err.response?.data?.error?.message || err.message;
-      console.warn(`[AI] Groq failed (${status}): ${msg}`);
-      if (status === 429) console.warn('[AI] Groq rate limit hit — falling back to Gemini');
+    const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
+    for (const model of groqModels) {
+      try {
+        const resp = await axios.post(
+          'https://api.groq.com/openai/v1/chat/completions',
+          { model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.7 },
+          { headers: { Authorization: `Bearer ${GROQ_KEY}`, 'Content-Type': 'application/json' }, timeout: 25000 }
+        );
+        const text = resp.data?.choices?.[0]?.message?.content?.trim();
+        if (text) return text;
+      } catch (err) {
+        console.warn(`[AI] Groq model ${model} failed (${err.response?.status || 'err'}): ${err.response?.data?.error?.message || err.message}`);
+      }
     }
   }
 
@@ -65,22 +62,14 @@ async function callAI(prompt, maxTokens = 1500) {
         { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens } },
         { headers: { 'Content-Type': 'application/json' }, timeout: 25000 }
       );
-      return resp.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+      const text = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (text) return text;
     } catch (err) {
-      const status = err.response?.status;
-      const msg    = err.response?.data?.error?.message || err.message;
-      console.warn(`[AI] Gemini failed (${status}): ${msg}`);
-      if (status === 429 || msg?.toLowerCase().includes('quota')) {
-        console.warn('[AI] Gemini quota exceeded — returning mock data');
-      }
+      console.warn(`[AI] Gemini failed: ${err.response?.data?.error?.message || err.message}`);
     }
   }
 
-  if (!GROQ_KEY && !GEMINI_KEY) {
-    console.info('[AI] No API keys configured — using mock data');
-  }
-
-  return null; // both failed or no keys
+  return null;
 }
 
 // Removed local parseJSON; using ensureValidJson from aiGuard utility

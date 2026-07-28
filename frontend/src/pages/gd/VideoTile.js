@@ -97,17 +97,35 @@ export default function VideoTile({ stream, participant, isActiveSpeaker, isLoca
     }}>
       {/* Always render video element if stream exists — keeps audio alive even when camera is off */}
       {stream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={isLocal}
-          style={{
-            width: '100%', height: '100%', objectFit: 'cover',
-            transform: isLocal ? 'scaleX(-1)' : 'none',
-            display: showVideo ? 'block' : 'none',
-          }}
-        />
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover',
+              transform: isLocal ? 'scaleX(-1)' : 'none',
+              opacity: showVideo ? 1 : 0,
+              position: showVideo ? 'relative' : 'absolute',
+              pointerEvents: showVideo ? 'auto' : 'none',
+              zIndex: showVideo ? 2 : 0,
+            }}
+          />
+          {!isLocal && (
+            <audio
+              ref={(audioEl) => {
+                if (audioEl && stream && audioEl.srcObject !== stream) {
+                  audioEl.srcObject = stream;
+                  audioEl.play().catch(() => {});
+                }
+              }}
+              autoPlay
+              playsInline
+              style={{ display: 'none' }}
+            />
+          )}
+        </>
       )}
 
       {/* Avatar fallback — shown when camera is off or no video */}

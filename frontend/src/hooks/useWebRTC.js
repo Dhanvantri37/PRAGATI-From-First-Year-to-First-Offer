@@ -66,10 +66,11 @@ export function useWebRTC({ emit, roomCode, userId, onStream, onStreamRemoved, o
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peersRef.current[remoteSocketId] = { pc, pendingCandidates: [], hasRemote: false };
 
-    // Add local tracks
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current);
+    // Add local tracks (check localStreamRef or rtcLocalRef)
+    const activeStream = localStreamRef.current;
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => {
+        pc.addTrack(track, activeStream);
       });
     }
 
@@ -271,8 +272,22 @@ export function useWebRTC({ emit, roomCode, userId, onStream, onStreamRemoved, o
     };
   }, []);
 
+  const setLocalStream = useCallback((stream) => {
+    localStreamRef.current = stream;
+    Object.values(peersRef.current).forEach(({ pc }) => {
+      if (pc && stream) {
+        stream.getTracks().forEach(track => {
+          const senders = pc.getSenders();
+          const exists  = senders.some(s => s.track?.id === track.id);
+          if (!exists) pc.addTrack(track, stream);
+        });
+      }
+    });
+  }, []);
+
   return {
     getLocalStream,
+    setLocalStream,
     announceReady,
     handleWebRTCEvent,
     setMuted,

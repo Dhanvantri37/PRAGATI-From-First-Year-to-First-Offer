@@ -38,7 +38,7 @@ const alumniSchema = new mongoose.Schema({
 
   // ── System ────────────────────────────────────────────────────────────────
   isVerified:  { type: Boolean, default: false },  // admin-verified before students see it
-  source:      { type: String, enum: ['manual', 'crawler', 'self'], default: 'crawler' },
+  source:      { type: String, enum: ['manual', 'crawler', 'self', 'faculty_excel', 'excel'], default: 'manual' },
   linkedUserId:{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // links to PRAGATI User
 
   // ── RAG ───────────────────────────────────────────────────────────────────

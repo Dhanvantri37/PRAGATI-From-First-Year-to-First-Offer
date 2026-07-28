@@ -833,6 +833,7 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
   const [liveText, setLiveText] = useState('');
   const [camEnabled, setCamEnabled] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [voiceGender, setVoiceGender] = useState('female');
 
   // Proctoring States
   const [facePresent, setFacePresent] = useState(true);
@@ -1159,12 +1160,12 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
       try { window.pragatiAudioPlayer.pause(); } catch (e) { }
     }
 
-    const role = persona.gender === 'female' ? 'system_female' : 'system_male';
+    const role = voiceGender === 'female' ? 'interviewer_female' : 'interviewer_male';
 
     setAiSpeaking(true);
     await speakText(text, role);
     setAiSpeaking(false);
-  }, [ttsEnabled, persona]);
+  }, [ttsEnabled, voiceGender]);
 
   // Stop interview handler — stops interview & immediately generates session report
   const handleStopInterview = useCallback(() => {
@@ -1410,6 +1411,40 @@ function MockInterview({ targetRole, interviewType, userName, resumeText = '', j
           </div>
 
           <hr style={{ border: '0', borderTop: '1.5px dashed var(--border)', margin: '20px 0' }} />
+
+          {/* Select Voice */}
+          <div style={{ opacity: bothGranted ? 1 : 0.35, pointerEvents: bothGranted ? 'auto' : 'none', transition: 'opacity 0.2s', marginBottom: 24 }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: '1rem', color: 'var(--text)', marginBottom: 4, textAlign: 'center' }}>🎙️ Select AI Interviewer Voice</div>
+            <div style={{ fontSize: '.78rem', color: 'var(--text-3)', textAlign: 'center', marginBottom: 14 }}>Choose natural neural AI voice for your mock interview.</div>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setVoiceGender('female')}
+                style={{
+                  padding: '10px 20px', borderRadius: 10,
+                  border: voiceGender === 'female' ? '2.5px solid #13a1a5' : '1.5px solid var(--border)',
+                  background: voiceGender === 'female' ? 'rgba(19,161,165,0.12)' : 'var(--surface-2)',
+                  color: voiceGender === 'female' ? '#13a1a5' : 'var(--text-2)',
+                  fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem',
+                  display: 'flex', alignItems: 'center', gap: 8
+                }}>
+                <span>👩</span> Female Voice (Priya AI / Neerja Neural / ElevenLabs)
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoiceGender('male')}
+                style={{
+                  padding: '10px 20px', borderRadius: 10,
+                  border: voiceGender === 'male' ? '2.5px solid #531697' : '1.5px solid var(--border)',
+                  background: voiceGender === 'male' ? 'rgba(83,22,151,0.12)' : 'var(--surface-2)',
+                  color: voiceGender === 'male' ? '#c4a0f5' : 'var(--text-2)',
+                  fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.88rem',
+                  display: 'flex', alignItems: 'center', gap: 8
+                }}>
+                <span>👨</span> Male Voice (Arjun AI / Prabhat Neural / ElevenLabs)
+              </button>
+            </div>
+          </div>
 
           {/* Select Duration */}
           <div style={{ opacity: bothGranted ? 1 : 0.35, pointerEvents: bothGranted ? 'auto' : 'none', transition: 'opacity 0.2s' }}>

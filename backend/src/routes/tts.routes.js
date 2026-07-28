@@ -74,9 +74,9 @@ function speakEdge(text, voiceName) {
 
     // Escape text characters for command line safety
     const escapedText = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    // --rate "-5%"   → slightly slower than default for clarity and gravitas
-    // --pitch "+10Hz" → warmer, more confident and motivational tone
-    const cmd = `python -m edge_tts --text "${escapedText}" --voice "${voiceName}" --rate "-5%" --pitch "+10Hz" --write-media "${tempFile}"`;
+    // --rate=-5%   → slightly slower than default for clarity and gravitas
+    // --pitch=+10Hz → warmer, more confident and motivational tone
+    const cmd = `python -m edge_tts --text "${escapedText}" --voice "${voiceName}" --rate=-5% --pitch=+10Hz --write-media "${tempFile}"`;
 
     exec(cmd, (error, stdout, stderr) => {
       if (error) {
@@ -123,9 +123,19 @@ router.post('/', authenticate, async (req, res) => {
     let audioResponse = null;
 
     const tryElevenLabs = async () => {
-      audioResponse = await speakElevenLabs(cleanText, voiceCfg.elevenlabs);
-      provider = 'elevenlabs';
-      console.log(`[TTS] ElevenLabs ✅ role=${role} chars=${cleanText.length}`);
+      try {
+        audioResponse = await speakElevenLabs(cleanText, voiceCfg.elevenlabs);
+        provider = 'elevenlabs';
+        console.log(`[TTS] ElevenLabs Primary ✅ role=${role} chars=${cleanText.length}`);
+      } catch (primaryErr) {
+        console.warn(`[TTS] ElevenLabs primary voice failed (${primaryErr.message}) → trying ElevenLabs Free Voice fallback...`);
+        const fallbackVoiceId = (role.includes('male') || role === 'arjun' || role === 'vikram')
+          ? 'ErXwobaYiN019PkySvjV' // Antoni (Male)
+          : '21m00Tcm4TlvDq8ikWAM'; // Rachel (Female)
+        audioResponse = await speakElevenLabs(cleanText, fallbackVoiceId);
+        provider = 'elevenlabs';
+        console.log(`[TTS] ElevenLabs Free Voice ✅ role=${role} fallbackId=${fallbackVoiceId}`);
+      }
     };
 
     const tryEdge = async () => {

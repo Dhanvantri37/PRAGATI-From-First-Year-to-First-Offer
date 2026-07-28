@@ -15,15 +15,22 @@ const { vectorSearch } = require('../utils/ragService');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// ── Groq helper ───────────────────────────────────────────────────────────
+// ── Groq helper with multi-model fallback chain ─────────────────────────────
 async function groqChat(system, user, maxTokens = 500) {
-  const res = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-    max_tokens: maxTokens,
-    temperature: 0.6,
-  });
-  return res.choices[0]?.message?.content?.trim() || '';
+  const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
+  for (const model of models) {
+    try {
+      const res = await groq.chat.completions.create({
+        model,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        max_tokens: maxTokens,
+        temperature: 0.6,
+      });
+      const text = res.choices[0]?.message?.content?.trim();
+      if (text) return text;
+    } catch {}
+  }
+  return '';
 }
 
 // ── Fetch live company/topic news from Google News RSS (free, no API key) ──

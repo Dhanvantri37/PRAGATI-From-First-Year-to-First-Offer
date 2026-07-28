@@ -348,7 +348,12 @@ function ExcelUploadView({ onUploaded }) {
         body: fd,
       });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error || 'Upload failed');
+      if (!res.ok) {
+        if (res.status === 403 || d.error?.includes('Insufficient permissions')) {
+          throw new Error('Insufficient permissions: Your current logged-in account has a "student" role. Please log out and log in with a Faculty or Admin account (e.g. admin@pragati.edu / admin123) to manage alumni.');
+        }
+        throw new Error(d.error || 'Upload failed');
+      }
 
       setResultMsg(d.message);
       setFile(null);

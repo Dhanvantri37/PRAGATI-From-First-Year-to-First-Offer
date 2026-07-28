@@ -51,11 +51,21 @@ const authenticate = async (req, res, next) => {
 
 // Middleware: restrict to specific roles
 const authorize = (...roles) => (req, res, next) => {
-  let allowedRoles = [...roles];
-  if (allowedRoles.includes('admin')) {
-    allowedRoles.push('superadmin', 'pragati-admin');
+  if (!req.user || !req.user.role) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
   }
-  if (!allowedRoles.includes(req.user.role)) {
+
+  const userRole = (req.user.role || '').toLowerCase().trim();
+  const allowed = roles.map(r => r.toLowerCase().trim());
+
+  if (allowed.includes('admin')) {
+    allowed.push('superadmin', 'pragati-admin', 'administrator');
+  }
+  if (allowed.includes('faculty')) {
+    allowed.push('professor', 'teacher', 'placement_officer', 'tnp', 'staff', 'faculty_member');
+  }
+
+  if (!allowed.includes(userRole)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
   next();

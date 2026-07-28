@@ -60,7 +60,7 @@ export function useAIVoice({ enabled = true, accent = 'indian', role = 'companio
       setTimeout(() => processQueue.current?.(), 180);
     };
 
-    if (item.audioBase64 && audioCtxRef.current) {
+    if (item.audioBase64) {
       tryPlayBase64(item.audioBase64, item.text, accentRef.current, roleRef.current, onDone, item.speakerName);
     } else {
       speakWebSpeech(item.text, accentRef.current, roleRef.current, onDone, item.speakerName);
@@ -193,26 +193,42 @@ export async function speakWebSpeech(text, accent = 'indian', role = 'companion'
 // ── Local browser speech synthesis fallback ──────────────────────────────────
 function speakLocalBrowserFallback(text, accent, role, onDone, speakerName) {
   if (!window.speechSynthesis) { onDone?.(); return; }
-  window.speechSynthesis.cancel();
+  // Do NOT cancel active speech synthesis here — queue processes items sequentially.
 
   const chunks = chunkText(text, 200);
   let idx = 0;
 
-  // Determine speaker gender
+  // Determine speaker gender, pitch, and rate per persona
   let gender = localStorage.getItem('pragati_voice_gender') || 'female';
-  const name = (speakerName || '').toLowerCase();
-  const maleNames = ['arjun', 'vikram', 'rahul', 'amit', 'ravi', 'karan', 'rohit', 'siddharth', 'aditya', 'deepak', 'rajesh', 'manish', 'saurabh', 'anuj', 'prabhat', 'madhur', 'fritz', 'angelo', 'atlas', 'briggs'];
-  const femaleNames = ['priya', 'ananya', 'sneha', 'pooja', 'shreya', 'neha', 'divya', 'sapana', 'megha', 'radhika', 'swati', 'tanvi', 'neerja', 'heera', 'sonia', 'celeste', 'aria'];
+  let pitch = 1.0;
+  let rate  = 1.0;
 
-  if (maleNames.some(m => name.includes(m))) { gender = 'male'; }
-  else if (femaleNames.some(f => name.includes(f))) { gender = 'female'; }
+  const name = (speakerName || '').toLowerCase();
+
+  if (name.includes('arjun')) {
+    gender = 'male';
+    pitch  = 0.90; // Deeper male voice
+  } else if (name.includes('vikram') || name.includes('rohan')) {
+    gender = 'male';
+    pitch  = 0.80; // Resonant male voice
+  } else if (name.includes('priya')) {
+    gender = 'female';
+    pitch  = 1.20; // Clear higher female voice
+  } else if (name.includes('neha') || name.includes('ananya')) {
+    gender = 'female';
+    pitch  = 1.30; // Bright female voice
+  } else if (role === 'moderator' || name.includes('moderator')) {
+    gender = 'female';
+    pitch  = 1.05; // Authoritative moderator voice
+    rate   = 0.95;  // Slightly measured pace
+  }
 
   function speakChunk() {
     if (idx >= chunks.length) { onDone?.(); return; }
     const utt = new SpeechSynthesisUtterance(chunks[idx++]);
     const voice = getNaturalVoice(accent, gender);
-    utt.pitch  = 1.0;
-    utt.rate   = 1.0;
+    utt.pitch  = pitch;
+    utt.rate   = rate;
     utt.volume = 1.0;
 
     if (voice) { utt.voice = voice; utt.lang = voice.lang; }

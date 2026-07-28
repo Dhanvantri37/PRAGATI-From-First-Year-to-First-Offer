@@ -70,13 +70,26 @@ export default function GDLobbyPage() {
     e.preventDefault();
     setCreating(true);
     try {
+      const token = localStorage.getItem('pragati_token');
+      if (!token) {
+        alert('Please log in first to create a GD room.');
+        setCreating(false);
+        return;
+      }
       const r = await fetch(`${API}/gd/rooms`, {
         method:'POST', headers:tk(), body:JSON.stringify(form),
       });
       const d = await r.json();
-      if (d.room?.roomCode) nav(`/dashboard/gd/${d.room.roomCode}`);
-      else alert(d.error || 'Failed to create room');
-    } catch { alert('Network error'); }
+      if (r.ok && d.room?.roomCode) {
+        nav(`/dashboard/gd/${d.room.roomCode}`);
+      } else if (r.status === 401) {
+        alert('Your login session has expired. Please log out and log in again to create a room.');
+      } else {
+        alert(d.error || 'Failed to create room');
+      }
+    } catch (err) {
+      alert('Could not connect to backend server. Please check your network connection.');
+    }
     setCreating(false);
   }
 

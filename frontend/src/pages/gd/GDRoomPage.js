@@ -66,6 +66,8 @@ export default function GDRoomPage() {
   const [isMuted, setIsMuted]       = useState(false);
   const [isCamOff, setIsCamOff]     = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [interimSpeech, setInterimSpeech] = useState('');
+  const [manualSpeech, setManualSpeech]   = useState('');
   const [activeSpeaker, setActiveSpeaker] = useState(null);
   const [voiceEnabled, setVoiceEnabled]   = useState(true);
   const [showChat, setShowChat]           = useState(true);
@@ -106,7 +108,7 @@ export default function GDRoomPage() {
 
   // ── WebRTC ────────────────────────────────────────────────────────────────
   const {
-    announceReady, handleWebRTCEvent,
+    announceReady, handleWebRTCEvent, setLocalStream,
     setMuted: setRTCMuted, setCameraOff: setRTCCamOff,
     localStreamRef: rtcLocalRef,
   } = useWebRTC({
@@ -358,14 +360,27 @@ export default function GDRoomPage() {
           }
         };
         mr.onstop = () => { if (shouldSpeakRef.current) setTimeout(_startRecSession, 200); };
-        mr.start(4000); // 4 second chunks
+        mr.start(4000);
       } catch (err) { console.error('MediaRecorder failed', err); }
       return;
     }
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
-    try { recognitionRef.current?.abort(); } catch {}
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+        return;
+      } catch (e) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.stop();
+        } catch {}
+        recognitionRef.current = null;
+      }
+    }
+
     const rec     = new SR();
     rec.lang      = (room?.language === 'Hindi') ? 'hi-IN' : 'en-IN';
     rec.continuous     = true;
@@ -375,47 +390,67 @@ export default function GDRoomPage() {
 
     rec.onresult = (e) => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (!e.results[i].isFinal) continue;
-        const text  = e.results[i][0].transcript.trim();
+        const text = e.results[i][0]?.transcript?.trim();
         if (!text) continue;
-        const words  = text.split(/\s+/).length;
-        const filler = countFillers(text);
-        const secs   = Math.round((Date.now() - (speakStartRef.current || Date.now())) / 1000);
-        speakStartRef.current = Date.now();
-        setMyStats(s => ({ ...s, wordCount: s.wordCount + words, fillerWords: s.fillerWords + filler, speakingTime: s.speakingTime + secs }));
-        emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: filler, speakingTime: secs } });
-        // Show own speech in transcript immediately (don't wait for server round-trip)
-        setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
-        setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
-        emit('active-speaker', { roomCode: code, userId: user._id, speaking: true });
-        setTimeout(() => emit('active-speaker', { roomCode: code, userId: user._id, speaking: false }), 2500);
+
+        if (e.results[i].isFinal) {
+          setInterimSpeech('');
+          const words  = text.split(/\s+/).length;
+          const filler = countFillers(text);
+          const secs   = Math.max(1, Math.round((Date.now() - (speakStartRef.current || Date.now())) / 1000));
+          speakStartRef.current = Date.now();
+          setMyStats(s => ({ ...s, wordCount: s.wordCount + words, fillerWords: s.fillerWords + filler, speakingTime: s.speakingTime + secs }));
+          emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: filler, speakingTime: secs } });
+          setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
+          setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+          emit('active-speaker', { roomCode: code, userId: user._id, speaking: true });
+          setTimeout(() => emit('active-speaker', { roomCode: code, userId: user._id, speaking: false }), 2500);
+        } else {
+          setInterimSpeech(text);
+        }
       }
     };
+
     rec.onerror = (e) => {
       if (e.error === 'not-allowed') {
         shouldSpeakRef.current = false;
         setIsSpeaking(false);
-        alert('Microphone permission denied.');
+        alert('Microphone permission denied for Speech Recognition.');
+      } else if (e.error !== 'no-speech') {
+        console.warn('[SpeechRec error]', e.error);
       }
     };
+
     rec.onend = () => {
-      if (shouldSpeakRef.current) setTimeout(_startRecSession, 200);
-      else setIsSpeaking(false);
+      if (shouldSpeakRef.current) {
+        setTimeout(() => {
+          try { rec.start(); } catch {
+            recognitionRef.current = null;
+            if (shouldSpeakRef.current) _startRecSession();
+          }
+        }, 150);
+      } else {
+        setIsSpeaking(false);
+        recognitionRef.current = null;
+      }
     };
-    try { rec.start(); } catch {}
+
+    try {
+      rec.start();
+    } catch (err) {
+      console.warn('[SpeechRec start error]', err.message);
+    }
   }
 
-  async function startSpeaking() {
+  function startSpeaking() {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (!isMobile && !('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-      alert('Speech recognition needs Chrome or Edge.'); return;
+      alert('Speech recognition needs Chrome or Edge browser.'); return;
     }
-    if (isMuted) { alert('Unmute your mic first.'); return; }
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-      s.getTracks().forEach(t => t.stop());
-    } catch {
-      alert('Microphone access denied.'); return;
+    if (isMuted) {
+      setIsMuted(false);
+      setRTCMuted(false);
+      emit('media-status', { roomCode: code, userId: user._id, isMuted: false });
     }
     shouldSpeakRef.current = true;
     speakStartRef.current  = Date.now();
@@ -463,6 +498,7 @@ export default function GDRoomPage() {
   async function handleMediaReady(stream, { isMuted: muted, isCamOff: camOff } = {}) {
     localStreamRef.current = stream;
     rtcLocalRef.current    = stream;
+    setLocalStream(stream);
     setIsMuted(muted || false);
     setIsCamOff(camOff || false);
     setGateState('room');
@@ -652,6 +688,14 @@ export default function GDRoomPage() {
               chatInputRef={chatInputRef}
               participants={participants}
               topic={topic}
+              interimSpeech={interimSpeech}
+              manualSpeech={manualSpeech}
+              setManualSpeech={setManualSpeech}
+              emit={socketEmit}
+              code={code}
+              user={user}
+              setMyStats={setMyStats}
+              setCaptions={setCaptions}
             />
           </div>
         )}
@@ -681,21 +725,16 @@ export default function GDRoomPage() {
               userSelect:'none', WebkitUserSelect:'none',
               whiteSpace: 'nowrap',
             }}>
-            {isSpeaking ? '⏹ Stop Mic' : '🎤 Click to Speak'}
+            {isSpeaking ? '⏹ Stop Mic (Transcribing)' : '🎤 Click to Speak'}
           </button>
         )}
 
         {sessionState === 'active' && (moderatorVoice.isPlaying || participantVoice.isPlaying) && !isSpeaking && (
           <button
-            onClick={async () => {
+            onClick={() => {
               stopAllVoice();
               emit('interrupt-ai', { roomCode: code, userId: user?._id });
-              if (isMuted) {
-                setIsMuted(false);
-                setRTCMuted(false);
-                emit('media-status', { roomCode: code, userId: user?._id, isMuted: false });
-              }
-              await startSpeaking();
+              startSpeaking();
             }}
             style={{
               padding:'8px 18px', borderRadius:22, border:'none',
@@ -736,7 +775,8 @@ function ControlButton({ icon, label, active, color = '#ef4444', onClick, danger
 
 // ── SIDE PANEL ────────────────────────────────────────────────────────────────
 function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
-                     captionsEndRef, chatEndRef, onSendChat, chatInputRef, participants, topic }) {
+                     captionsEndRef, chatEndRef, onSendChat, chatInputRef, participants, topic,
+                     interimSpeech = '', manualSpeech = '', setManualSpeech, emit, code, user, setMyStats, setCaptions }) {
   const [tab, setTab] = React.useState('captions');
 
   return (
@@ -759,36 +799,95 @@ function SidePanel({ captions, chatMessages, myUserId, sessionState, myStats,
       <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column', minHeight:0 }}>
 
         {tab === 'captions' && (
-          <div style={{ flex:1, overflowY:'auto', padding:'10px 10px 0', minHeight:0 }}>
-            {captions.length === 0 && (
-              <div style={{ textAlign:'center', padding:'30px 0', color:'#4a5a7a', fontSize:'.75rem' }}>
-                {sessionState === 'active' ? 'Click to speak — transcripts appear here' : 'Transcripts will appear during discussion'}
+          <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:0 }}>
+            <div style={{ flex:1, overflowY:'auto', padding:'10px 10px 0', minHeight:0 }}>
+              {captions.length === 0 && !interimSpeech && (
+                <div style={{ textAlign:'center', padding:'30px 0', color:'#4a5a7a', fontSize:'.75rem' }}>
+                  {sessionState === 'active' ? 'Speak via Mic or type your speech below' : 'Transcripts will appear during discussion'}
+                </div>
+              )}
+              {captions.map((c, i) => (
+                <div key={i} style={{
+                  marginBottom:8, padding:'7px 9px', borderRadius:8,
+                  background: c.isAI
+                    ? (c.isParticipant ? 'rgba(83,22,151,0.12)' : 'rgba(19,161,165,0.1)')
+                    : c.userId === myUserId ? 'rgba(83,22,151,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: c.isAI
+                    ? (c.isParticipant ? '1px solid rgba(83,22,151,0.2)' : '1px solid rgba(19,161,165,0.2)')
+                    : '1px solid transparent',
+                }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
+                    <span style={{ fontWeight:800, fontSize:'.7rem', color:
+                      c.isAI ? (c.isParticipant ? '#c4a0f5' : '#13a1a5') :
+                      c.userId === myUserId ? '#c4a0f5' : '#9ab0c8' }}>
+                      {c.isAI ? (c.isParticipant ? '🤖 ' : '⚖️ ') : ''}{c.userName}
+                      {c.isParticipant && <span style={{ fontSize:'.58rem', marginLeft:4, opacity:.7 }}>(AI)</span>}
+                      {c.isAI && !c.isParticipant && <span style={{ fontSize:'.58rem', marginLeft:4, opacity:.7 }}>(Moderator)</span>}
+                    </span>
+                    <span style={{ fontSize:'.6rem', color:'#3a4a6a' }}>{new Date(c.ts).toLocaleTimeString('en-IN',{ hour:'2-digit', minute:'2-digit' })}</span>
+                  </div>
+                  <div style={{ fontSize:'.76rem', color:'#c8d8ea', lineHeight:1.5 }}>{c.text}</div>
+                </div>
+              ))}
+
+              {interimSpeech && (
+                <div style={{
+                  marginBottom:8, padding:'7px 9px', borderRadius:8,
+                  background: 'rgba(83,22,151,0.25)',
+                  border: '1px dashed #c4a0f5',
+                  animation: 'gdpulse 1s ease-in-out infinite'
+                }}>
+                  <div style={{ fontWeight:800, fontSize:'.7rem', color: '#c4a0f5', marginBottom:2 }}>
+                    🎤 You (speaking live...):
+                  </div>
+                  <div style={{ fontSize:'.76rem', color:'#fff', fontStyle:'italic', lineHeight:1.5 }}>
+                    {interimSpeech}
+                  </div>
+                </div>
+              )}
+              <div ref={captionsEndRef} style={{ height:4 }} />
+            </div>
+
+            {sessionState === 'active' && (
+              <div style={{ flexShrink:0, padding:'8px 10px', borderTop:'1px solid #1e2e4a', display:'flex', gap:6, background:'#0e1726' }}>
+                <input
+                  placeholder="Type speech & press Enter…"
+                  value={manualSpeech}
+                  onChange={e => setManualSpeech(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const text = manualSpeech.trim();
+                      if (!text) return;
+                      setManualSpeech('');
+                      const words = text.split(/\s+/).length;
+                      setMyStats(s => ({ ...s, wordCount: s.wordCount + words, speakingTime: s.speakingTime + 3 }));
+                      emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: 0, speakingTime: 3 } });
+                      setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
+                      setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+                      emit('active-speaker', { roomCode: code, userId: user._id, speaking: true });
+                      setTimeout(() => emit('active-speaker', { roomCode: code, userId: user._id, speaking: false }), 2000);
+                    }
+                  }}
+                  style={{ flex:1, padding:'7px 10px', borderRadius:7, border:'1px solid #2a3a5a', background:'var(--surface-2)', color:'#fff', fontFamily:"'Nunito',sans-serif", fontSize:'.78rem', outline:'none' }}
+                />
+                <button
+                  onClick={() => {
+                    const text = manualSpeech.trim();
+                    if (!text) return;
+                    setManualSpeech('');
+                    const words = text.split(/\s+/).length;
+                    setMyStats(s => ({ ...s, wordCount: s.wordCount + words, speakingTime: s.speakingTime + 3 }));
+                    emit('speech-update', { roomCode: code, userId: user._id, text, delta: { wordCount: words, fillerWords: 0, speakingTime: 3 } });
+                    setCaptions(c => [...c.slice(-80), { userId: user._id, userName: user.name, text, isAI: false, ts: Date.now() }]);
+                    setTimeout(() => captionsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+                    emit('active-speaker', { roomCode: code, userId: user._id, speaking: true });
+                    setTimeout(() => emit('active-speaker', { roomCode: code, userId: user._id, speaking: false }), 2000);
+                  }}
+                  style={{ padding:'7px 12px', borderRadius:7, border:'none', background:GRAD, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:'.78rem' }}>
+                  🗣️ Speak
+                </button>
               </div>
             )}
-            {captions.map((c, i) => (
-              <div key={i} style={{
-                marginBottom:8, padding:'7px 9px', borderRadius:8,
-                background: c.isAI
-                  ? (c.isParticipant ? 'rgba(83,22,151,0.12)' : 'rgba(19,161,165,0.1)')
-                  : c.userId === myUserId ? 'rgba(83,22,151,0.12)' : 'rgba(255,255,255,0.04)',
-                border: c.isAI
-                  ? (c.isParticipant ? '1px solid rgba(83,22,151,0.2)' : '1px solid rgba(19,161,165,0.2)')
-                  : '1px solid transparent',
-              }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:2 }}>
-                  <span style={{ fontWeight:800, fontSize:'.7rem', color:
-                    c.isAI ? (c.isParticipant ? '#c4a0f5' : '#13a1a5') :
-                    c.userId === myUserId ? '#c4a0f5' : '#9ab0c8' }}>
-                    {c.isAI ? (c.isParticipant ? '🤖 ' : '⚖️ ') : ''}{c.userName}
-                    {c.isParticipant && <span style={{ fontSize:'.58rem', marginLeft:4, opacity:.7 }}>(AI)</span>}
-                    {c.isAI && !c.isParticipant && <span style={{ fontSize:'.58rem', marginLeft:4, opacity:.7 }}>(Moderator)</span>}
-                  </span>
-                  <span style={{ fontSize:'.6rem', color:'#3a4a6a' }}>{new Date(c.ts).toLocaleTimeString('en-IN',{ hour:'2-digit', minute:'2-digit' })}</span>
-                </div>
-                <div style={{ fontSize:'.76rem', color:'#c8d8ea', lineHeight:1.5 }}>{c.text}</div>
-              </div>
-            ))}
-            <div ref={captionsEndRef} style={{ height:4 }} />
           </div>
         )}
 

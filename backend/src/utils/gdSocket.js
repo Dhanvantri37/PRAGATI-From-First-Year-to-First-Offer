@@ -46,23 +46,27 @@ function getAIParticipant(usedNames = []) {
   };
 }
 
-// ── Groq text generation ───────────────────────────────────────────────────
+// ── Groq text generation with multi-model rate-limit fallback ───────────────
 async function groqChat(systemPrompt, userMessage, maxTokens = 300) {
-  try {
-    const res = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userMessage },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.7,
-    });
-    return res.choices[0]?.message?.content?.trim() || '';
-  } catch (err) {
-    console.error('[groqChat]', err.message);
-    return '';
+  const models = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
+  for (const model of models) {
+    try {
+      const res = await groq.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: userMessage },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      });
+      const text = res.choices[0]?.message?.content?.trim();
+      if (text) return text;
+    } catch (err) {
+      console.warn(`[groqChat] Model ${model} failed (${err.message}). Trying fallback model...`);
+    }
   }
+  return '';
 }
 
 
@@ -250,16 +254,12 @@ async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', 
   const voiceCfg = getVoiceConfigForSpeaker(sp.name, sp.isParticipant || false);
   const ttsModel = sp.isParticipant ? voiceForAI(sp.name) : 'Celeste-PlayAI';
 
-  // Cascading TTS: ElevenLabs → Edge-TTS → Groq Play.ht
+  // Cascading TTS: ElevenLabs → Edge-TTS → Browser WebSpeech
   let ttsPromise = speakElevenLabs(text, voiceCfg.elevenlabs)
     .catch(err => {
-      console.warn(`[GD-TTS] ElevenLabs failed for ${sp.name}: ${err.message}. Trying Edge-TTS...`);
       return speakEdge(text, voiceCfg.edge);
     })
-    .catch(err => {
-      console.warn(`[GD-TTS] Edge-TTS failed for ${sp.name}: ${err.message}. Trying Groq...`);
-      return groqTTS(text, ttsModel);
-    });
+    .catch(() => null);
 
   ttsPromise.then(audioBase64 => {
     namespace.to(roomCode).emit('ai-voice', {
@@ -271,8 +271,7 @@ async function broadcastAIVoice(namespace, roomCode, text, type = 'moderation', 
       ttsVoice: voiceCfg.elevenlabs,
       isParticipant: sp.isParticipant || false
     });
-  }).catch((err) => {
-    console.error('[broadcastAIVoice] TTS failed entirely:', err.message);
+  }).catch(() => {
     namespace.to(roomCode).emit('ai-voice', {
       audioBase64: null,
       text,
@@ -299,58 +298,71 @@ async function checkTopicRelevance(topic, speech) {
 }
 
 // ── Generate contextual AI moderator interjection ─────────────────────────
-async function generateModeratorInterjection(topic, recentCaptions, type) {
+async function generateModeratorInterjection(topic, recentCaptions, type, roomParticipants = []) {
   const context = recentCaptions.slice(-5).map(c => `${c.userName}: ${c.text}`).join('\n');
+  const humanNames = roomParticipants.filter(p => !p.isAI).map(p => p.name).join(', ') || 'participants';
+  const allNames = roomParticipants.map(p => p.name).join(', ') || 'everyone';
+  const firstName = roomParticipants.find(p => !p.isAI)?.name || 'everyone';
+
   const prompts = {
-    opening:    `You are PRAGATI AI Moderator. Give a warm, professional GD opening (3-4 sentences). Welcome participants, introduce the topic "${topic}", explain they have time to discuss, and invite the first speaker.`,
-    off_topic:  `You are PRAGATI AI Moderator. The discussion has drifted. Recent exchanges:\n${context}\n\nPolitely redirect to topic "${topic}" in 1-2 sentences. Be encouraging, not harsh.`,
-    guide:      `You are PRAGATI AI Moderator. The discussion is going well. Topic: "${topic}"\nRecent:\n${context}\n\nAdd a thought-provoking angle or ask a question to deepen the discussion (1-2 sentences).`,
-    silence:    `You are PRAGATI AI Moderator. There's been silence in the GD on topic "${topic}". Gently prompt participants to contribute with a specific question (1 sentence).`,
-    time_warn:  `You are PRAGATI AI Moderator. 90 seconds remain in the GD on "${topic}". Ask participants to start summarizing their key points (1-2 sentences).`,
-    conclusion: `You are PRAGATI AI Moderator. The GD on "${topic}" is ending. Deliver a warm, professional conclusion (3-4 sentences): summarize key themes discussed, appreciate participants' effort, announce evaluation is generating.`,
+    opening:    `You are PRAGATI AI Moderator. Give a warm, professional GD opening (3-4 sentences). Welcome candidate(s) (${humanNames}) and AI participants, introduce the topic "${topic}", and invite ${firstName} to share initial thoughts. CRITICAL: Never use bracket placeholders like [Name]. Always use actual names: ${allNames}.`,
+    off_topic:  `You are PRAGATI AI Moderator. The discussion has drifted. Recent exchanges:\n${context}\n\nPolitely redirect ${allNames} to topic "${topic}" in 1-2 sentences. Never use placeholders like [Name].`,
+    guide:      `You are PRAGATI AI Moderator. The discussion is going well on topic "${topic}".\nRecent:\n${context}\n\nAdd a thought-provoking angle or question for ${allNames} (1-2 sentences). Never use placeholders like [Name].`,
+    silence:    `You are PRAGATI AI Moderator. There's been silence in the GD on topic "${topic}". Gently prompt ${firstName} or other participants to contribute with a question (1 sentence). Never use placeholders like [Name].`,
+    time_warn:  `You are PRAGATI AI Moderator. 90 seconds remain in the GD on "${topic}". Ask ${allNames} to start summarizing key points (1-2 sentences). Never use placeholders like [Name].`,
+    conclusion: `You are PRAGATI AI Moderator. The GD on "${topic}" is ending. Deliver a warm conclusion (3-4 sentences): thank ${allNames}, summarize key themes, announce reports are generating. Never use placeholders like [Name].`,
   };
-  return await groqChat(
-    'You are a professional, encouraging GD moderator. Keep responses concise and natural.',
+
+  let resText = await groqChat(
+    'You are a professional, encouraging GD moderator. Speak directly using participants\' real names. Never output placeholders like [Name] or [Participant].',
     prompts[type] || prompts.guide,
     200
   );
+
+  // Sanitizer cleanup: strip any rogue brackets or placeholders
+  resText = resText
+    .replace(/\[Name\]|\[Participant Name\]|\[Participant\]|\[Your Name\]|\[Candidate Name\]|\[Speaker Name\]/gi, firstName)
+    .replace(/\[.*?\]/g, '');
+
+  return resText;
 }
 
 // ── Generate contextual AI participant reply (turn-taking) ────────────────
-async function generateAIParticipantReply(aiName, topic, conversationHistory, lastHumanSpeech) {
-  // Build full conversation context
+async function generateAIParticipantReply(aiName, topic, conversationHistory, lastHumanSpeech, roomParticipants = []) {
   const context = conversationHistory
     .slice(-8)
     .map(c => `${c.userName}: ${c.text}`)
     .join('\n');
 
-  const prompt = `You are ${aiName}, a student participant in a Group Discussion for campus placement at a top IT company.
+  const namesList = (roomParticipants || []).map(p => p.name).join(', ') || 'fellow candidates';
+  const humanName = (roomParticipants || []).find(p => !p.isAI)?.name || 'my colleague';
 
+  const prompt = `You are ${aiName}, a student participant in a campus placement GD.
 GD Topic: "${topic}"
+Other participants in the room: ${namesList}
 
 Recent conversation:
 ${context}
 
-The last person just said: "${lastHumanSpeech}"
+Last speech by participant: "${lastHumanSpeech}"
 
-Your task: Respond naturally as a GD participant. 
 Rules:
-- Keep your response to 2-3 sentences maximum
-- Directly acknowledge or build upon what was just said
-- Add a new angle, a counterpoint, or supporting evidence
-- Use natural conversational language (not formal speech)
-- Do NOT introduce yourself again
-- Do NOT repeat what was already said
-- Sound like a real student, not a robot
-- Stay strictly on topic: "${topic}"
+- Respond in 2-3 natural sentences building on what ${humanName} or others said.
+- Use natural conversational language.
+- CRITICAL: Never output bracket placeholders like [Name]. Address participants directly by name (${namesList}).
+- Stay on topic: "${topic}".`;
 
-Respond now as ${aiName}:`;
-
-  return await groqChat(
-    `You are ${aiName}, a real student in a GD. Speak naturally, concisely, and stay on topic. Never break character.`,
+  let resText = await groqChat(
+    `You are ${aiName}, a student in a GD. Speak naturally using actual names. Never use bracket placeholders.`,
     prompt,
     150
   );
+
+  resText = resText
+    .replace(/\[Name\]|\[Participant Name\]|\[Participant\]|\[Your Name\]|\[Candidate Name\]|\[Speaker Name\]/gi, humanName)
+    .replace(/\[.*?\]/g, '');
+
+  return resText;
 }
 
 // ── AI participant reply cooldown tracker ─────────────────────────────────
@@ -620,10 +632,10 @@ function registerGDSocket(io, GDRoom) {
 
         // ── AI Participant contextual reply ────────────────────────────────
         // Trigger after human speaks — AI participant responds naturally
-        // Cooldown: only one AI reply per 15 seconds to avoid flooding
+        // Cooldown: only 5 seconds between AI replies to keep discussion lively
         const now = Date.now();
         const lastReply = aiReplyCooldown[roomCode] || 0;
-        const cooldownMs = 30000;
+        const cooldownMs = 5000;
 
         if (now - lastReply > cooldownMs) {
           const aiParticipants = room.participants.filter(p => p.isAI && !p.name.includes('Moderator'));
@@ -631,8 +643,8 @@ function registerGDSocket(io, GDRoom) {
             aiReplyCooldown[roomCode] = now;
             // Pick a random AI participant to reply
             const aiPart = aiParticipants[Math.floor(Math.random() * aiParticipants.length)];
-            // Natural thinking delay: 2-5 seconds
-            const thinkDelay = 2000 + Math.floor(Math.random() * 3000);
+            // Natural thinking delay: 1-2.5 seconds
+            const thinkDelay = 1000 + Math.floor(Math.random() * 1500);
             setTimeout(async () => {
               try {
                 const freshRoom = await GDRoom.findOne({ roomCode });
@@ -641,7 +653,8 @@ function registerGDSocket(io, GDRoom) {
                   aiPart.name,
                   freshRoom.topic,
                   recentCaptions[roomCode] || [],
-                  text
+                  text,
+                  freshRoom.participants
                 );
                 if (reply && reply.trim().length > 10) {
                   const aiCaption = {
@@ -746,7 +759,8 @@ function resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTi
           aiPart.name,
           room.topic,
           recentCaptions[roomCode] || [],
-          "[Silence in the room. Introduce a new strong point or question to restart the discussion.]"
+          "[Silence in the room. Introduce a new strong point or question to restart the discussion.]",
+          room.participants
         );
         if (reply && reply.trim().length > 10) {
           const aiCaption = {
@@ -764,7 +778,6 @@ function resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTi
         }
       } catch (err) { console.error('[aiParticipantSilenceReply]', err.message); }
     } else {
-      // If there are NO AI participants, the moderator is allowed to interrupt
       try {
         const reply = await generateModeratorInterjection(room.topic, recentCaptions[roomCode] || [], 'interjection');
         if (reply && reply.trim().length > 10) {
@@ -782,12 +795,32 @@ function resetSilenceTimer(roomCode, topic, namespace, GDRoom, timers, silenceTi
         }
       } catch (err) { console.error('[moderatorSilenceReply]', err.message); }
     }
-  }, 30000); // 30 seconds of silence triggers an AI or Moderator
+  }, 6000); // 6 seconds of silence triggers an AI or Moderator to speak
 }
 
 // ── LOCK & START ───────────────────────────────────────────────────────────
 async function doLock(room, roomCode, namespace, GDRoom, timers, silenceTimers, recentCaptions) {
   try {
+    // Ensure AI participants are added so single-user rooms immediately have AI conversation partners
+    const aiCount = room.participants.filter(p => p.isAI).length;
+    if (aiCount < 2) {
+      const AI_PERSONAS = [
+        { name: 'Arjun AI', avatarUrl: '/arjun_sharma.png' },
+        { name: 'Priya AI', avatarUrl: '/priya_mehta.png' },
+        { name: 'Vikram AI', avatarUrl: '/vikram_nair.png' }
+      ];
+      const usedNames = room.participants.map(p => p.name);
+      const available = AI_PERSONAS.filter(p => !usedNames.includes(p.name));
+      for (let i = 0; i < Math.min(2, available.length); i++) {
+        const persona = available[i];
+        room.participants.push({
+          name: persona.name, isAI: true,
+          avatarUrl: persona.avatarUrl,
+          speakingTime: 0, wordCount: 0,
+        });
+      }
+    }
+
     const topic = await generateTopic(room);
     room.topic    = topic;
     room.state    = 'locked';
@@ -803,7 +836,7 @@ async function doLock(room, roomCode, namespace, GDRoom, timers, silenceTimers, 
     room.state = 'prep';
     await room.save();
 
-    const prepMsg = await generateModeratorInterjection(topic, [], 'opening');
+    const prepMsg = await generateModeratorInterjection(topic, [], 'opening', room.participants);
     namespace.to(roomCode).emit('prep-phase', {
       duration: room.prepSeconds, topic,
       message: `You have ${room.prepSeconds} seconds to prepare your thoughts.`,
@@ -829,7 +862,7 @@ async function doLock(room, roomCode, namespace, GDRoom, timers, silenceTimers, 
 
       // AI starts the discussion
       setTimeout(async () => {
-        const openMsg = await generateModeratorInterjection(topic, [], 'opening');
+        const openMsg = await generateModeratorInterjection(topic, [], 'opening', r.participants);
         if (openMsg) {
           await broadcastAIVoice(namespace, roomCode, openMsg, 'opening');
           if (!recentCaptions[roomCode]) recentCaptions[roomCode] = [];
@@ -847,7 +880,7 @@ async function doLock(room, roomCode, namespace, GDRoom, timers, silenceTimers, 
       setTimeout(async () => {
         const fr = await GDRoom.findOne({ roomCode });
         if (!fr || fr.state !== 'active') return;
-        const warnMsg = await generateModeratorInterjection(topic, recentCaptions[roomCode] || [], 'time_warn');
+        const warnMsg = await generateModeratorInterjection(topic, recentCaptions[roomCode] || [], 'time_warn', fr.participants);
         if (warnMsg) {
           await broadcastAIVoice(namespace, roomCode, warnMsg, 'warning');
           recentCaptions[roomCode] = [...(recentCaptions[roomCode] || []).slice(-10),
