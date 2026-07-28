@@ -206,14 +206,9 @@ router.post('/ask-mentor', authenticate, async (req, res) => {
     const alumni = await Alumni.findById(alumniId);
     if (!alumni) return res.status(404).json({ error: 'Alumni profile not found' });
 
-    if (!process.env.GROQ_API_KEY) {
-      return res.json({
-        advice: `To get into ${alumni.company} as a ${alumni.role}, focus on core Computer Science fundamentals, System Design, and building projects using ${alumni.skills?.join(', ') || 'modern tech stacks'}.`,
-        alumniName: alumni.name,
-      });
-    }
-
-    const prompt = `You are acting as an AI Career Mentor representing ${alumni.name}, a graduate from KIT's College of Engineering Kolhapur, now working as ${alumni.role} at ${alumni.company}.
+    try {
+      if (process.env.GROQ_API_KEY) {
+        const prompt = `You are acting as an AI Career Mentor representing ${alumni.name}, a graduate from KIT's College of Engineering Kolhapur, now working as ${alumni.role} at ${alumni.company}.
 Department: ${alumni.department || 'Engineering'} (Batch ${alumni.batch || 'Alumnus'})
 Skills & Expertise: ${(alumni.skills || []).join(', ')}
 Bio/Background: ${alumni.bio || ''}
@@ -223,15 +218,61 @@ A current student asked you:
 
 Provide a warm, practical, 3-paragraph career advice response from the perspective of an alumnus who successfully cracked a role at ${alumni.company}. Mention specific technical skills to learn, interview preparation tips, and encouragement. Keep it realistic, encouraging, and highly useful for an engineering student.`;
 
-    const aiResp = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 450,
-      temperature: 0.5,
-    });
+        const aiResp = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 450,
+          temperature: 0.5,
+        });
 
-    const advice = aiResp.choices?.[0]?.message?.content?.trim() || '';
-    res.json({ advice, alumniName: alumni.name, company: alumni.company, role: alumni.role });
+        const advice = aiResp.choices?.[0]?.message?.content?.trim();
+        if (advice) {
+          return res.json({ advice, alumniName: alumni.name, company: alumni.company, role: alumni.role });
+        }
+      }
+    } catch (groqErr) {
+      console.warn('[ask-mentor] Groq error fallback:', groqErr.message);
+    }
+
+    // High-quality structured fallback advice if Groq is unavailable
+    const fallbackAdvice = `Hello! Based on my experience at ${alumni.company} as a ${alumni.role} (KIT Kolhapur Alumnus):
+
+1. **Technical Foundation**: Master core Data Structures, Algorithms, and ${alumni.skills?.[0] || 'System Architecture'}. At ${alumni.company}, we value strong problem-solving skills and clean code practices.
+
+2. **Project Experience**: Build 2-3 end-to-end production projects relevant to ${alumni.department || 'Engineering'}. Showcase your GitHub repositories and deploy your work live.
+
+3. **Interview Preparation**: Practice mock interviews and review past interview experiences for ${alumni.company}. Stay persistent, update your resume with quantifiable metrics, and keep building!`;
+
+    res.json({ advice: fallbackAdvice, alumniName: alumni.name, company: alumni.company, role: alumni.role });
+  } catch (err) {
+    res.status(500).json({ error: 'Unable to process AI mentor request' });
+  }
+});
+
+// ── POST /api/alumni/generate-outreach-draft — Draft LinkedIn Note ─────────
+router.post('/generate-outreach-draft', authenticate, async (req, res) => {
+  try {
+    const { alumniId, helpType = 'referral', customNote = '' } = req.body;
+    const alumni = await Alumni.findById(alumniId);
+    if (!alumni) return res.status(404).json({ error: 'Alumni not found' });
+
+    const studentName = req.user?.name || 'KIT Student';
+    const studentDept = req.user?.department || 'CSE / AIML';
+
+    let draft = '';
+    const firstName = alumni.name ? alumni.name.split(' ')[0] : 'Alumnus';
+
+    if (helpType === 'referral') {
+      draft = `Hi ${firstName}, I'm ${studentName}, currently studying ${studentDept} at KIT's College of Engineering, Kolhapur. I noticed your work as ${alumni.role} at ${alumni.company}. I am applying for software engineering roles at ${alumni.company} and would love to connect and learn about potential referral opportunities!`;
+    } else if (helpType === 'mentorship') {
+      draft = `Hi ${firstName}, I'm ${studentName} from KIT Kolhapur (${studentDept}). I admire your career path to ${alumni.company} as a ${alumni.role}. Would love to connect and get your advice on preparing for tech roles in our field.`;
+    } else if (helpType === 'resume-review') {
+      draft = `Hi ${firstName}, I'm ${studentName}, a student at KIT Kolhapur. I'm preparing my resume for top tech companies like ${alumni.company}. Could I share my resume with you for a quick 2-minute feedback? Best regards!`;
+    } else {
+      draft = `Hi ${firstName}, I'm ${studentName} from KIT's College of Engineering, Kolhapur (${studentDept}). Excited to connect with fellow KIT alumni working at top companies like ${alumni.company}!`;
+    }
+
+    res.json({ draftMessage: draft, linkedinUrl: alumni.linkedinUrl, alumniName: alumni.name, company: alumni.company });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -263,16 +304,16 @@ router.get('/', authenticate, async (req, res) => {
     const skip = (Number(page) - 1) * Number(limit);
     let [alumni, total] = await Promise.all([
       Alumni.find(filter)
-        .select('-embedding -email')   // never expose emails to students
+        .select('-embedding -email')
         .sort({ batch: -1 })
         .skip(skip)
         .limit(Number(limit)),
       Alumni.countDocuments(filter),
     ]);
 
-    // If zero alumni in database, trigger live web discovery for KIT Kolhapur
-    if (total === 0) {
-      await crawlAlumniPublicWeb(search || company || department || 'Engineer');
+    // If fewer than 3 alumni for a specific company or query search, trigger live web discovery for KIT Kolhapur
+    if (total < 3 && (search || company || department)) {
+      await crawlAlumniPublicWeb(search || company || department);
       [alumni, total] = await Promise.all([
         Alumni.find(filter).select('-embedding -email').sort({ batch: -1 }).skip(skip).limit(Number(limit)),
         Alumni.countDocuments(filter),

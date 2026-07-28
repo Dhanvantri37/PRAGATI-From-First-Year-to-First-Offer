@@ -22,17 +22,12 @@ const HELP_TYPES = [
   { value: 'general',          label: '💬 General Connect', desc: 'Just want to network' },
 ];
 
-function AlumniCard({ alumni, onConnect, myConnections }) {
+function AlumniCard({ alumni, onAskMentor, onDraftMessage }) {
   const dept    = alumni.department?.toUpperCase();
   const dc      = DEPT_COLORS[dept] || DEPT_COLORS['CSE'];
   const initials = alumni.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-  const conn    = myConnections.find(c => c.alumni?._id === alumni._id);
 
-  const statusBadge = conn ? {
-    pending:  { label: '⏳ Request Sent',     color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'   },
-    accepted: { label: '✅ Connected',         color: '#166534', bg: 'rgba(71,211,114,0.1)'   },
-    declined: { label: '❌ Declined',          color: '#991b1b', bg: 'rgba(239,68,68,0.08)'   },
-  }[conn.status] : null;
+  const linkedinUrl = alumni.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(`KIT Kolhapur ${alumni.name} ${alumni.company}`)}`;
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 16, border: '1px solid #e8edf5',
@@ -54,12 +49,12 @@ function AlumniCard({ alumni, onConnect, myConnections }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.95rem', color: 'var(--text)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alumni.name}</div>
-          <div style={{ fontSize: '.78rem', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: '.78rem', color: '#0a66c2', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {alumni.role || 'Software Engineer'} {alumni.company ? `@ ${alumni.company}` : ''}
           </div>
-          {alumni.location && (
-            <div style={{ fontSize: '.7rem', color: '#b0bec9', marginTop: 2 }}>📍 {alumni.location}</div>
-          )}
+          <div style={{ fontSize: '.7rem', color: '#b0bec9', marginTop: 2 }}>
+            🎓 KIT Kolhapur {alumni.batch ? `(${alumni.batch})` : ''} {alumni.location ? `· 📍 ${alumni.location}` : ''}
+          </div>
         </div>
       </div>
 
@@ -71,18 +66,16 @@ function AlumniCard({ alumni, onConnect, myConnections }) {
             {alumni.department}
           </span>
         )}
-        {alumni.batch && (
-          <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '.65rem', fontWeight: 700,
-            background: 'rgba(4,44,93,0.06)', color: '#042c5d', border: '1px solid rgba(4,44,93,0.12)' }}>
-            Batch {alumni.batch}
+        {alumni.company && (
+          <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '.65rem', fontWeight: 800,
+            background: 'rgba(10,102,194,0.08)', color: '#0a66c2', border: '1px solid rgba(10,102,194,0.2)' }}>
+            🏢 {alumni.company}
           </span>
         )}
-        {alumni.availableFor && alumni.availableFor !== 'none' && (
-          <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '.65rem', fontWeight: 700,
-            background: 'rgba(71,211,114,0.08)', color: '#166534', border: '1px solid rgba(71,211,114,0.2)' }}>
-            ✓ Available for {alumni.availableFor}
-          </span>
-        )}
+        <span style={{ padding: '2px 8px', borderRadius: 999, fontSize: '.65rem', fontWeight: 700,
+          background: 'rgba(71,211,114,0.08)', color: '#166534', border: '1px solid rgba(71,211,114,0.2)' }}>
+          ✓ Verified Alumnus
+        </span>
       </div>
 
       {/* Skills */}
@@ -94,11 +87,6 @@ function AlumniCard({ alumni, onConnect, myConnections }) {
               {s}
             </span>
           ))}
-          {alumni.skills.length > 5 && (
-            <span style={{ padding: '2px 7px', borderRadius: 6, fontSize: '.62rem', color: '#b0bec9' }}>
-              +{alumni.skills.length - 5}
-            </span>
-          )}
         </div>
       )}
 
@@ -110,13 +98,6 @@ function AlumniCard({ alumni, onConnect, myConnections }) {
         </div>
       )}
 
-      {/* Mentorship areas */}
-      {alumni.mentorshipAreas?.length > 0 && (
-        <div style={{ fontSize: '.7rem', color: 'var(--text-3)' }}>
-          🎯 Mentors in: <strong>{alumni.mentorshipAreas.slice(0, 3).join(', ')}</strong>
-        </div>
-      )}
-
       {/* Action row */}
       <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
         <button onClick={() => onAskMentor(alumni)}
@@ -125,28 +106,20 @@ function AlumniCard({ alumni, onConnect, myConnections }) {
             cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
           🤖 Ask AI Mentor
         </button>
-        {statusBadge ? (
-          <div style={{ padding: '8px 12px', borderRadius: 9, textAlign: 'center',
-            background: statusBadge.bg, color: statusBadge.color, fontWeight: 700, fontSize: '.75rem',
-            border: `1px solid ${statusBadge.color}30` }}>
-            {statusBadge.label}
-          </div>
-        ) : (
-          <button onClick={() => onConnect(alumni)}
-            style={{ padding: '8px 12px', borderRadius: 9, border: 'none',
-              background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff',
-              fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem' }}>
-            🤝 Connect
-          </button>
-        )}
-        {alumni.linkedinUrl && (
-          <a href={alumni.linkedinUrl} target="_blank" rel="noreferrer"
-            style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid rgba(10,102,194,0.3)',
-              background: 'rgba(10,102,194,0.06)', color: '#0a66c2', fontWeight: 700,
-              textDecoration: 'none', fontSize: '.75rem' }}>
-            LinkedIn
-          </a>
-        )}
+
+        <button onClick={() => onDraftMessage(alumni)}
+          style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid rgba(10,102,194,0.3)',
+            background: 'rgba(10,102,194,0.08)', color: '#0a66c2',
+            fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          📩 LinkedIn Referral Draft
+        </button>
+
+        <a href={linkedinUrl} target="_blank" rel="noreferrer"
+          style={{ padding: '8px 12px', borderRadius: 9, border: 'none',
+            background: '#0a66c2', color: '#fff', fontWeight: 800,
+            textDecoration: 'none', fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+          🔗 View Profile
+        </a>
       </div>
     </div>
   );
@@ -228,76 +201,97 @@ function AskMentorModal({ alumni, onClose }) {
   );
 }
 
+// ── LinkedIn Referral & Outreach Note Generator Modal ─────────────────────
+function OutreachDraftModal({ alumni, onClose }) {
+  const [helpType, setHelpType] = useState('referral');
+  const [draft, setDraft]       = useState('');
+  const [copied, setCopied]     = useState(false);
+  const [loading, setLoading]   = useState(false);
 
-function ConnectModal({ alumni, onClose, onSubmit, loading }) {
-  const [helpType, setHelpType] = useState('general');
-  const [message, setMessage]  = useState('');
+  useEffect(() => {
+    async function loadDraft() {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/alumni/generate-outreach-draft`, {
+          method: 'POST', headers: tks(),
+          body: JSON.stringify({ alumniId: alumni._id, helpType })
+        });
+        const d = await res.json();
+        setDraft(d.draftMessage || '');
+      } catch {}
+      setLoading(false);
+    }
+    loadDraft();
+  }, [alumni._id, helpType]);
+
+  const linkedinUrl = alumni.linkedinUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(`KIT Kolhapur ${alumni.name} ${alumni.company}`)}`;
+
+  function handleCopyAndOpen() {
+    navigator.clipboard.writeText(draft);
+    setCopied(true);
+    setTimeout(() => {
+      window.open(linkedinUrl, '_blank');
+      setCopied(false);
+    }, 800);
+  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(4,44,93,0.55)',
       zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div style={{ background: 'var(--surface)', borderRadius: 18, padding: '28px 30px',
-        width: '100%', maxWidth: 500, boxShadow: '0 20px 60px rgba(83,22,151,0.25)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 18, padding: '26px 28px',
+        width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(10,102,194,0.25)' }}>
 
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.15rem',
-          color: 'var(--text)', marginBottom: 6 }}>
-          🤝 Connect with {alumni.name}
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.15rem', color: '#0a66c2', marginBottom: 4 }}>
+          📩 Draft LinkedIn Outreach Note for {alumni.name}
         </div>
-        <div style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 20 }}>
+        <div style={{ fontSize: '.82rem', color: 'var(--text-3)', marginBottom: 16 }}>
           {alumni.role} @ {alumni.company} · KIT's Kolhapur Alumnus
         </div>
 
-        {/* Help type selector */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)',
-            textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8,
-            fontFamily: "'Syne',sans-serif" }}>
-            How can they help you?
-          </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: '.75rem', fontWeight: 800, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
+            Select Outreach Goal:
+          </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {HELP_TYPES.map(h => (
-              <button key={h.value} onClick={() => setHelpType(h.value)}
-                style={{ padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${helpType === h.value ? '#531697' : '#e0e6f0'}`,
-                  background: helpType === h.value ? 'rgba(83,22,151,0.06)' : 'transparent',
-                  cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
-                <div style={{ fontWeight: 700, fontSize: '.75rem', color: helpType === h.value ? '#531697' : 'var(--text)' }}>{h.label}</div>
-                <div style={{ fontSize: '.65rem', color: 'var(--text-3)', marginTop: 2 }}>{h.desc}</div>
+            {[
+              { id: 'referral',      label: '🔗 Job Referral Request' },
+              { id: 'mentorship',    label: '🎓 Career Mentorship' },
+              { id: 'resume-review', label: '📄 Resume Feedback' },
+              { id: 'general',       label: '💬 General Networking' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setHelpType(t.id)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1.5px solid ${helpType === t.id ? '#0a66c2' : '#e0e6f0'}`,
+                  background: helpType === t.id ? 'rgba(10,102,194,0.08)' : '#fff', color: helpType === t.id ? '#0a66c2' : 'var(--text)',
+                  fontWeight: 700, fontSize: '.75rem', cursor: 'pointer' }}>
+                {t.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Personal message */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: '.72rem', fontWeight: 800, color: 'var(--text-3)',
-            textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
-            fontFamily: "'Syne',sans-serif" }}>
-            Introduce Yourself (optional)
-          </div>
-          <textarea value={message} onChange={e => setMessage(e.target.value)} rows={3}
-            placeholder={`Hi ${alumni.name.split(' ')[0]}, I'm a student at KIT's Kolhapur. I'm interested in ${helpType === 'referral' ? 'a referral opportunity' : 'your guidance'}...`}
-            maxLength={500}
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid #d0d7e8',
-              fontFamily: "'Nunito',sans-serif", fontSize: '.84rem', resize: 'vertical',
-              outline: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
-          <div style={{ textAlign: 'right', fontSize: '.65rem', color: '#b0bec9', marginTop: 3 }}>
-            {message.length}/500
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: '.75rem', fontWeight: 800, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>
+            Personalized Connection Request Note:
+          </label>
+          <textarea value={loading ? 'Generating customized note...' : draft} onChange={e => setDraft(e.target.value)} rows={5}
+            style={{ width: '100%', padding: '12px', borderRadius: 10, border: '1.5px solid #d0d7e8',
+              fontSize: '.83rem', fontFamily: "'Nunito',sans-serif", outline: 'none', boxSizing: 'border-box', lineHeight: 1.5 }} />
+          <div style={{ fontSize: '.68rem', color: '#b0bec9', marginTop: 4 }}>
+            💡 Tip: Copy this note and paste it directly into LinkedIn when sending your connection request!
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={() => onSubmit({ helpType, message })} disabled={loading}
+          <button onClick={handleCopyAndOpen}
             style={{ flex: 1, padding: '11px', borderRadius: 10, border: 'none',
-              background: loading ? '#d0d7e8' : 'linear-gradient(135deg,#531697,#13a1a5)',
-              color: '#fff', fontWeight: 800, cursor: loading ? 'default' : 'pointer',
-              fontFamily: "'Nunito',sans-serif", fontSize: '.88rem' }}>
-            {loading ? '⏳ Sending...' : '🚀 Send Connection Request'}
+              background: copied ? '#166534' : 'linear-gradient(135deg,#0a66c2,#13a1a5)',
+              color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.84rem' }}>
+            {copied ? '✅ Copied! Opening LinkedIn...' : '📋 Copy Note & Open LinkedIn Profile'}
           </button>
           <button onClick={onClose}
-            style={{ padding: '11px 18px', borderRadius: 10, border: '1.5px solid #d0d7e8',
-              background: 'transparent', color: 'var(--text-3)', fontWeight: 700,
-              cursor: 'pointer', fontFamily: "'Nunito',sans-serif" }}>
-            Cancel
+            style={{ padding: '11px 16px', borderRadius: 10, border: '1.5px solid #d0d7e8',
+              background: 'transparent', color: 'var(--text-3)', fontWeight: 700, cursor: 'pointer' }}>
+            Close
           </button>
         </div>
       </div>
@@ -325,6 +319,7 @@ export default function AlumniPage() {
 
   // RAG Search & Mentor AI
   const [askTarget, setAskTarget]       = useState(null);
+  const [draftTarget, setDraftTarget]   = useState(null);
   const [ragQuery, setRagQuery]         = useState('');
   const [ragSearching, setRagSearching] = useState(false);
 
@@ -531,7 +526,7 @@ export default function AlumniPage() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 24 }}>
                 {alumni.map(a => (
-                  <AlumniCard key={a._id} alumni={a} onConnect={setConnectTarget} onAskMentor={setAskTarget} myConnections={connections} />
+                  <AlumniCard key={a._id} alumni={a} onDraftMessage={setDraftTarget} onAskMentor={setAskTarget} />
                 ))}
               </div>
 
@@ -570,7 +565,7 @@ export default function AlumniPage() {
               <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1rem',
                 color: 'var(--text)', marginBottom: 6 }}>No Connections Yet</div>
               <div style={{ color: 'var(--text-3)', fontSize: '.84rem', marginBottom: 16 }}>
-                Start connecting with KIT's alumni for mentorship and opportunities!
+                Start connecting with KIT's alumni on LinkedIn for mentorship and opportunities!
               </div>
               <button onClick={() => setActiveTab('browse')}
                 style={{ padding: '10px 24px', borderRadius: 10, border: 'none',
@@ -584,47 +579,29 @@ export default function AlumniPage() {
               {connections.map(conn => {
                 const a = conn.alumni;
                 const statusColors = {
-                  pending:  { bg: 'rgba(245,158,11,0.08)',  color: '#92400e', label: '⏳ Pending'  },
-                  accepted: { bg: 'rgba(71,211,114,0.08)',  color: '#166534', label: '✅ Connected' },
-                  declined: { bg: 'rgba(239,68,68,0.08)',   color: '#991b1b', label: '❌ Declined'  },
+                  pending:  { bg: 'rgba(245,158,11,0.1)', color: '#f59e0b', label: '⏳ Request Sent' },
+                  accepted: { bg: 'rgba(71,211,114,0.1)', color: '#166534', label: '✅ Connected' },
+                  declined: { bg: 'rgba(239,68,68,0.1)', color: '#991b1b', label: '❌ Declined' },
                 };
                 const sc = statusColors[conn.status] || statusColors.pending;
 
                 return (
-                  <div key={conn._id} style={{ background: 'var(--surface)', borderRadius: 14,
-                    border: '1px solid #e8edf5', padding: '16px 18px',
-                    display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10,
-                      background: 'linear-gradient(135deg,#531697,#13a1a5)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontWeight: 800, fontSize: '.85rem', flexShrink: 0 }}>
-                      {a?.name?.charAt(0)?.toUpperCase()}
+                  <div key={conn._id} style={{ background: 'var(--surface)', borderRadius: 12, border: '1px solid #e8edf5',
+                    padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: 'linear-gradient(135deg,#531697,#13a1a5)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>
+                      {a?.name?.slice(0, 2).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: '.88rem', color: 'var(--text)' }}>{a?.name}</div>
-                      <div style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>
-                        {a?.role} {a?.company ? `@ ${a.company}` : ''} · Batch {a?.batch}
-                      </div>
-                      {conn.message && (
-                        <div style={{ fontSize: '.72rem', color: '#b0bec9', marginTop: 4, fontStyle: 'italic' }}>
-                          "{conn.message.slice(0, 100)}{conn.message.length > 100 ? '...' : ''}"
-                        </div>
-                      )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: '.9rem', color: 'var(--text)' }}>{a?.name}</div>
+                      <div style={{ fontSize: '.75rem', color: 'var(--text-3)' }}>{a?.role} @ {a?.company}</div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                      <span style={{ padding: '3px 10px', borderRadius: 999, fontSize: '.7rem', fontWeight: 700,
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ padding: '4px 10px', borderRadius: 999, fontSize: '.68rem', fontWeight: 700,
                         background: sc.bg, color: sc.color }}>
                         {sc.label}
                       </span>
-                      <span style={{ fontSize: '.65rem', color: '#b0bec9' }}>
-                        {HELP_TYPES.find(h => h.value === conn.helpType)?.label || '💬 General'}
-                      </span>
                       <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                        <a href="/dashboard/discussions"
-                          style={{ padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg,#531697,#13a1a5)',
-                            color: '#fff', fontWeight: 800, textDecoration: 'none', fontSize: '.72rem', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          💬 Chat Now
-                        </a>
                         {a?.linkedinUrl && (
                           <a href={a.linkedinUrl} target="_blank" rel="noreferrer"
                             style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(10,102,194,0.3)',
@@ -634,7 +611,6 @@ export default function AlumniPage() {
                           </a>
                         )}
                       </div>
-
                     </div>
                   </div>
                 );
@@ -644,11 +620,10 @@ export default function AlumniPage() {
         </div>
       )}
 
-      {/* Connect Modal */}
-      {connectTarget && (
-        <ConnectModal alumni={connectTarget} loading={connecting}
-          onClose={() => setConnectTarget(null)}
-          onSubmit={sendConnect} />
+      {/* Draft LinkedIn Message Modal */}
+      {draftTarget && (
+        <OutreachDraftModal alumni={draftTarget}
+          onClose={() => setDraftTarget(null)} />
       )}
 
       {/* Ask AI Mentor Modal */}

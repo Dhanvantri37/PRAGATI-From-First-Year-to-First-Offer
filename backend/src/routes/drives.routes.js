@@ -152,6 +152,12 @@ Make it informative and suitable for engineering students. Focus on: what the ro
           const randomDays = Math.floor(Math.random() * 20) + 5;
           const deadlineDate = new Date(today.getTime() + randomDays * 24 * 60 * 60 * 1000);
 
+          // Format clean direct application URL for Google News items
+          let cleanApplyLink = link;
+          if (link.includes('news.google.com') || link.includes('google.com/rss')) {
+            cleanApplyLink = `https://www.google.com/search?q=${encodeURIComponent(`${company} ${title} apply official career 2026`)}`;
+          }
+
           // Dedup by company + title
           await PlacementDrive.findOneAndUpdate(
             { companyName: company, role: title, isScraped: true },
@@ -159,7 +165,7 @@ Make it informative and suitable for engineering students. Focus on: what the ro
               $set: {
                 companyName:     company,
                 role:            title,
-                applyLink:       link,
+                applyLink:       cleanApplyLink,
                 description:     aiDescription || description || '',
                 aiDescription:   aiDescription,
                 opportunityType: opportunityType,
@@ -167,7 +173,7 @@ Make it informative and suitable for engineering students. Focus on: what the ro
                 isGovt:          isGovt,
                 branches:        branches || [],
                 sourceName:      sourceName || 'External',
-                sourceUrl:       link,
+                sourceUrl:       cleanApplyLink,
                 isScraped:       true,
                 scrapedDate:     today,
                 status:          'open',

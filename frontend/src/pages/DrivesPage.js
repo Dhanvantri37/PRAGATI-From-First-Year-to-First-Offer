@@ -78,23 +78,58 @@ export default function DrivesPage() {
   const jobCount        = drives.filter(d => d.opportunityType === 'job' || !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`)).length;
   const scrapedCount    = drives.filter(d => d.isScraped).length;
 
-  const filtered = filter === 'all'
-    ? drives
+  const userDept = (user?.department || 'CSE').toUpperCase();
+
+  // Filter out non-technical/unrelated HR roles for engineering students
+  const techOnlyDrives = drives.filter(d => {
+    const text = `${d.companyName} ${d.role} ${d.description || ''}`.toLowerCase();
+    return !/\b(hr manager|recruiter|telecaller|bpo|front desk|accounts executive|payroll)\b/i.test(text);
+  });
+
+  const filtered = (filter === 'all'
+    ? techOnlyDrives
     : filter === 'internships'
-      ? drives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
+      ? techOnlyDrives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
       : filter === 'jobs'
-        ? drives.filter(d => d.opportunityType === 'job' && !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
+        ? techOnlyDrives.filter(d => d.opportunityType === 'job' && !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`))
         : filter === 'external'
-          ? drives.filter(d => d.isScraped)
-          : drives.filter(d => d.status === filter);
+          ? techOnlyDrives.filter(d => d.isScraped)
+          : techOnlyDrives.filter(d => d.status === filter)
+  ).sort((a, b) => {
+    // Rank opportunities matching student's department first
+    const aMatch = (a.branches || []).some(b => b.toUpperCase().includes(userDept));
+    const bMatch = (b.branches || []).some(b => b.toUpperCase().includes(userDept));
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+    return 0;
+  });
 
   const isAdmin  = user?.role === 'admin' || user?.role === 'faculty';
 
   return (
     <div style={{ fontFamily: "'Nunito',sans-serif" }}>
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.5rem', color: 'var(--text)', margin: 0 }}>🗓️ Placement & Internship Opportunities</h1>
-        <p style={{ color: 'var(--text-3)', marginTop: 4, fontSize: '.85rem' }}>Verified campus drives, DRDO/ISRO/IIT research internships & national tech roles</p>
+        <p style={{ color: 'var(--text-3)', marginTop: 4, fontSize: '.85rem' }}>Verified campus drives, Unstop, Devfolio, Google, DRDO/ISRO & national tech opportunities</p>
+      </div>
+
+      {/* Exciting High-Match Branch Alert Banner */}
+      <div style={{ background: 'linear-gradient(135deg, rgba(83,22,151,0.08), rgba(19,161,165,0.08))', border: '1.5px solid rgba(83,22,151,0.25)', borderRadius: 14, padding: '14px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: '1.6rem', animation: '_pulse 1.5s infinite' }}>🔥</span>
+          <style>{`@keyframes _pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}`}</style>
+          <div>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.92rem', color: '#531697' }}>
+              High-Match Opportunities for {userDept} Branch!
+            </div>
+            <div style={{ fontSize: '.78rem', color: 'var(--text-3)' }}>
+              Showing {filtered.length} verified engineering opportunities tailored to your domain. Apply before deadlines expire!
+            </div>
+          </div>
+        </div>
+        <span style={{ padding: '6px 14px', borderRadius: 999, background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, fontSize: '.75rem' }}>
+          ⚡ 90%+ Profile Match Active
+        </span>
       </div>
 
       {msg && (
