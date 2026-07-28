@@ -147,27 +147,66 @@ function detectBranches(text) {
 }
 
 
-// ── Parse RSS / JSON Feeds ───────────────────────────────────────────────────
+// ── Parse RSS / JSON / Unstop Feeds ───────────────────────────────────────────
 async function fetchOpportunities() {
   const verified = [];
-  const feeds = getDynamicRSSFeeds();
 
+  // 1. Fetch Direct Unstop Hackathons & Engineering Opportunities
+  try {
+    const unstopRes = await axios.get('https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=15', { timeout: 10000 });
+    const unstopList = unstopRes.data?.data?.data || [];
+    for (const item of unstopList) {
+      if (!item.title) continue;
+      const title = item.title;
+      const company = item.organisation?.name || 'Unstop Partner';
+      const link = item.seo_url ? (item.seo_url.startsWith('http') ? item.seo_url : `https://unstop.com/${item.seo_url}`) : 'https://unstop.com';
+      const description = `Unstop National Hackathon & Hiring Challenge: ${title} organized by ${company}. Open for engineering students.`;
+      const branches = detectBranches(`${title} ${description}`);
+
+      verified.push({ title, company, link, branches, sourceName: 'Unstop' });
+      console.log(`[Announcer] 🚀 Unstop Hackathon Verified: "${title}"`);
+    }
+  } catch (err) {
+    console.warn('[Announcer] Direct Unstop fetch failed:', err.message);
+  }
+
+  // 2. Fetch Direct Devfolio Open Hackathons
+  try {
+    const devfolioRss = await axios.get('https://news.google.com/rss/search?q=site:devfolio.co+2026&hl=en-IN&gl=IN&ceid=IN:en', { timeout: 10000 });
+    const parsed = await xml2js.parseStringPromise(devfolioRss.data, { explicitArray: false });
+    const rawItems = parsed?.rss?.channel?.item || [];
+    const list = Array.isArray(rawItems) ? rawItems : [rawItems];
+    for (const item of list.slice(0, 15)) {
+      const rawTitle = (item.title || '').replace(/<[^>]+>/g, '').trim();
+      if (!rawTitle || rawTitle.includes('Profile') || rawTitle.includes('Developer')) continue;
+      const cleanTitle = rawTitle.replace(/\s*-\s*Devfolio.*/i, '').trim();
+      const link = item.link || item.guid || 'https://devfolio.co';
+      const description = `Devfolio Tech Hackathon & Developer Challenge 2026: ${cleanTitle}. Build AI, Web3, and Fullstack projects.`;
+      const branches = detectBranches(`${cleanTitle} ${description}`);
+
+      verified.push({ title: cleanTitle, company: 'Devfolio Platform', link, branches, sourceName: 'Devfolio' });
+      console.log(`[Announcer] 🚀 Devfolio Hackathon Verified: "${cleanTitle}"`);
+    }
+  } catch (err) {
+    console.warn('[Announcer] Devfolio fetch failed:', err.message);
+  }
+
+  // 3. Process Dynamic Search & RSS Feeds
+  const feeds = getDynamicRSSFeeds();
   for (const feed of feeds) {
     try {
       const { data } = await axios.get(feed.url, { timeout: 12000 });
-
       let items = [];
 
       if (feed.isJSON) {
-        // Remotive returns JSON
         items = (data.jobs || []).slice(0, 15).map(j => ({
           title: j.title,
           company: j.company_name,
           link: j.url,
           description: j.description || '',
+          pubDate: j.publication_date,
         }));
       } else {
-        // XML RSS
         const parsed = await xml2js.parseStringPromise(data, { explicitArray: false });
         const rawItems = parsed?.rss?.channel?.item || [];
         const list = Array.isArray(rawItems) ? rawItems : [rawItems];
@@ -176,17 +215,31 @@ async function fetchOpportunities() {
           company: feed.source,
           link: i.link || i.guid || '',
           description: (i.description || i['content:encoded'] || '').replace(/<[^>]+>/g, '').trim(),
+          pubDate: i.pubDate || i['dc:date'] || '',
         }));
       }
 
       for (const item of items) {
         if (!item.title || !item.link) continue;
 
-        // Strict Year Filter: Reject outdated items from 2025, 2024, 2023, 2022
         const fullContent = `${item.title} ${item.description}`.toLowerCase();
-        if (/\b(2025|2024|2023|2022|2021)\b/.test(fullContent) && !/\b(2026|2027)\b/.test(fullContent)) {
-          console.log(`[Announcer] ⏳ Filtered outdated year item: "${item.title}"`);
+
+        // Freshness & Year Filter: Reject items from 2025, 2024, 2023 or dated Feb/March 2026
+        if (/\b(2025|2024|2023|2022|2021|february|feb|march|january)\b/.test(fullContent) && !/\b(july|august|september|october|2026|2027)\b/.test(fullContent)) {
+          console.log(`[Announcer] ⏳ Filtered outdated/old item: "${item.title}"`);
           continue;
+        }
+
+        // PubDate check: If pubDate exists and is older than 45 days, skip
+        if (item.pubDate) {
+          const itemDate = new Date(item.pubDate);
+          if (!isNaN(itemDate.getTime())) {
+            const daysOld = (Date.now() - itemDate.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysOld > 45) {
+              console.log(`[Announcer] ⏳ Filtered old pubDate (${Math.round(daysOld)} days old): "${item.title}"`);
+              continue;
+            }
+          }
         }
 
         // AI fraud check

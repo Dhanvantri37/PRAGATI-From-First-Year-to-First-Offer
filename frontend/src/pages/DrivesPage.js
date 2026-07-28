@@ -353,28 +353,30 @@ export default function DrivesPage() {
                   )}
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* External apply button for scraped drives (records application in student history) */}
-                    {drive.isScraped && drive.applyLink && (
+                    {/* Button 1: Open Official Application Portal */}
+                    {drive.applyLink && (
                       <a href={drive.applyLink} target="_blank" rel="noreferrer"
-                        onClick={() => apply(drive._id)}
-                        style={{ padding: '8px 18px', borderRadius: 9, border: 'none',
-                          background: drive.applied ? 'rgba(71,211,114,0.15)' : 'linear-gradient(135deg,#13a1a5,#531697)',
-                          color: drive.applied ? '#166534' : '#fff',
-                          border: drive.applied ? '1.5px solid rgba(71,211,114,0.4)' : 'none',
+                        style={{ padding: '8px 16px', borderRadius: 9, border: 'none',
+                          background: 'linear-gradient(135deg,#13a1a5,#531697)', color: '#fff',
                           fontWeight: 800, textDecoration: 'none', fontSize: '.82rem' }}>
-                        {drive.applied ? '✅ Applied / Official Portal' : '🚀 Apply Externally'}
+                        🚀 Open Portal →
                       </a>
                     )}
-                    {/* Internal apply button for campus drives */}
-                    {user?.role === 'student' && drive.status === 'open' && !drive.applied && !drive.isScraped && (
+
+                    {/* Button 2: Explicit "Did you apply? Mark as Applied" confirmation */}
+                    {user?.role === 'student' && !drive.applied && (
                       <button onClick={() => apply(drive._id)} disabled={applying[drive._id]}
-                        style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: applying[drive._id] ? '#d0d7e8' : 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: applying[drive._id] ? 'default' : 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.82rem' }}>
-                        {applying[drive._id] ? 'Applying…' : '🚀 Apply Now'}
+                        style={{ padding: '8px 14px', borderRadius: 9, border: '1.5px solid rgba(83,22,151,0.3)',
+                          background: 'rgba(83,22,151,0.06)', color: '#531697', fontWeight: 800,
+                          cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.8rem' }}>
+                        {applying[drive._id] ? 'Saving…' : '☑️ Have you applied? Mark as Applied'}
                       </button>
                     )}
-                    {user?.role === 'student' && drive.applied && !drive.isScraped && (
-                      <span style={{ padding: '6px 14px', borderRadius: 999, background: 'rgba(71,211,114,0.1)', color: '#166534', fontWeight: 700, fontSize: '.78rem' }}>
-                        ✅ Applied
+
+                    {/* Status badge when applied */}
+                    {user?.role === 'student' && drive.applied && (
+                      <span style={{ padding: '6px 14px', borderRadius: 999, background: 'rgba(71,211,114,0.15)', color: '#166534', border: '1px solid rgba(71,211,114,0.3)', fontWeight: 800, fontSize: '.78rem' }}>
+                        ✅ Applied (In History)
                       </span>
                     )}
                     {/* Non-scraped official link */}
