@@ -30,6 +30,7 @@ const NAV_FACULTY = [
   { to:'/dashboard/announcements',    icon:'📢', label:'Announcements' },
   { to:'/dashboard/drives',           icon:'🗓️', label:'Placement Drives' },
   { to:'/dashboard/companies',        icon:'🏢', label:'Companies' },
+  { to:'/dashboard/alumni',           icon:'🎓', label:'Alumni Network' },
   { to:'/dashboard/notes',            icon:'📚', label:'Notes' },
   { to:'/dashboard/gd',               icon:'🎤', label:'Group Discussion' },
   { to:'/dashboard/discussions',      icon:'💬', label:'Discussions' },
@@ -37,6 +38,7 @@ const NAV_FACULTY = [
 const NAV_ADMIN = [
   { to:'/dashboard',          icon:'📊', label:'Overview' },
   { to:'/dashboard/admin',    icon:'⚙️', label:'Admin Panel' },
+  { to:'/dashboard/alumni',   icon:'🎓', label:'Alumni Network' },
   { to:'/dashboard/notes',    icon:'📚', label:'Notes' },
   { to:'/dashboard/companies',icon:'🏢', label:'Companies' },
   { to:'/dashboard/drives',   icon:'🗓️', label:'Placement Drives' },

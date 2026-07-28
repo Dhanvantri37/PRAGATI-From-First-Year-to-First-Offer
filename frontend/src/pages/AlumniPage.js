@@ -698,19 +698,6 @@ export default function AlumniPage() {
       {/* ── BROWSE TAB ── */}
       {activeTab === 'browse' && (
         <>
-          {/* RAG AI Career Goal Search Box */}
-          <form onSubmit={handleRagSearch} style={{ background: 'linear-gradient(135deg, rgba(83,22,151,0.06), rgba(19,161,165,0.06))',
-            border: '1.5px solid rgba(83,22,151,0.2)', borderRadius: 14, padding: '14px 18px', marginBottom: 18, display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: '1.3rem' }}>🤖</span>
-            <input value={ragQuery} onChange={e => setRagQuery(e.target.value)}
-              placeholder="Ask RAG: e.g. 'I want to get into NVIDIA for AI research', 'DRDO interview prep', 'Software Engineers at Google'..."
-              style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: '1px solid #d0d7e8', fontSize: '.86rem', outline: 'none', background: '#fff' }} />
-            <button type="submit" disabled={ragSearching}
-              style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff', fontWeight: 800, cursor: 'pointer', fontSize: '.84rem' }}>
-              {ragSearching ? '⚡ RAG Discovering...' : '🧠 AI RAG Search'}
-            </button>
-          </form>
-
           {/* Filters */}
           <div style={{ background: 'var(--surface)', borderRadius: 12, padding: '16px 18px',
             border: '1px solid #e8edf5', marginBottom: 20, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
