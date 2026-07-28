@@ -511,11 +511,21 @@ export default function AlumniPage() {
               <div style={{ fontSize: '3rem', marginBottom: 12 }}>🎓</div>
               <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '1.1rem',
                 color: 'var(--text)', marginBottom: 6 }}>No Alumni Found</div>
-              <div style={{ color: 'var(--text-3)', fontSize: '.84rem' }}>
-                {search || department || batch || company
-                  ? 'Try adjusting your filters'
-                  : 'The alumni database is being built. Check back soon!'}
+              <div style={{ color: 'var(--text-3)', fontSize: '.84rem', marginBottom: 16 }}>
+                {search || department || batch || company || ragQuery
+                  ? 'No exact match found for your current search filter.'
+                  : 'No verified alumni profiles available in this view.'}
               </div>
+              <button onClick={() => {
+                const targetQuery = search || ragQuery || company || department || 'Engineering';
+                setRagQuery(targetQuery);
+                handleRagSearch({ preventDefault: () => {} });
+              }}
+                style={{ padding: '10px 20px', borderRadius: 10, border: 'none',
+                  background: 'linear-gradient(135deg,#531697,#13a1a5)', color: '#fff',
+                  fontWeight: 800, cursor: 'pointer', fontFamily: "'Nunito',sans-serif", fontSize: '.85rem' }}>
+                ⚡ Trigger AI RAG Discovery for "{search || ragQuery || company || department || 'Engineering'}"
+              </button>
             </div>
           ) : (
             <>

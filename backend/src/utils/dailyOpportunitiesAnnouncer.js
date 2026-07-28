@@ -61,7 +61,7 @@ const userSchema = new mongoose.Schema({
 const Announcement = mongoose.models.Announcement || mongoose.model('Announcement', announcementSchema);
 const User         = mongoose.models.User         || mongoose.model('User', userSchema);
 
-// ── RSS & Govt Feed Sources (trusted, no API key, fraud-filtered) ───────────
+// ── RSS & Govt Feed Sources (Unstop, Devfolio, Google, Microsoft, DRDO, ISRO, IITs) ──
 const RSS_FEEDS = [
   // ── National & Govt Prestigious Internships (DRDO, ISRO, IITs, AICTE) ────
   { url: 'https://news.google.com/rss/search?q=DRDO+Internship+2026',        source: 'DRDO Research', tags: ['Defense', 'Govt', 'Research'] },
@@ -69,11 +69,21 @@ const RSS_FEEDS = [
   { url: 'https://news.google.com/rss/search?q=IIT+Research+Internship+2026',source: 'IIT Research',  tags: ['Research', 'Academia'] },
   { url: 'https://news.google.com/rss/search?q=AICTE+Internship+Portal',      source: 'AICTE Govt',   tags: ['Govt', 'National'] },
 
-  // ── Tech & Corporate Global Openings ─────────────────────────────────────
+  // ── Top Student Hiring Platforms & Hackathons (Unstop, Devfolio, HackerEarth) ──
+  { url: 'https://news.google.com/rss/search?q=Unstop+hackathon+OR+hiring+challenge+2026', source: 'Unstop (Dare2Compete)', tags: ['Hackathon', 'Hiring Drive'] },
+  { url: 'https://news.google.com/rss/search?q=Devfolio+hackathon+2026',                   source: 'Devfolio',           tags: ['Hackathon', 'Web3', 'AI'] },
+  { url: 'https://news.google.com/rss/search?q=HackerEarth+hiring+challenge+2026',          source: 'HackerEarth',        tags: ['Coding Challenge'] },
+  { url: 'https://news.google.com/rss/search?q=TCS+CodeVita+OR+HackWithInfy+2026',          source: 'TCS & Infosys',      tags: ['National Drive'] },
+
+  // ── Tech Giants (Google, Microsoft, Amazon, Cloudflare) ──────────────────
+  { url: 'https://news.google.com/rss/search?q=Google+Software+Engineer+Internship+India+2026', source: 'Google Careers',   tags: ['Google', 'Internship'] },
+  { url: 'https://news.google.com/rss/search?q=Microsoft+Explore+Internship+India+2026',       source: 'Microsoft Careers',tags: ['Microsoft', 'Internship'] },
+  { url: 'https://news.google.com/rss/search?q=Amazon+SDE+Internship+India+2026',              source: 'Amazon Careers',   tags: ['Amazon', 'SDE'] },
+
+  // ── Remote & Corporate Openings ──────────────────────────────────────────
   { url: 'https://weworkremotely.com/categories/remote-programming-jobs.rss', source: 'WWR',        tags: ['Remote', 'Programming'] },
   { url: 'https://jobicy.com/?feed=job_feed&job_category=engineering',        source: 'Jobicy',     tags: ['Engineering'] },
   { url: 'https://remotive.com/api/remote-jobs?category=software-dev&limit=15',source: 'Remotive',  tags: ['Software'], isJSON: true },
-  { url: 'https://news.google.com/rss/search?q=Software+Engineer+Internship+India+2026', source: 'Campus Tech', tags: ['Internship'] },
 ];
 
 
