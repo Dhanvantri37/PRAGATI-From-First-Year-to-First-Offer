@@ -371,19 +371,15 @@ function ExcelUploadView({ onUploaded }) {
       {/* Columns Guide */}
       <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: '16px 20px', border: '1px solid var(--border)', marginBottom: 20 }}>
         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '.88rem', color: '#531697', marginBottom: 8 }}>
-          📋 Required Excel File Column Headers:
+          📋 Required Excel File Column Headers (Duplicates automatically skipped):
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, fontSize: '.78rem', color: 'var(--text-2)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8, fontSize: '.78rem', color: 'var(--text-2)' }}>
           <div>• <strong>Name</strong> <span style={{ color: '#ef4444' }}>*</span> (Full Name)</div>
-          <div>• <strong>Company</strong> <span style={{ color: '#ef4444' }}>*</span> (e.g. Google, Microsoft, Capgemini)</div>
+          <div>• <strong>Company</strong> <span style={{ color: '#ef4444' }}>*</span> (e.g. Google, Capgemini, TCS)</div>
           <div>• <strong>Role</strong> <span style={{ color: '#ef4444' }}>*</span> (Designation/Position)</div>
           <div>• <strong>Department</strong> <span style={{ color: '#ef4444' }}>*</span> (CSE, CSAIML, IT, ENTC)</div>
           <div>• <strong>Batch</strong> <span style={{ color: '#ef4444' }}>*</span> (e.g. 2023, 2024)</div>
-          <div>• <strong>LinkedIn URL</strong> (Profile link)</div>
-          <div>• <strong>Email</strong> (Contact email)</div>
-          <div>• <strong>Skills</strong> (Comma-separated)</div>
-          <div>• <strong>Location</strong> (e.g. Pune, Bangalore)</div>
-          <div>• <strong>Bio</strong> (Advice/mentorship note)</div>
+          <div>• <strong>LinkedIn URL</strong> <span style={{ color: '#ef4444' }}>*</span> (Mandatory Profile Link)</div>
         </div>
       </div>
 

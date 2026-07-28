@@ -574,8 +574,9 @@ router.post('/upload-excel', authenticate, authorize('admin', 'faculty'), upload
     }
 
     let inserted = 0;
-    let updated = 0;
+    let skippedDuplicates = 0;
     const errors = [];
+    const seenBatchKeys = new Set();
     const { upsertDoc } = require('../utils/ragService');
 
     for (let index = 0; index < rawRows.length; index++) {
@@ -598,60 +599,75 @@ router.post('/upload-excel', authenticate, authorize('admin', 'faculty'), upload
       const batchStr = getVal('batch', 'batch year', 'graduation year', 'passout year', 'year');
       const batch = parseInt(batchStr) || 2024;
       const linkedinUrl = getVal('linkedin', 'linkedin url', 'linkedin profile', 'linkedin link');
-      const email = getVal('email', 'email address', 'contact email');
-      const skillsStr = getVal('skills', 'key skills', 'tech stack', 'technologies');
-      const skills = skillsStr ? skillsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
-      const location = getVal('location', 'city', 'current location');
-      const bio = getVal('bio', 'about', 'advice', 'mentorship bio');
 
       if (!name) {
         errors.push(`Row ${index + 2}: Missing Name`);
         continue;
       }
+      if (!company) {
+        errors.push(`Row ${index + 2}: Missing Company`);
+        continue;
+      }
+      if (!linkedinUrl) {
+        errors.push(`Row ${index + 2}: Missing LinkedIn URL (Mandatory)`);
+        continue;
+      }
 
-      const filter = email ? { email: email.toLowerCase() } : { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), batch };
+      // Deduplication key by LinkedIn URL or Name+Company+Batch
+      const cleanLinkedIn = linkedinUrl.toLowerCase().replace(/\/$/, '');
+      const nameKey = `${name.toLowerCase()}_${company.toLowerCase()}_${batch}`;
 
-      const existing = await Alumni.findOne(filter);
+      if (seenBatchKeys.has(cleanLinkedIn) || seenBatchKeys.has(nameKey)) {
+        skippedDuplicates++;
+        continue;
+      }
 
-      const alumniDoc = await Alumni.findOneAndUpdate(
-        filter,
-        {
-          $set: {
-            name,
-            company: company || 'Engineering Org',
-            role: role || 'Software Engineer',
-            department,
-            batch,
-            linkedinUrl,
-            email: email ? email.toLowerCase() : undefined,
-            skills,
-            location: location || 'India',
-            bio: bio || `KIT Kolhapur Alumnus (${batch} Batch). Open for mentorship & referrals.`,
-            isOptedIn: true,
-            isVerified: true,
-            source: 'faculty_excel',
-          }
-        },
-        { upsert: true, new: true }
-      );
+      // Check DB for duplicate record
+      const existingInDb = await Alumni.findOne({
+        $or: [
+          { linkedinUrl: { $regex: new RegExp(`^${cleanLinkedIn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), company: new RegExp(`^${company.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'), batch }
+        ]
+      });
 
-      if (existing) updated++;
-      else inserted++;
+      if (existingInDb) {
+        skippedDuplicates++;
+        seenBatchKeys.add(cleanLinkedIn);
+        seenBatchKeys.add(nameKey);
+        continue;
+      }
+
+      // Insert new unique alumnus
+      const alumniDoc = await Alumni.create({
+        name,
+        company,
+        role: role || 'Software Engineer',
+        department,
+        batch,
+        linkedinUrl: cleanLinkedIn,
+        bio: `KIT Kolhapur Alumnus (${batch} Batch). Working as ${role || 'Engineer'} at ${company}.`,
+        isOptedIn: true,
+        isVerified: true,
+        source: 'faculty_excel',
+      });
+
+      inserted++;
+      seenBatchKeys.add(cleanLinkedIn);
+      seenBatchKeys.add(nameKey);
 
       // Vectorize into RAG Search engine
-      const textForEmbed = `${name} ${department} KIT Kolhapur batch ${batch} ${company} ${role} ${skills.join(' ')} ${bio || ''}`;
+      const textForEmbed = `${name} ${department} KIT Kolhapur batch ${batch} ${company} ${role}`;
       await upsertDoc('pragati_alumni', {
         _key: `alumni_${alumniDoc._id}`,
         type: 'alumni',
-        name, department, batch, company, role, bio,
-        skills,
+        name, department, batch, company, role,
       }, textForEmbed, '_key').catch(() => {});
     }
 
     res.json({
-      message: `✅ Excel import complete! ${inserted} new alumni added, ${updated} existing alumni updated.`,
+      message: `✅ Excel import complete! ${inserted} new alumni records inserted. ${skippedDuplicates} duplicate records skipped.`,
       inserted,
-      updated,
+      skippedDuplicates,
       totalRows: rawRows.length,
       errors: errors.slice(0, 10),
     });
@@ -670,11 +686,7 @@ router.get('/template/download', authenticate, authorize('admin', 'faculty'), (r
         'Role': 'Software Engineer',
         'Department': 'CSE',
         'Batch': 2023,
-        'LinkedIn URL': 'https://linkedin.com/in/aaravpatil',
-        'Email': 'aarav.patil@kitcoek.in',
-        'Skills': 'React, Node.js, System Design, Cloud',
-        'Location': 'Bengaluru',
-        'Bio': 'KIT Kolhapur CSE Alumnus. Open for software referral requests and mock interview guidance.'
+        'LinkedIn URL': 'https://linkedin.com/in/aaravpatil'
       },
       {
         'Name': 'Priya Kulkarni',
@@ -682,11 +694,7 @@ router.get('/template/download', authenticate, authorize('admin', 'faculty'), (r
         'Role': 'AI Researcher',
         'Department': 'CSAIML',
         'Batch': 2024,
-        'LinkedIn URL': 'https://linkedin.com/in/priyakulkarni',
-        'Email': 'priya.kulkarni@kitcoek.in',
-        'Skills': 'Python, PyTorch, LLMs, Computer Vision',
-        'Location': 'Hyderabad',
-        'Bio': 'CSAIML Graduate working on GenAI models at Microsoft. Happy to guide juniors in AI research.'
+        'LinkedIn URL': 'https://linkedin.com/in/priyakulkarni'
       },
       {
         'Name': 'Vikram Shinde',
@@ -694,11 +702,7 @@ router.get('/template/download', authenticate, authorize('admin', 'faculty'), (r
         'Role': 'Senior Consultant',
         'Department': 'IT',
         'Batch': 2022,
-        'LinkedIn URL': 'https://linkedin.com/in/vikramshinde',
-        'Email': 'vikram.shinde@kitcoek.in',
-        'Skills': 'Java, Spring Boot, Microservices',
-        'Location': 'Pune',
-        'Bio': 'Senior Developer at Capgemini Pune. Connect for campus placement preparation tips.'
+        'LinkedIn URL': 'https://linkedin.com/in/vikramshinde'
       }
     ];
 
