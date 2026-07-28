@@ -50,6 +50,55 @@ export default function DrivesPage() {
     setApplying(a => ({ ...a, [id]: false }));
   }
 
+  async function createDrive(e) {
+    e.preventDefault();
+    setFormLoading(true);
+    setMsg('');
+    try {
+      const res = await fetch(`${API}/drives`, {
+        method: 'POST',
+        headers: tks(),
+        body: JSON.stringify(form)
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setMsg(`❌ ${d.error || 'Failed to create drive'}`);
+      } else {
+        setMsg('✅ Placement drive created successfully!');
+        setShowForm(false);
+        setForm({
+          companyName: '', role: '', ctc: '', driveDate: '',
+          lastApplyDate: '', eligibility: '', description: '',
+          applyLink: '', status: 'upcoming', logoUrl: '',
+        });
+        load();
+      }
+    } catch (err) {
+      setMsg(`❌ ${err.message}`);
+    } finally {
+      setFormLoading(false);
+    }
+  }
+
+  async function deleteDrive(id) {
+    if (!window.confirm('Are you sure you want to delete this drive?')) return;
+    try {
+      const res = await fetch(`${API}/drives/${id}`, {
+        method: 'DELETE',
+        headers: tk()
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        alert(d.error || 'Failed to delete drive');
+      } else {
+        setMsg('✅ Drive deleted successfully');
+        load();
+      }
+    } catch (err) {
+      alert(`Error deleting drive: ${err.message}`);
+    }
+  }
+
   const appliedCount    = drives.filter(d => d.applied).length;
   const internshipCount = drives.filter(d => d.opportunityType === 'internship' || /\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`)).length;
   const jobCount        = drives.filter(d => d.opportunityType === 'job' || !/\b(intern|internship|trainee|apprentice|stipend)\b/i.test(`${d.role} ${d.description}`)).length;
